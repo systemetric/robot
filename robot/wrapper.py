@@ -350,12 +350,9 @@ class Robot(object):
             raise Error("USB camera's are not currently supported")
         else:
             camera = None
-
-        print "preparing to init visionController"
         self.vision = vision.VisionController(res=((1296, 736)))
-        print "vision controler is running"
         self.vision.preprocessing = "picture-denoise"
-        print "picture denoising mode selected"
+    
 
 
     # noinspection PyUnresolvedReferences

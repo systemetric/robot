@@ -199,7 +199,6 @@ class FrameProcessor(threading.Thread):
     @staticmethod
     def _width_from_code(lut, code):
         if code not in lut:
-            # TODO: ignore these...
             return 0.1
 
     def run(self):
@@ -234,10 +233,6 @@ class FrameProcessor(threading.Thread):
                         with picamera.array.PiRGBArray(self.owner.camera) as stream:
                             self.owner.camera.capture(stream, format="bgr")#, use_video_port=self.fast_capture)
                             image = cv2.cvtColor(stream.array, cv2.COLOR_BGR2GRAY)
-                    # TODO: test if this is actually more accurate or can see further
-                    # TODO: check if it is possible to use `capture_sequence` with an infinite iterable to prevent reinitalization of encoders
-                    # TODO: use YUV instead of BGR to prevent GPU doing excess work
-                    # TODO: try to use the video port for fast capture
                     # See: https://picamera.readthedocs.io/en/release-1.13/recipes2.html#rapid-capture-and-processing
                     
                     
@@ -324,7 +319,7 @@ class StreamAnalyzer(object):
         self.thread_count = thread_count
         
         # fake the time of the last analyzed frame as the time the 
-        # program started. This feels a bit hacky but works.
+        # program started.
         self.last_analyzed_frame = FrameResult(
                             time = time.time(),
                             frame_pointer = None,
@@ -433,9 +428,7 @@ class VisionController(object):
 
         
     def record_to_analyzer(self):
-        print "attempting to start recording"
         self.camera.start_recording(self.stream_analyzer, format='mjpeg')
-        print "camera has started recording"
         while not self.done:
             self.camera.wait_recording(1)
         
@@ -456,10 +449,7 @@ class VisionController(object):
         
         res = pi_cam_resolution #Set the res until we have proper resolution switching            
         
-        # If there is no analys is for the user then we wait 1/20s
-        # TODO: Check if we need to use a use a deepcopy or use a lock
-        # on the postprocessing
-        
+        # If there is no analys is for the user then we wait 1/20s        
         with timer:
             while not self.new_analysis_for_user.wait(0.05):
                 pass
@@ -472,7 +462,7 @@ class VisionController(object):
         
         with timer:
             if save:
-                cv2.imwrite("/tmp/image.jpg", self.stream_analyzer.last_analyzed_frame.frame_pointer)
+                cv2.imwrite("/tmp/colimage.jpg", self.stream_analyzer.last_analyzed_frame.frame_pointer)
 
         times["save"] = timer.time
 
