@@ -80,7 +80,7 @@ class Robot(object):
                  config_logging=True,
                  use_usb_camera=False,
                  motor_max=DEFAULT_MOTOR_CLAMP,
-                 servo_defaults=None
+                 servo_defaults=None,
                  vision_worker_thread_count=4):
 
         if config_logging:

@@ -23,6 +23,14 @@ picamera_focal_lengths = {  # fx, fy tuples
     (640, 480): (463, 463),
 }
 
+usbcamera_focal_lengths = {  # fx, fy tuples
+    (1920, 1440): (1393, 1395),
+    (1920, 1088): (2431, 2431),
+    (1296, 976): (955, 955),
+    (1296, 736): (962, 962),
+    (640, 480): (463, 463),
+}
+
 pi_cam_resolution = (1296, 730)
 focal_length = (962, 962)
 
@@ -181,14 +189,17 @@ class FrameProcessor(threading.Thread):
     Each instance of this class runs in a seperate thread and is controled
     by the StreamAnalyzer class.
     """
-    def __init__(self, owner, lib=None, preprocessing=None):
+    def __init__(self, owner, lib=None, preprocessing=None, use_usb_cam=False):
         super(FrameProcessor, self).__init__()
         
         self.stream = io.BytesIO()
         self.owner = owner
         self.preprocessing = preprocessing
         
-        self.fast_capture = True
+        self.use_usb_cam = use_usb_cam
+        self.usb_cam_frame = None
+        
+        self.fast_capture = True #TODO: add option to disable this
         
         #create events that let us control this processor
         self.new_image_event = threading.Event()
@@ -230,24 +241,30 @@ class FrameProcessor(threading.Thread):
                 try:
                     start_work_time = time.time()
                     
-                    self.stream.seek(0)
-                    
-                    if self.preprocessing == None:
-                        data = numpy.fromstring(self.stream.getvalue(), dtype=numpy.uint8)
-                        image = cv2.imdecode(data, cv2.CV_LOAD_IMAGE_GRAYSCALE)
-                        colour_image = cv2.imdecode(data, cv2.CV_LOAD_IMAGE_COLOR)
-                    
-                    elif self.preprocessing == "video-denoise":
-                        colour_image = Image.open(self.stream)
-                        image = cv2.cvtColor(numpy.array(colour_image), cv2.COLOR_RGB2GRAY)
+                    if self.use_usb_cam:
+                        colour_image = self.usb_cam_frame
+                        image = cv2.cvtColor(colour_image, cv2.COLOR_BGR2GRAY)
+                    else:
+                        self.stream.seek(0)
+
+                        if self.preprocessing == None:
+                            data = numpy.fromstring(self.stream.getvalue(), dtype=numpy.uint8)
+                            image = cv2.imdecode(data, cv2.CV_LOAD_IMAGE_GRAYSCALE)
+                            colour_image = cv2.imdecode(data, cv2.CV_LOAD_IMAGE_COLOR)
                         
-                    elif self.preprocessing == "picture-denoise":
-                        with self.owner.lock:
-                            with picamera.array.PiRGBArray(self.owner.camera) as stream:
-                                self.owner.camera.capture(stream, format="bgr", use_video_port=self.fast_capture)
-                                colour_image = stream.array
-                                image = cv2.cvtColor(colour_image, cv2.COLOR_BGR2GRAY)
-                    # See: https://picamera.readthedocs.io/en/release-1.13/recipes2.html#rapid-capture-and-processing
+                        elif self.preprocessing == "video-denoise":
+                            colour_image = Image.open(self.stream)
+                            image = cv2.cvtColor(numpy.array(colour_image), cv2.COLOR_RGB2GRAY)
+                            
+                        elif self.preprocessing == "picture-denoise":
+                            with self.owner.lock:
+                                with picamera.array.PiRGBArray(self.owner.camera) as stream:
+                                    self.owner.camera.capture(stream, format="bgr", use_video_port=self.fast_capture)
+                                    colour_image = stream.array
+                                    image = cv2.cvtColor(colour_image, cv2.COLOR_BGR2GRAY)
+                        else:
+                            raise Error("Invalid image processor state, this should never happen")
+                        # See: https://picamera.readthedocs.io/en/release-1.13/recipes2.html#rapid-capture-and-processing
                                             
                     # Create an IplImage header for the image.
                     # (width, height), depth, num_channels
@@ -258,16 +275,22 @@ class FrameProcessor(threading.Thread):
                     cv2.cv.SetData(ipl_image, image.tobytes(), image.dtype.itemsize * image.shape[1])
                     # Make sure the image data is actually in the IplImage. Don't touch this line!
                     ipl_image.tostring()
-
-                    params = CameraParams(Point2Df(pi_cam_resolution[0] / 2,
-                                        pi_cam_resolution[1] / 2),
-                                Point2Df(*focal_length),
-                                Point2Di(*pi_cam_resolution))
+                    
+                    if self.use_usb_cam:
+                        params = CameraParams(Point2Df(self.camera.resolution[0] / 2,
+                        self.camera.resolution[1] / 2),
+                        Point2Df(*picamera_focal_lengths[self.camera.resolution]),
+                        Point2Di(*self.camera.resolution))
+                    else:
+                        params = CameraParams(Point2Df(self._res[0] / 2,
+                        self._res[1] / 2),
+                        Point2Df(*usbcamera_focal_lengths[self._res]),
+                        Point2Di(*self._res))
                                 
                     markers = self.koki.find_markers_fp(ipl_image,
                                     functools.partial(self._width_from_code, marker_luts[mode][arena]),
                                     params)
-                                                        
+                                                                                            
                     # Lock the thread so that the parent varible doesn't change under our feet
                     # Not sure if this is needed but it doesn't cost us much
                     with self.owner.lock:
@@ -279,8 +302,10 @@ class FrameProcessor(threading.Thread):
                             self.owner.owner.new_analysis_for_user.set()
                                     
                 finally:
-                    self.stream.seek(0)
-                    self.stream.truncate()
+                    if not self.use_usb_cam:
+                        self.stream.seek(0)
+                        self.stream.truncate()
+                    
                     self.new_image_event.clear()
                     with self.owner.lock:
                         self.owner.pool.append(self)
@@ -319,14 +344,15 @@ class StreamAnalyzer(object):
     Schedules threads with frames comming in from a stream storing the
     most recent analysis.
     """
-    def __init__(self, owner, camera, libkoki_path, thread_count):
+    def __init__(self, owner, camera, libkoki_path, thread_count, use_usb_cam):
         self.camera = camera
         self.owner = owner
                     
         # Construct a pool of frame processors
         self.lock = threading.Lock()            
-        self.pool = [FrameProcessor(self, libkoki_path) for i in range(thread_count)]
+        self.pool = [FrameProcessor(self, libkoki_path, use_usb_cam=use_usb_cam) for i in range(thread_count)]
             
+        self.use_usb_cam = use_usb_cam
         self.processor = None
         self.thread_count = thread_count
         
@@ -337,7 +363,7 @@ class StreamAnalyzer(object):
                             frame = None,
                             result = None)
 
-        
+            
     def write(self, buf):
         """
         When a frame is writen from the camera we set the current processor
@@ -347,20 +373,32 @@ class StreamAnalyzer(object):
         We then start writing the buffer to the next processor, which we
         know has finished when the next frame comes in
         """
-        if buf.startswith(b'\xff\xd8'):
+        if self.use_usb_cam:
             if self.processor:
+                self.processor.usb_cam_frame = buf
                 self.processor.new_image_event.set()
-                
+
             with self.lock:
                 if self.pool:
                     self.processor = self.pool.pop()
                 else: 
                     #No avalible processor
                     self.processor = None
-        
-        #Pass the buffer to current processor 
-        if self.processor:
-            self.processor.stream.write(buf)
+        else:
+            if buf.startswith(b'\xff\xd8'):
+                if self.processor:
+                    self.processor.new_image_event.set()
+                    
+                with self.lock:
+                    if self.pool:
+                        self.processor = self.pool.pop()
+                    else: 
+                        #No avalible processor
+                        self.processor = None
+            
+            #Pass the buffer to current processor 
+            if self.processor:
+                self.processor.stream.write(buf)
 
     def return_processor_to_pool(self):
         """
@@ -411,7 +449,7 @@ class VisionController(object):
     This probally could be merged with the ProcessOuput class by using self
     as the writeable object. Not sure if that is more or less readable.
     """
-    def __init__(self, res, thread_count):
+    def __init__(self, res, thread_count, use_usb_cam=True):
         
         # Find libkoki.so:
         libpath = "/home/pi/libkoki/lib"
@@ -422,9 +460,14 @@ class VisionController(object):
                     libpath = os.path.abspath(d)
                     break
         
-        self.camera = picamera.PiCamera(resolution=res)
-        self.stream_analyzer = StreamAnalyzer(self, self.camera, libpath, thread_count)
+        self.use_usb_cam = use_usb_cam
         
+        if self.use_usb_cam:
+            self.camera = cv2.VideoCapture(1)
+        else:
+            self.camera = picamera.PiCamera(resolution=res)
+        
+        self.stream_analyzer = StreamAnalyzer(self, self.camera, libpath, thread_count, use_usb_cam)        
         self.preprocessing = PreprocessingSetter(self.stream_analyzer)
         
         self.new_analysis_for_user = threading.Event() 
@@ -436,13 +479,18 @@ class VisionController(object):
             self.analyze_thread = threading.Thread(target=self.record_to_analyzer)
             self.analyze_thread.start()
         except:
-            print "Error: Failed starting analyzer"
+            print "Error: Failed starting vision analyzer"
 
         
     def record_to_analyzer(self):
-        self.camera.start_recording(self.stream_analyzer, format='mjpeg')
-        while not self.done:
-            self.camera.wait_recording(1)
+        if self.use_usb_cam:
+            while not self.done:
+                ret, frame = self.camera.read() #Assume that it worked
+                self.stream_analyzer.write(frame)
+        else:
+            self.camera.start_recording(self.stream_analyzer, format='mjpeg')
+            while not self.done:
+                self.camera.wait_recording(1)
         
             
     def see(self,
