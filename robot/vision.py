@@ -211,6 +211,7 @@ class PostProcessor(threading.Thread):
             try:
                 frame, markers, bounding_box_enable = self.owner.frames_to_postprocess.get(timeout=1)
             except Queue.Empty:
+                pass
             else:
                 if bounding_box_enable:
                     #Should this include the markers not found in the LUT?
