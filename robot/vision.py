@@ -15,9 +15,6 @@ import pykoki
 from pykoki import CameraParams, Point2Df, Point2Di
 import picamera.array  # Required, see <https://picamera.readthedocs.io/en/latest/api_array.html>
 
-
-thread_count = 4
-
 picamera_focal_lengths = {  # fx, fy tuples
     (1920, 1440): (1393, 1395),
     (1920, 1088): (2431, 2431),
@@ -322,7 +319,7 @@ class StreamAnalyzer(object):
     Schedules threads with frames comming in from a stream storing the
     most recent analysis.
     """
-    def __init__(self, owner, camera, libkoki_path):
+    def __init__(self, owner, camera, libkoki_path, thread_count):
         self.camera = camera
         self.owner = owner
                     
@@ -414,7 +411,7 @@ class VisionController(object):
     This probally could be merged with the ProcessOuput class by using self
     as the writeable object. Not sure if that is more or less readable.
     """
-    def __init__(self, res):
+    def __init__(self, res, thread_count):
         
         # Find libkoki.so:
         libpath = "/home/pi/libkoki/lib"
@@ -426,7 +423,7 @@ class VisionController(object):
                     break
         
         self.camera = picamera.PiCamera(resolution=res)
-        self.stream_analyzer = StreamAnalyzer(self, self.camera, libpath)
+        self.stream_analyzer = StreamAnalyzer(self, self.camera, libpath, thread_count)
         
         self.preprocessing = PreprocessingSetter(self.stream_analyzer)
         
@@ -448,7 +445,13 @@ class VisionController(object):
             self.camera.wait_recording(1)
         
             
-    def see(self, save=True, stats=None, zone=0, bounding_box_enable=True):
+    def see(self,
+            save=True,
+            stats=None,
+            bounding_box_enable=True,
+            zone=0,
+            mode="dev",
+            arena="A"):
         """
         The function which interacts with the user to return the markers
         which the robot last saw in a useful form to the user
