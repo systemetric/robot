@@ -350,8 +350,9 @@ class Robot(object):
             raise Error("USB camera's are not currently supported")
         else:
             camera = None
-        self.vision = vision.VisionController(res=((1296, 736)))    
-
+        self.vision = vision.VisionController(res=((1296, 736))) 
+        
+    
 
     # noinspection PyUnresolvedReferences
     def see(self, res=(640, 480), stats=False, save=True,

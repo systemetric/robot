@@ -184,7 +184,7 @@ class FrameProcessor(threading.Thread):
     Each instance of this class runs in a seperate thread and is controled
     by the StreamAnalyzer class.
     """
-    def __init__(self, owner, lib=None, preprocessing="picture-denoise"):
+    def __init__(self, owner, lib=None, preprocessing=None):
         super(FrameProcessor, self).__init__()
         
         self.stream = io.BytesIO()
@@ -247,7 +247,7 @@ class FrameProcessor(threading.Thread):
                     elif self.preprocessing == "picture-denoise":
                         with self.owner.lock:
                             with picamera.array.PiRGBArray(self.owner.camera) as stream:
-                                self.owner.camera.capture(stream, format="bgr")#, use_video_port=self.fast_capture)
+                                self.owner.camera.capture(stream, format="bgr", use_video_port=self.fast_capture)
                                 colour_image = stream.array
                                 image = cv2.cvtColor(colour_image, cv2.COLOR_BGR2GRAY)
                     # See: https://picamera.readthedocs.io/en/release-1.13/recipes2.html#rapid-capture-and-processing
@@ -546,7 +546,7 @@ class VisionController(object):
             with timer:
                 cv2.imwrite("/tmp/colimage.jpg", colour_frame)
 
-        times["save"] = timer.time
+            times["save"] = timer.time
         
         if stats:
             stats = times
