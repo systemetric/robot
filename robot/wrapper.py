@@ -347,34 +347,16 @@ class Robot(object):
 
     def _init_vision(self):
         if self._use_usb_camera:
-            udev = pyudev.Context()
-            cams = list(udev.list_devices(
-                subsystem="video4linux",
-                ID_USB_DRIVER="uvcvideo",
-            ))
-
-            if not cams:
-                return
-
-            camera = cams[0].device_node
+            raise Error("USB camera's are not currently supported")
         else:
             camera = None
 
-        # Find libkoki.so:
-        libpath = None
-        if "LD_LIBRARY_PATH" in os.environ:
-            for d in os.environ["LD_LIBRARY_PATH"].split(":"):
-                l = glob.glob("%s/libkoki.so*" % os.path.abspath(d))
+        print "preparing to init visionController"
+        self.vision = vision.VisionController(res=((1296, 736)))
+        print "vision controler is running"
+        self.vision.preprocessing = "picture-denoise"
+        print "picture denoising mode selected"
 
-                if len(l):
-                    libpath = os.path.abspath(d)
-                    break
-        if libpath is None:
-            v = vision.Vision(camera, "/home/pi/libkoki/lib")  # /root/libkoki/lib
-        else:
-            v = vision.Vision(camera, libpath)
-
-        self.vision = v
 
     # noinspection PyUnresolvedReferences
     def see(self, res=(640, 480), stats=False, save=True,
@@ -382,10 +364,4 @@ class Robot(object):
         if not hasattr(self, "vision"):
             raise NoCameraPresent()
 
-        return self.vision.see(res=res,
-                               mode=self.mode,
-                               arena=self.arena,
-                               stats=stats,
-                               save=save,
-                               zone=self.zone,
-                               bounding_box_enable = bounding_box)
+        return self.vision.see()
