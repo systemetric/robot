@@ -6,7 +6,9 @@
 import functools
 import os
 import threading
+import io
 import time
+import Queue
 from collections import namedtuple
 
 import cv2
@@ -100,9 +102,7 @@ marker_group_counts = {
 
 
 def create_marker_lut(counts, zone):  # def create_marker_lut(offset, counts, zone):
-    lut = {
-
-	}
+    lut = {}
 
     for marker_type, num_markers in counts:
         for n in range(0, num_markers):
@@ -170,11 +170,59 @@ class Timer(object):
     def __exit__(self, t, v, tb):
         self.time = time.time() - self.start
         return False
+        
+
+class PostProcessor(threading.Thread):
+    def __init__(self,
+                    owner,
+                    bounding_box_enable=True,
+                    bounding_box_thickness=2):
+
+        super(PostProcessor, self).__init__()
+
+        self.owner = owner
+        self.bounding_box_enable = bounding_box_enable
+        self.bounding_box_thickness = bounding_box_thickness
+
+        self.start()
+
+    def stop(self):
+        self._stop_event.set()
+
+    def stopped(self):
+        return self._stop_event.is_set()
+
+    def post_process(self):
+        # This method runs in a separate thread
+        while not self.terminated:
+            # Get a buffer from the owner's outgoing queue
+            try:
+                frame, markers, bounding_box_enable = self.owner.frames_to_postprocess.get(timeout=1)
+            except queue.Empty:
+                print "Nothing in queue"
+            else:
+                if bounding_box_enable:
+                    #Should this include the markers not found in the LUT?
+                    for m in markers:
+                        bounding_box_colour = m.info.bounding_box_colour
+                        #get the image cords of the diganoally oposite vertecies
+                        vertex1 = (int(m.vertices[0].image.x),
+                                    int(m.vertices[0].image.y))
+                        vertex3 = (int(m.vertices[2].image.x),
+                                    int(m.vertices[2].image.y))
+                        cv2.rectangle(frame,
+                                        vertex1,
+                                        vertex3,
+                                        bounding_box_colour,
+                                        self.bounding_box_thickness)
+                #End if bounding_box_enable
+                
+                cv2.imwrite("/tmp/colimage.jpg", frame)
 
 
 # noinspection PyShadowingNames
 class Vision(object):
-    def __init__(self, camera_device, lib=None, res=(1296, 736)):
+    def __init__(self, camera_device, lib=None, res=(1296, 736), queue_size=2):
         if lib is not None:
             self.koki = pykoki.PyKoki(lib)
         else:
@@ -186,6 +234,10 @@ class Vision(object):
             self.camera = self.koki.open_camera(self._camera_device)
         else:
             self.camera = picamera.PiCamera(resolution=res)
+            
+        # Construct a pool of image processors
+        self.frames_to_postprocess = Queue.Queue(queue_size)
+        self.processor = PostProcessor(self)
 
         if not isinstance(self.camera, picamera.PiCamera):
             # Lock for the use of the vision
@@ -277,7 +329,7 @@ class Vision(object):
 
         #Robocon has one arena and an identical practice. We do not need to make things more complicated with two. 
         mode = "comp"                
-	arena = "A"
+        arena = "A"
 
         if isinstance(self.camera, picamera.PiCamera):
             if res is not None and res not in picamera_focal_lengths:
@@ -299,8 +351,8 @@ class Vision(object):
             if isinstance(self.camera, picamera.PiCamera):
                 with picamera.array.PiRGBArray(self.camera) as stream:
                     self.camera.capture(stream, format="bgr", use_video_port=fast_capture)
-                    col_image = stream.array
-                    image = cv2.cvtColor(stream.array, cv2.COLOR_BGR2GRAY)
+                    colour_image = stream.array
+                    image = cv2.cvtColor(colour_image, cv2.COLOR_BGR2GRAY)
             else:
                 frame = self.camera.get_frame()
 
@@ -345,7 +397,7 @@ class Vision(object):
                                                 params)
         times["find_markers"] = timer.time
 
-        srmarkers = []
+        robocon_markers = []
 
         usb_log = os.path.exists("/media/RobotUSB/log_markers.txt")
 
@@ -400,21 +452,12 @@ class Vision(object):
                             vertices=vertices,
                             centre=centre,
                             orientation=orientation)
-            srmarkers.append(marker)
+            robocon_markers.append(marker)
 
-        if bounding_box_enable:
-            with timer:
-                #Should this include the markers not found in the LUT?
-                for m in srmarkers:
-                    bounding_box_colour = m.info.bounding_box_colour
-                    #get the image cords of the diganoally oposite vertecies
-                    vertex1 = (int(m.vertices[0].image.x), int(m.vertices[0].image.y))
-                    vertex3 = (int(m.vertices[2].image.x), int(m.vertices[2].image.y))
-                    cv2.rectangle(colour_frame, vertex1, vertex3, bounding_box_colour, BOUNDING_BOX_THICKNESS)
-            times["bounding_box"] = timer.time
-        
-        if save:
-            cv2.imwrite("/tmp/colimage.jpg", col_image)
+        if save and colour_image is not None:
+            self.frames_to_postprocess.put((colour_image,
+                                            robocon_markers,
+                                            bounding_box_enable))
         
         if markers and usb_log:
             logfile.close()
@@ -423,6 +466,6 @@ class Vision(object):
             self.koki.image_free(ipl_image)
 
         if stats:
-            return srmarkers, times
+            return robocon_markers, times
 
-        return srmarkers
+        return robocon_markers
