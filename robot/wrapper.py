@@ -81,11 +81,13 @@ class Robot(object):
                  use_usb_camera=False,
                  motor_max=DEFAULT_MOTOR_CLAMP,
                  servo_defaults=None,
-                 vision_worker_thread_count=4):
+                 vision_worker_thread_count=4,
+                 start_res=(1296, 736)):
 
         if config_logging:
             setup_logging()
-
+        
+        self.start_res = start_res
         self._use_usb_camera = use_usb_camera
         self.vision_worker_thread_count = vision_worker_thread_count
 
@@ -352,7 +354,9 @@ class Robot(object):
             raise Error("USB camera's are not currently supported")
         else:
             camera = None
-        self.vision = vision.VisionController(res=(1296, 736), thread_count=self.vision_worker_thread_count) 
+        self.vision = vision.VisionController(res=self.start_res,
+                                                thread_count=self.vision_worker_thread_count,
+                                                use_usb_cam=self._use_usb_camera) 
     
     def see(self,
             stats=False,

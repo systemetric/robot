@@ -196,6 +196,8 @@ class FrameProcessor(threading.Thread):
         self.owner = owner
         self.preprocessing = preprocessing
         
+        self.camera = self.owner.camera
+        
         self.use_usb_cam = use_usb_cam
         self.usb_cam_frame = None
         
@@ -277,15 +279,15 @@ class FrameProcessor(threading.Thread):
                     ipl_image.tostring()
                     
                     if self.use_usb_cam:
+                        params = CameraParams(Point2Df(self.owner._res[0] / 2,
+                        self.owner._res[1] / 2),
+                        Point2Df(*usbcamera_focal_lengths[self.owner._res]),
+                        Point2Di(*self.owner._res))
+                    else:
                         params = CameraParams(Point2Df(self.camera.resolution[0] / 2,
                         self.camera.resolution[1] / 2),
                         Point2Df(*picamera_focal_lengths[self.camera.resolution]),
                         Point2Di(*self.camera.resolution))
-                    else:
-                        params = CameraParams(Point2Df(self._res[0] / 2,
-                        self._res[1] / 2),
-                        Point2Df(*usbcamera_focal_lengths[self._res]),
-                        Point2Di(*self._res))
                                 
                     markers = self.koki.find_markers_fp(ipl_image,
                                     functools.partial(self._width_from_code, marker_luts[mode][arena]),
@@ -344,9 +346,11 @@ class StreamAnalyzer(object):
     Schedules threads with frames comming in from a stream storing the
     most recent analysis.
     """
-    def __init__(self, owner, camera, libkoki_path, thread_count, use_usb_cam):
+    def __init__(self, owner, camera, libkoki_path, thread_count, use_usb_cam, res):
         self.camera = camera
         self.owner = owner
+        
+        self._res = res
                     
         # Construct a pool of frame processors
         self.lock = threading.Lock()            
@@ -449,7 +453,7 @@ class VisionController(object):
     This probally could be merged with the ProcessOuput class by using self
     as the writeable object. Not sure if that is more or less readable.
     """
-    def __init__(self, res, thread_count, use_usb_cam=True):
+    def __init__(self, res, thread_count, use_usb_cam=False):
         
         # Find libkoki.so:
         libpath = "/home/pi/libkoki/lib"
@@ -467,7 +471,7 @@ class VisionController(object):
         else:
             self.camera = picamera.PiCamera(resolution=res)
         
-        self.stream_analyzer = StreamAnalyzer(self, self.camera, libpath, thread_count, use_usb_cam)        
+        self.stream_analyzer = StreamAnalyzer(self, self.camera, libpath, thread_count, use_usb_cam, res)        
         self.preprocessing = PreprocessingSetter(self.stream_analyzer)
         
         self.new_analysis_for_user = threading.Event() 
