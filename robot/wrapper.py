@@ -110,7 +110,7 @@ class Robot(object):
         self._internal.set_12v(True)
         self._gg_version = self._internal.get_version()
 
-        # print report of hardward
+        # print report of hardware
         logger.info("------HARDWARE REPORT------")
         logger.info("Time:   %s" % datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
         logger.info("Patch Version:     2 (USBCAM)")
@@ -350,9 +350,7 @@ class Robot(object):
             raise Error("USB camera's are not currently supported")
         else:
             camera = None
-        self.vision = vision.VisionController(res=((1296, 736)))
-        self.vision.preprocessing = "picture-denoise"
-    
+        self.vision = vision.VisionController(res=((1296, 736)))    
 
 
     # noinspection PyUnresolvedReferences

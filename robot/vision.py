@@ -184,7 +184,7 @@ class FrameProcessor(threading.Thread):
     Each instance of this class runs in a seperate thread and is controled
     by the StreamAnalyzer class.
     """
-    def __init__(self, owner, lib=None, preprocessing=None):
+    def __init__(self, owner, lib=None, preprocessing="picture-denoise"):
         super(FrameProcessor, self).__init__()
         
         self.stream = io.BytesIO()
@@ -245,10 +245,11 @@ class FrameProcessor(threading.Thread):
                         image = cv2.cvtColor(numpy.array(colour_image), cv2.COLOR_RGB2GRAY)
                         
                     elif self.preprocessing == "picture-denoise":
-                        with picamera.array.PiRGBArray(self.owner.camera) as stream:
-                            self.owner.camera.capture(stream, format="bgr")#, use_video_port=self.fast_capture)
-                            colour_image = stream.array
-                            image = cv2.cvtColor(colour_image, cv2.COLOR_BGR2GRAY)
+                        with self.owner.lock:
+                            with picamera.array.PiRGBArray(self.owner.camera) as stream:
+                                self.owner.camera.capture(stream, format="bgr")#, use_video_port=self.fast_capture)
+                                colour_image = stream.array
+                                image = cv2.cvtColor(colour_image, cv2.COLOR_BGR2GRAY)
                     # See: https://picamera.readthedocs.io/en/release-1.13/recipes2.html#rapid-capture-and-processing
                                             
                     # Create an IplImage header for the image.
@@ -544,10 +545,9 @@ class VisionController(object):
         if save:
             with timer:
                 cv2.imwrite("/tmp/colimage.jpg", colour_frame)
-                print "wrote"
 
         times["save"] = timer.time
-    
+        
         if stats:
             stats = times
         
