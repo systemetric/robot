@@ -350,10 +350,7 @@ class Robot(object):
         return srdevs
 
     def _init_vision(self):
-        if self._use_usb_camera:
-            raise Error("USB camera's are not currently supported")
-        else:
-            camera = None
+        camera = None #what does this do?
         self.vision = vision.VisionController(res=self.start_res,
                                                 thread_count=self.vision_worker_thread_count,
                                                 use_usb_cam=self._use_usb_camera) 
