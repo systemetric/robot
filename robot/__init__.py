@@ -1,23 +1,8 @@
-from cytron import CytronBoard
-from greengiant import GreenGiantGPIOPin, GreenGiantPWM, OUTPUT, INPUT, INPUT_ANALOG, INPUT_PULLUP
-import smbus
+# This log import configures our logging for us, but we don't want to
+# provide it as part of this package.
+from robot import log as _log
 
+from robot.wrapper import Robot, NoCameraPresent
+from robot.greengiant import OUTPUT, INPUT, INPUT_ANALOG, INPUT_PULLUP
 
-class Robot(object):
-    def __init__(self):
-        self._bus = smbus.SMBus(1)
-
-        self.motors = CytronBoard()
-        self.gpio = [None]
-        for i in range(4):
-            self.gpio.append(GreenGiantGPIOPin(self._bus, i))
-
-        self.pwm = GreenGiantPWM(self._bus)
-
-    def stop(self):
-        self.motors.stop()
-
-
-__all__ = [
-    "Robot", "OUTPUT", "INPUT", "INPUT_ANALOG", "INPUT_PULLUP"
-]
+__all__ = ["Robot", "NoCameraPresent", "OUTPUT", "INPUT", "INPUT_ANALOG", "INPUT_PULLUP"]
