@@ -9,7 +9,7 @@ import logging
 import smbus
 
 from robot.cytron import CytronBoard
-from robot.greengiant import GreenGiantGPIOPin, GreenGiantPWM
+from robot.greengiant import GreenGiantInternal, GreenGiantGPIOPin, GreenGiantPWM
 
 from . import vision
 
@@ -81,6 +81,9 @@ class Robot(object):
         self._parse_cmdline()
 
         bus = smbus.SMBus(1)
+        self._internal = GreenGiantInternal(bus)
+        self._internal.set_12v(True)
+
         self.gpio = [None]
         for i in range(4):
             self.gpio.append(GreenGiantGPIOPin(bus, i))
@@ -91,6 +94,7 @@ class Robot(object):
 
     def stop(self):
         self.motors.stop()
+        self._internal.set_12v(False)
 
     @classmethod
     def setup(cls, quiet=False, config_logging=True):
@@ -172,6 +176,13 @@ class Robot(object):
         """Wait for the start signal to happen"""
         logger.info("Waiting for start signal.")
 
+        if self.startfifo is None:
+            logger.info("No startfifo so using defaults (Zone: 0, Mode: dev, Arena: A)")
+            setattr(self, "zone", 0)
+            setattr(self, "mode", "dev")
+            setattr(self, "arena", "A")
+            return
+
         f = open(self.startfifo, "r")
         d = f.read()
         f.close()
@@ -216,7 +227,7 @@ class Robot(object):
                     break
 
         if libpath is None:
-            v = vision.Vision("/root/libkoki/lib")
+            v = vision.Vision("/home/pi/libkoki/lib")  # /root/libkoki/lib
         else:
             v = vision.Vision(libpath)
 
@@ -231,4 +242,5 @@ class Robot(object):
                                mode=self.mode,
                                arena=self.arena,
                                stats=stats,
-                               save=save)
+                               save=save,
+                               zone=self.zone)

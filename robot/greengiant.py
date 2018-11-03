@@ -1,3 +1,6 @@
+def clamp(n, smallest, largest): return max(smallest, min(n, largest))
+
+
 OUTPUT = 0b00
 INPUT = 0b01
 INPUT_ANALOG = 0b10
@@ -15,9 +18,14 @@ _GG_PWM_START = 1
 
 # Signed range of PWM value sent to GG board
 # -_GG_PWM_SIGN_RANGE <= x <= _GG_PWM_SIGN_RANGE
-_GG_PWM_SIGN_RANGE = 256
+# _GG_PWM_SIGN_RANGE = 256
 # Offset to PWM value to make everything positive
-_GG_PWM_OFFSET = _GG_PWM_SIGN_RANGE
+# _GG_PWM_OFFSET = _GG_PWM_SIGN_RANGE
+_GG_PWM_CENTER = 374
+_GG_PWM_PERCENT_HALF_RANGE = 125
+_GG_PWM_HALF_RANGE = 224
+_GG_PWM_MIN = _GG_PWM_CENTER - _GG_PWM_HALF_RANGE
+_GG_PWM_MAX = _GG_PWM_CENTER + _GG_PWM_HALF_RANGE
 
 # Analog Read
 #        H   L
@@ -41,6 +49,28 @@ _GG_CONTROL_START = 17
 # Pin 4: 24
 _GG_DIGITAL_START = 21
 
+# Status
+# 25
+
+# Unsafe
+# 26
+
+# Enable 12V
+# 27
+_GG_ENABLE_12V = 27
+
+# Battery_V
+# H   L
+# 28, 29
+
+
+class GreenGiantInternal(object):
+    def __init__(self, bus):
+        self._bus = bus
+
+    def set_12v(self, on):
+        self._bus.write_byte_data(_GG_I2C_ADDR, _GG_ENABLE_12V, int(on))
+
 
 class GreenGiantGPIOPin(object):
     def __init__(self, bus, index):
@@ -59,7 +89,7 @@ class GreenGiantGPIOPin(object):
 
     @property
     def digital(self):
-        if self._mode != INPUT or self._mode != INPUT_PULLUP:
+        if self._mode != INPUT and self._mode != INPUT_PULLUP:
             raise ValueError("digital read attempted on non INPUT/INPUT_PULLUP pin")
         return bool(self._bus.read_byte_data(_GG_I2C_ADDR, _GG_DIGITAL_START + self._index))
 
@@ -71,7 +101,7 @@ class GreenGiantGPIOPin(object):
 
     @property
     def analog(self):
-        if self._mode != INPUT_ANALOG or self._mode != INPUT_PULLUP:
+        if self._mode != INPUT_ANALOG and self._mode != INPUT_PULLUP:
             raise ValueError("analog read attempted on non INPUT_ANALOG/INPUT_PULLUP pin")
 
         command = _GG_ANALOG_START + (self._index * 2)
@@ -97,7 +127,7 @@ class GreenGiantPWM(object):
         low = self._bus.read_byte_data(_GG_I2C_ADDR, command + 1)
         value = low + (high << 7)
 
-        return (value - _GG_PWM_OFFSET) * 100.0 / _GG_PWM_SIGN_RANGE
+        return (value - _GG_PWM_CENTER) * 100 / _GG_PWM_PERCENT_HALF_RANGE
 
     def __setitem__(self, index, percent):
         if not (1 <= index <= 4):
@@ -106,9 +136,17 @@ class GreenGiantPWM(object):
 
         command = _GG_PWM_START + (index * 2)
 
-        value = int((percent / 100.0) * _GG_PWM_SIGN_RANGE) + _GG_PWM_OFFSET
+        value = _GG_PWM_CENTER + (percent / 100 * _GG_PWM_PERCENT_HALF_RANGE)
+        value = clamp(value, _GG_PWM_MIN, _GG_PWM_MAX)
+
+        print index, value
+
         low = value & 0x7F
         high = value >> 7
 
         self._bus.write_byte_data(_GG_I2C_ADDR, command, high)
         self._bus.write_byte_data(_GG_I2C_ADDR, command + 1, low)
+
+    def off(self):
+        for i in range(4):
+            self.__setitem__(i + 1, 0)

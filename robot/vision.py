@@ -36,6 +36,7 @@ for res in picamera_focal_lengths:
         picamera_focal_lengths[res] = (focal_length_px_x, focal_length_px_y)
 
 MARKER_ARENA, MARKER_TOKEN, MARKER_BUCKET_SIDE, MARKER_BUCKET_END = 'arena', 'token', 'bucket-side', 'bucket-end'
+TOKEN_NONE, TOKEN_NORMAL, TOKEN_TRASH, TOKEN_TREASURE = 'none', 'normal', 'trash', 'treasure'
 
 marker_offsets = {
     MARKER_ARENA: 0,
@@ -54,7 +55,7 @@ marker_sizes = {
     MARKER_BUCKET_END: 0.1 * (10.0 / 12),
 }
 
-MarkerInfo = namedtuple("MarkerInfo", "code marker_type offset size")
+MarkerInfo = namedtuple("MarkerInfo", "code marker_type token_type offset size")
 ImageCoord = namedtuple("ImageCoord", "x y")
 WorldCoord = namedtuple("WorldCoord", "x y z")
 PolarCoord = namedtuple("PolarCoord", "length rot_x rot_y")
@@ -74,17 +75,28 @@ marker_group_counts = {
 }
 
 
-def create_marker_lut(offset, counts):
+def create_marker_lut(counts, zone):  # def create_marker_lut(offset, counts, zone):
     lut = {}
     for marker_type, num_markers in counts:
         for n in range(0, num_markers):
-            base_code = marker_offsets[marker_type] + n
-            real_code = offset + base_code
-            m = MarkerInfo(code=base_code,
+            token_type = TOKEN_NONE
+            if marker_type == MARKER_TOKEN:
+                if n < 9:
+                    token_type = TOKEN_NORMAL
+                else:
+                    token_n = n - 9
+                    if int(token_n / 3) == zone:
+                        token_type = TOKEN_TREASURE
+                    else:
+                        token_type = TOKEN_TRASH
+
+            code = marker_offsets[marker_type] + n
+            m = MarkerInfo(code=code,
                            marker_type=marker_type,
+                           token_type=token_type,
                            offset=n,
                            size=marker_sizes[marker_type])
-            lut[real_code] = m
+            lut[code] = m
     return lut
 
 
@@ -104,10 +116,34 @@ def create_marker_lut(offset, counts):
 
 
 marker_luts = {
-    "dev": {"A": create_marker_lut(0, marker_group_counts["dev"]),
-            "B": create_marker_lut(0, marker_group_counts["dev"])},
-    "comp": {"A": create_marker_lut(0, marker_group_counts["comp"]),
-             "B": create_marker_lut(0, marker_group_counts["comp"])}
+    "dev": {
+        "A": [
+            create_marker_lut(marker_group_counts["dev"], 0),
+            create_marker_lut(marker_group_counts["dev"], 1),
+            create_marker_lut(marker_group_counts["dev"], 2),
+            create_marker_lut(marker_group_counts["dev"], 3)
+        ],
+        "B": [
+            create_marker_lut(marker_group_counts["dev"], 0),
+            create_marker_lut(marker_group_counts["dev"], 1),
+            create_marker_lut(marker_group_counts["dev"], 2),
+            create_marker_lut(marker_group_counts["dev"], 3)
+        ]
+    },
+    "comp": {
+        "A": [
+            create_marker_lut(marker_group_counts["comp"], 0),
+            create_marker_lut(marker_group_counts["comp"], 1),
+            create_marker_lut(marker_group_counts["comp"], 2),
+            create_marker_lut(marker_group_counts["comp"], 3)
+        ],
+        "B": [
+            create_marker_lut(marker_group_counts["comp"], 0),
+            create_marker_lut(marker_group_counts["comp"], 1),
+            create_marker_lut(marker_group_counts["comp"], 2),
+            create_marker_lut(marker_group_counts["comp"], 3)
+        ]
+    }
 }
 
 MarkerBase = namedtuple("Marker", "info timestamp res vertices centre orientation")
@@ -169,7 +205,7 @@ class Vision(object):
 
         return lut[code].size
 
-    def see(self, mode, arena, res=None, stats=False, save=True, fast_capture=True):
+    def see(self, mode, arena, res=None, stats=False, save=True, fast_capture=True, zone=0):
         if res is not None and res not in picamera_focal_lengths:
             raise ValueError("Invalid resolution: {}".format(res))
 
@@ -231,13 +267,13 @@ class Vision(object):
                 # noinspection PyUnboundLocalVariable
                 logfile.write("code: {}, distance: {}, rot_x: {}, rot_y: {}\n".format(
                     m.code, round(m.distance, 3), round(m.bearing.x, 3), round(m.bearing.y, 3)))
-            if m.code not in marker_luts[mode][arena]:
+            if m.code not in marker_luts[mode][arena][zone]:
                 # Ignore other sets of codes
                 if usb_log:
                     logfile.write("(last marker not part of competition, ignoring)\n")
                 continue
 
-            info = marker_luts[mode][arena][int(m.code)]
+            info = marker_luts[mode][arena][zone][int(m.code)]
 
             vertices = []
             for v in m.vertices:

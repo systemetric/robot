@@ -1,12 +1,23 @@
+from __future__ import print_function
 import robot
-import time
-
-SPEED = 10
 
 R = robot.Robot()
+for i in range(4):
+    R.gpio[i + 1].mode = robot.INPUT_ANALOG
 
-R.see()
+while True:
+    for i in range(4):
+        print(R.gpio[i + 1].analog, end="\t")
+    print()
+    # print(R.gpio[1].analog)
 
+# R.see()
+#
+# R.gpio[1].mode = robot.OUTPUT
+# R.gpio[1].analog
+#
+# R.servos[1] = 100
+#
 # print "Forward?"
 #
 # R.motors[1] = SPEED
