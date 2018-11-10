@@ -6,7 +6,7 @@ import os
 import glob
 import logging
 
-import smbus
+from smbus2 import SMBus
 
 from robot.cytron import CytronBoard
 from robot.greengiant import GreenGiantInternal, GreenGiantGPIOPin, GreenGiantPWM
@@ -80,7 +80,7 @@ class Robot(object):
 
         self._parse_cmdline()
 
-        bus = smbus.SMBus(1)
+        bus = SMBus(1)
         self._internal = GreenGiantInternal(bus)
         self._internal.set_12v(True)
 
@@ -225,7 +225,6 @@ class Robot(object):
                 if len(l):
                     libpath = os.path.abspath(d)
                     break
-
         if libpath is None:
             v = vision.Vision("/home/pi/libkoki/lib")  # /root/libkoki/lib
         else:

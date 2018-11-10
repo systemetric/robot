@@ -6,7 +6,7 @@ INPUT = 0b01
 INPUT_ANALOG = 0b10
 INPUT_PULLUP = 0b11
 
-_GG_I2C_ADDR = 0x8
+_GG_I2C_ADDR = 0x8  # 32
 
 # PWM
 #        H  L
@@ -51,6 +51,7 @@ _GG_DIGITAL_START = 21
 
 # Status
 # 25
+_GG_STATUS = 25
 
 # Unsafe
 # 26
@@ -62,6 +63,22 @@ _GG_ENABLE_12V = 27
 # Battery_V
 # H   L
 # 28, 29
+_GG_BATTERY_V_H = 28
+_GG_BATTERY_V_L = 29
+
+# Fixed Voltage Reference @ 4.096
+_GG_FVR_H = 30
+_GG_FVR_L = 31
+
+# Version number (== 2)
+_GG_VERSION = 32
+
+
+def read_high_low_data(bus, high, low):
+    high = bus.read_byte_data(_GG_I2C_ADDR, high)
+    low = bus.read_byte_data(_GG_I2C_ADDR, low)
+
+    return low + (high << 7)
 
 
 class GreenGiantInternal(object):
@@ -70,6 +87,18 @@ class GreenGiantInternal(object):
 
     def set_12v(self, on):
         self._bus.write_byte_data(_GG_I2C_ADDR, _GG_ENABLE_12V, int(on))
+
+    def get_version(self):
+        for i in range(32):
+            print i, ":", self._bus.read_byte_data(_GG_I2C_ADDR, i)
+
+        return self._bus.read_byte_data(_GG_I2C_ADDR, _GG_VERSION + 1)
+
+    def get_battery_voltage(self):
+        return read_high_low_data(self._bus, _GG_BATTERY_V_H, _GG_BATTERY_V_L)
+
+    def get_fvr_reading(self):
+        return read_high_low_data(self._bus, _GG_FVR_H, _GG_FVR_L)
 
 
 class GreenGiantGPIOPin(object):
@@ -106,10 +135,7 @@ class GreenGiantGPIOPin(object):
 
         command = _GG_ANALOG_START + (self._index * 2)
 
-        high = self._bus.read_byte_data(_GG_I2C_ADDR, command)
-        low = self._bus.read_byte_data(_GG_I2C_ADDR, command + 1)
-
-        return low + (high << 7)
+        return read_high_low_data(self._bus, command, command + 1)
 
 
 class GreenGiantPWM(object):
