@@ -1,10 +1,10 @@
-import smbus
+from smbus2 import SMBus
 import cytron as c
 import greengiant as gg
 
 
 def reset():
-    bus = smbus.SMBus(1)
+    bus = SMBus(1)
 
     c.CytronBoard().stop()
     gg.GreenGiantPWM(bus).off()
