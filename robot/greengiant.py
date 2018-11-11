@@ -6,7 +6,7 @@ INPUT = 0b01
 INPUT_ANALOG = 0b10
 INPUT_PULLUP = 0b11
 
-_GG_I2C_ADDR = 0x8  # 32
+_GG_I2C_ADDR = 0x8
 
 # PWM
 #        H  L
@@ -16,11 +16,6 @@ _GG_I2C_ADDR = 0x8  # 32
 # PWM 4: 7, 8
 _GG_PWM_START = 1
 
-# Signed range of PWM value sent to GG board
-# -_GG_PWM_SIGN_RANGE <= x <= _GG_PWM_SIGN_RANGE
-# _GG_PWM_SIGN_RANGE = 256
-# Offset to PWM value to make everything positive
-# _GG_PWM_OFFSET = _GG_PWM_SIGN_RANGE
 _GG_PWM_CENTER = 374
 _GG_PWM_PERCENT_HALF_RANGE = 125
 _GG_PWM_HALF_RANGE = 224
@@ -74,11 +69,14 @@ _GG_FVR_L = 31
 _GG_VERSION = 32
 
 
-def read_high_low_data(bus, high, low):
-    high = bus.read_byte_data(_GG_I2C_ADDR, high)
-    low = bus.read_byte_data(_GG_I2C_ADDR, low)
+def read_high_low_data(bus, high, low, print_values=False):
+    high_value = bus.read_byte_data(_GG_I2C_ADDR, high)
+    low_value = bus.read_byte_data(_GG_I2C_ADDR, low)
 
-    return low + (high << 7)
+    if print_values:
+        print "H at (%d): %x   L at (%d): %x" % (high, high_value, low, low_value)
+
+    return low_value + (high_value << 8)
 
 
 class GreenGiantInternal(object):
@@ -88,24 +86,25 @@ class GreenGiantInternal(object):
     def set_12v(self, on):
         self._bus.write_byte_data(_GG_I2C_ADDR, _GG_ENABLE_12V, int(on))
 
-    def get_version(self):
-        for i in range(32):
-            print i, ":", self._bus.read_byte_data(_GG_I2C_ADDR, i)
+    def set_status_led(self, on):
+        self._bus.write_byte_data(_GG_I2C_ADDR, _GG_STATUS, int(on))
 
-        return self._bus.read_byte_data(_GG_I2C_ADDR, _GG_VERSION + 1)
+    def get_version(self):
+        return self._bus.read_byte_data(_GG_I2C_ADDR, _GG_VERSION)
 
     def get_battery_voltage(self):
-        return read_high_low_data(self._bus, _GG_BATTERY_V_H, _GG_BATTERY_V_L)
+        return 804519.936 / read_high_low_data(self._bus, _GG_BATTERY_V_H, _GG_BATTERY_V_L)
 
     def get_fvr_reading(self):
-        return read_high_low_data(self._bus, _GG_FVR_H, _GG_FVR_L)
+        return 268173.312 / read_high_low_data(self._bus, _GG_FVR_H, _GG_FVR_L)
 
 
 class GreenGiantGPIOPin(object):
-    def __init__(self, bus, index):
+    def __init__(self, bus, index, adc_max):
         self._bus = bus
         self._index = index
         self._mode = None
+        self._adc_max = adc_max
 
     @property
     def mode(self):
@@ -135,7 +134,7 @@ class GreenGiantGPIOPin(object):
 
         command = _GG_ANALOG_START + (self._index * 2)
 
-        return read_high_low_data(self._bus, command, command + 1)
+        return read_high_low_data(self._bus, command, command + 1) / float(0xFFC0) * self._adc_max
 
 
 class GreenGiantPWM(object):

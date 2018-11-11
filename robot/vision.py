@@ -36,7 +36,7 @@ for res in picamera_focal_lengths:
         picamera_focal_lengths[res] = (focal_length_px_x, focal_length_px_y)
 
 MARKER_ARENA, MARKER_TOKEN, MARKER_BUCKET_SIDE, MARKER_BUCKET_END = 'arena', 'token', 'bucket-side', 'bucket-end'
-TOKEN_NONE, TOKEN_NORMAL, TOKEN_TRASH, TOKEN_TREASURE = 'none', 'normal', 'trash', 'treasure'
+TOKEN_NONE, TOKEN_ORE, TOKEN_FOOLS_GOLD, TOKEN_GOLD = 'none', 'ore', 'fools-gold', 'gold'
 
 marker_offsets = {
     MARKER_ARENA: 0,
@@ -82,13 +82,13 @@ def create_marker_lut(counts, zone):  # def create_marker_lut(offset, counts, zo
             token_type = TOKEN_NONE
             if marker_type == MARKER_TOKEN:
                 if n < 9:
-                    token_type = TOKEN_NORMAL
+                    token_type = TOKEN_ORE
                 else:
                     token_n = n - 9
                     if int(token_n / 3) == zone:
-                        token_type = TOKEN_TREASURE
+                        token_type = TOKEN_GOLD
                     else:
-                        token_type = TOKEN_TRASH
+                        token_type = TOKEN_FOOLS_GOLD
 
             code = marker_offsets[marker_type] + n
             m = MarkerInfo(code=code,

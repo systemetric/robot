@@ -5,6 +5,9 @@ import optparse
 import os
 import glob
 import logging
+import time
+import threading
+from datetime import datetime
 
 from smbus2 import SMBus
 
@@ -14,6 +17,8 @@ from robot.greengiant import GreenGiantInternal, GreenGiantGPIOPin, GreenGiantPW
 from . import vision
 
 logger = logging.getLogger("sr.robot")
+
+COPY_STAT_FILE = "/root/COPYSTAT"
 
 
 def setup_logging():
@@ -78,18 +83,50 @@ class Robot(object):
         self._initialised = False
         self._quiet = quiet
 
+        self._warnings = []
+
         self._parse_cmdline()
+
+        try:
+            with open(COPY_STAT_FILE, "r") as f:
+                logger.info("Copied %s from USB\n" % f.read().strip())
+            os.remove(COPY_STAT_FILE)
+        except IOError:
+            pass
 
         bus = SMBus(1)
         self._internal = GreenGiantInternal(bus)
         self._internal.set_12v(True)
+        self._gg_version = self._internal.get_version()
+
+        logger.info("------HARDWARE REPORT------")
+        logger.info("Time:   %s" % datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+
+        battery_voltage = self._internal.get_battery_voltage()
+        battery_str = "Battery Voltage:   %.2fv" % battery_voltage
+        # we cannot read voltages above 12.2v
+        if battery_voltage > 12.2:
+            battery_str = "Battery Voltage:   > 12.2v"
+        if battery_voltage < 11.5:
+            self._warnings.append("Battery voltage below 11.5v, consider changing for a charged battery")
+        logger.info(battery_str)
+        self._adc_max = self._internal.get_fvr_reading()
+        logger.info("ADC Max:           %.2fv" % self._adc_max)
 
         self.gpio = [None]
         for i in range(4):
-            self.gpio.append(GreenGiantGPIOPin(bus, i))
+            self.gpio.append(GreenGiantGPIOPin(bus, i, self._adc_max))
 
         if init:
             self.init(bus)
+            logger.info("---------------------------")
+            if len(self._warnings) > 0:
+                for warning in self._warnings:
+                    logger.warn("WARNING: %s" % warning)
+            else:
+                logger.info("Hardware looks good")
+
+            self._start_pressed = False
             self.wait_start()
 
     def stop(self):
@@ -112,7 +149,7 @@ class Robot(object):
         if self._initialised:
             raise AlreadyInitialised()
 
-        logger.info("Initialising hardware.")
+        logger.debug("Initialising hardware.")
         self._init_devs(bus)
         self._init_vision()
 
@@ -127,19 +164,26 @@ class Robot(object):
 
     def _dump_devs(self):
         """Write a list of relevant devices out to the log"""
-        logger.info("Found the following devices:")
+        # logger.info("Found the following devices:")
 
         self._dump_webcam()
+
+        if self._gg_version != 2:
+            self._warnings.append("Green Giant version not 2")
+        logger.info("Green Giant Board: Yes (v%d)" % self._gg_version)
+        logger.info("Cytron Board:      Yes")
 
     def _dump_webcam(self):
         """Write information about the webcam to stdout"""
 
         if not hasattr(self, "vision"):
+            logger.info("Pi Camera:         No")
+            self._warnings.append("No Pi Camera detected")
             # No webcam
             return
 
         # For now, just display the fact we have a webcam
-        logger.info(" - Webcam")
+        logger.info("Pi Camera:         Yes")
 
     @staticmethod
     def _dump_usbdev_dict(devdict, name):
@@ -171,21 +215,37 @@ class Robot(object):
         self.usbkey = options.usbkey
         self.startfifo = options.startfifo
 
+    def wait_start_blink(self):
+        v = False
+        while not self._start_pressed:
+            time.sleep(0.2)
+            self._internal.set_status_led(v)
+            v = not v
+        self._internal.set_status_led(True)
+
     # noinspection PyUnresolvedReferences
     def wait_start(self):
         """Wait for the start signal to happen"""
-        logger.info("Waiting for start signal.")
 
         if self.startfifo is None:
-            logger.info("No startfifo so using defaults (Zone: 0, Mode: dev, Arena: A)")
+            self._start_pressed = True
+
+            logger.info("\nNo startfifo so using defaults (Zone: 0, Mode: dev, Arena: A)\n")
             setattr(self, "zone", 0)
             setattr(self, "mode", "dev")
             setattr(self, "arena", "A")
             return
 
+        t = threading.Thread(target=self.wait_start_blink)
+        t.start()
+
+        logger.info("\nWaiting for start signal...")
+
         f = open(self.startfifo, "r")
         d = f.read()
         f.close()
+
+        self._start_pressed = True
 
         j = json.loads(d)
 
@@ -200,6 +260,8 @@ class Robot(object):
             raise Exception("zone must be in range 0-3 inclusive -- value of %i is invalid" % self.zone)
         if self.arena not in ["A", "B"]:
             raise Exception("arena must be A or B")
+
+        logger.info("Robot started!\n")
 
     def _init_devs(self, bus):
         """Initialise the attributes for accessing devices"""

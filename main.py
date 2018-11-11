@@ -1,18 +1,23 @@
 from __future__ import print_function
 import robot
+import time
 
 R = robot.Robot()
 
-print(R._internal.get_version())
+# os.exit(0)
+
+# print(R._internal.get_fvr_reading())
+
+# for i in range(64):
+#     print(i, ":", R._internal._bus.read_byte_data(0x8, i))
 
 # for i in range(4):
 #     R.gpio[i + 1].mode = robot.INPUT_ANALOG
 #
 # while True:
 #     for i in range(4):
-#         print(R.gpio[i + 1].analog, end="\t")
+#         print("%.2f" % R.gpio[i + 1].analog, end="\t")
 #     print()
-#     # print(R.gpio[1].analog)
 
 # R.see()
 #
