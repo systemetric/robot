@@ -3,6 +3,10 @@ import robot
 
 R = robot.Robot()
 
+# os.exit(0)
+
+# print(R._internal.get_fvr_reading())
+
 # for i in range(64):
 #     print(i, ":", R._internal._bus.read_byte_data(0x8, i))
 
@@ -11,9 +15,8 @@ R = robot.Robot()
 #
 # while True:
 #     for i in range(4):
-#         print(R.gpio[i + 1].analog, end="\t")
+#         print("%.2f" % R.gpio[i + 1].analog, end="\t")
 #     print()
-#     # print(R.gpio[1].analog)
 
 # R.see()
 #

@@ -78,6 +78,8 @@ class Robot(object):
         self._initialised = False
         self._quiet = quiet
 
+        self._warnings = []
+
         self._parse_cmdline()
 
         bus = SMBus(1)
@@ -85,18 +87,32 @@ class Robot(object):
         self._internal.set_12v(True)
         self._gg_version = self._internal.get_version()
 
+        #            Battery Voltage:   > 12.2v
+        logger.info("------HARDWARE REPORT------")
+
         battery_voltage = self._internal.get_battery_voltage()
-        battery_warning = ""
+        battery_str = "Battery Voltage:   %.2fv" % battery_voltage
+        # we cannot read voltages above 12.2v
+        if battery_voltage > 12.2:
+            battery_str = "Battery Voltage:   > 12.2v"
         if battery_voltage < 11.5:
-            battery_warning = " [WARNING: battery voltage below 11.5V, consider changing for a charged battery]"
-        logger.info("Battery voltage: %dV%s" % (battery_voltage, battery_warning))
+            self._warnings.append("Battery voltage below 11.5v, consider changing for a charged battery")
+        logger.info(battery_str)
+        self._adc_max = self._internal.get_fvr_reading()
+        logger.info("ADC Max:           %.2fv" % self._adc_max)
 
         self.gpio = [None]
         for i in range(4):
-            self.gpio.append(GreenGiantGPIOPin(bus, i))
+            self.gpio.append(GreenGiantGPIOPin(bus, i, self._adc_max))
 
         if init:
             self.init(bus)
+            logger.info("---------------------------")
+            if len(self._warnings) > 0:
+                for warning in self._warnings:
+                    logger.warn("WARNING: %s" % warning)
+            else:
+                logger.info("Hardware looks good")
             self.wait_start()
 
     def stop(self):
@@ -119,7 +135,7 @@ class Robot(object):
         if self._initialised:
             raise AlreadyInitialised()
 
-        logger.info("Initialising hardware.")
+        logger.debug("Initialising hardware.")
         self._init_devs(bus)
         self._init_vision()
 
@@ -134,23 +150,25 @@ class Robot(object):
 
     def _dump_devs(self):
         """Write a list of relevant devices out to the log"""
-        logger.info("Found the following devices:")
+        # logger.info("Found the following devices:")
 
         self._dump_webcam()
 
-        gg_warning = "" if self._gg_version == 2 else " [WARNING: version not 2]"
-        print " - Green Giant Board (v%d)%s" % (self._gg_version, gg_warning)
-        print " - Cytron Board"
+        if self._gg_version != 2:
+            self._warnings.append("Green Giant version not 2")
+        logger.info("Green Giant Board: v%d" % self._gg_version)
+        logger.info("Cytron Board:      Yes")
 
     def _dump_webcam(self):
         """Write information about the webcam to stdout"""
 
         if not hasattr(self, "vision"):
+            logger.info("Webcam:            No")
             # No webcam
             return
 
         # For now, just display the fact we have a webcam
-        logger.info(" - Webcam")
+        logger.info("Webcam:            Yes")
 
     @staticmethod
     def _dump_usbdev_dict(devdict, name):
@@ -185,14 +203,15 @@ class Robot(object):
     # noinspection PyUnresolvedReferences
     def wait_start(self):
         """Wait for the start signal to happen"""
-        logger.info("Waiting for start signal.")
 
         if self.startfifo is None:
-            logger.info("No startfifo so using defaults (Zone: 0, Mode: dev, Arena: A)")
+            logger.info("\nNo startfifo so using defaults (Zone: 0, Mode: dev, Arena: A)\n")
             setattr(self, "zone", 0)
             setattr(self, "mode", "dev")
             setattr(self, "arena", "A")
             return
+
+        logger.info("\nWaiting for start signal.\n")
 
         f = open(self.startfifo, "r")
         d = f.read()
