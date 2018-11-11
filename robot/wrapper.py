@@ -18,6 +18,8 @@ from . import vision
 
 logger = logging.getLogger("sr.robot")
 
+COPY_STAT_FILE = "/root/COPYSTAT"
+
 
 def setup_logging():
     """Apply default settings for logging"""
@@ -84,6 +86,13 @@ class Robot(object):
         self._warnings = []
 
         self._parse_cmdline()
+
+        try:
+            with open(COPY_STAT_FILE, "r") as f:
+                logger.info("Copied %s from USB\n" % f.read().strip())
+            os.remove(COPY_STAT_FILE)
+        except IOError:
+            pass
 
         bus = SMBus(1)
         self._internal = GreenGiantInternal(bus)
@@ -219,7 +228,6 @@ class Robot(object):
         """Wait for the start signal to happen"""
 
         if self.startfifo is None:
-            time.sleep(3)
             self._start_pressed = True
 
             logger.info("\nNo startfifo so using defaults (Zone: 0, Mode: dev, Arena: A)\n")
