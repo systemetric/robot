@@ -156,19 +156,19 @@ class Robot(object):
 
         if self._gg_version != 2:
             self._warnings.append("Green Giant version not 2")
-        logger.info("Green Giant Board: v%d" % self._gg_version)
+        logger.info("Green Giant Board: Yes (v%d)" % self._gg_version)
         logger.info("Cytron Board:      Yes")
 
     def _dump_webcam(self):
         """Write information about the webcam to stdout"""
 
         if not hasattr(self, "vision"):
-            logger.info("Webcam:            No")
+            logger.info("Pi Camera:         No")
             # No webcam
             return
 
         # For now, just display the fact we have a webcam
-        logger.info("Webcam:            Yes")
+        logger.info("Pi Camera:         Yes")
 
     @staticmethod
     def _dump_usbdev_dict(devdict, name):
