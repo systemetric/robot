@@ -5,6 +5,7 @@ import optparse
 import os
 import glob
 import logging
+from datetime import datetime
 
 from smbus2 import SMBus
 
@@ -89,6 +90,7 @@ class Robot(object):
 
         #            Battery Voltage:   > 12.2v
         logger.info("------HARDWARE REPORT------")
+        logger.info("Time:   %s" % datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
 
         battery_voltage = self._internal.get_battery_voltage()
         battery_str = "Battery Voltage:   %.2fv" % battery_voltage
