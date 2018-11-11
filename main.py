@@ -1,5 +1,6 @@
 from __future__ import print_function
 import robot
+import time
 
 R = robot.Robot()
 

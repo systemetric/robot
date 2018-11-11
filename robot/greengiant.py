@@ -69,14 +69,14 @@ _GG_FVR_L = 31
 _GG_VERSION = 32
 
 
-def read_high_low_data(bus, high, low, p=False):
-    high = bus.read_byte_data(_GG_I2C_ADDR, high)
-    low = bus.read_byte_data(_GG_I2C_ADDR, low)
+def read_high_low_data(bus, high, low, print_values=False):
+    high_value = bus.read_byte_data(_GG_I2C_ADDR, high)
+    low_value = bus.read_byte_data(_GG_I2C_ADDR, low)
 
-    if p:
-        print "H: %x L: %x" % (high, low)
+    if print_values:
+        print "H at (%d): %x   L at (%d): %x" % (high, high_value, low, low_value)
 
-    return low + (high << 8)
+    return low_value + (high_value << 8)
 
 
 class GreenGiantInternal(object):
@@ -85,6 +85,9 @@ class GreenGiantInternal(object):
 
     def set_12v(self, on):
         self._bus.write_byte_data(_GG_I2C_ADDR, _GG_ENABLE_12V, int(on))
+
+    def set_status_led(self, on):
+        self._bus.write_byte_data(_GG_I2C_ADDR, _GG_STATUS, int(on))
 
     def get_version(self):
         return self._bus.read_byte_data(_GG_I2C_ADDR, _GG_VERSION)

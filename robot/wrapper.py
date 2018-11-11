@@ -5,6 +5,8 @@ import optparse
 import os
 import glob
 import logging
+import time
+import threading
 from datetime import datetime
 
 from smbus2 import SMBus
@@ -88,7 +90,6 @@ class Robot(object):
         self._internal.set_12v(True)
         self._gg_version = self._internal.get_version()
 
-        #            Battery Voltage:   > 12.2v
         logger.info("------HARDWARE REPORT------")
         logger.info("Time:   %s" % datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
 
@@ -115,6 +116,8 @@ class Robot(object):
                     logger.warn("WARNING: %s" % warning)
             else:
                 logger.info("Hardware looks good")
+
+            self._start_pressed = False
             self.wait_start()
 
     def stop(self):
@@ -202,22 +205,38 @@ class Robot(object):
         self.usbkey = options.usbkey
         self.startfifo = options.startfifo
 
+    def wait_start_blink(self):
+        v = False
+        while not self._start_pressed:
+            time.sleep(0.2)
+            self._internal.set_status_led(v)
+            v = not v
+        self._internal.set_status_led(True)
+
     # noinspection PyUnresolvedReferences
     def wait_start(self):
         """Wait for the start signal to happen"""
 
         if self.startfifo is None:
+            time.sleep(3)
+            self._start_pressed = True
+
             logger.info("\nNo startfifo so using defaults (Zone: 0, Mode: dev, Arena: A)\n")
             setattr(self, "zone", 0)
             setattr(self, "mode", "dev")
             setattr(self, "arena", "A")
             return
 
+        t = threading.Thread(target=self.wait_start_blink)
+        t.start()
+
         logger.info("\nWaiting for start signal.\n")
 
         f = open(self.startfifo, "r")
         d = f.read()
         f.close()
+
+        self._start_pressed = True
 
         j = json.loads(d)
 
