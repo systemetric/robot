@@ -169,6 +169,7 @@ class Robot(object):
 
         if not hasattr(self, "vision"):
             logger.info("Pi Camera:         No")
+            self._warnings.append("No Pi Camera detected")
             # No webcam
             return
 
