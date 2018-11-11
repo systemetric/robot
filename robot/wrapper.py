@@ -230,7 +230,7 @@ class Robot(object):
         t = threading.Thread(target=self.wait_start_blink)
         t.start()
 
-        logger.info("\nWaiting for start signal.\n")
+        logger.info("\nWaiting for start signal...")
 
         f = open(self.startfifo, "r")
         d = f.read()
@@ -251,6 +251,8 @@ class Robot(object):
             raise Exception("zone must be in range 0-3 inclusive -- value of %i is invalid" % self.zone)
         if self.arena not in ["A", "B"]:
             raise Exception("arena must be A or B")
+
+        logger.info("Robot started!\n")
 
     def _init_devs(self, bus):
         """Initialise the attributes for accessing devices"""
