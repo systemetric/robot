@@ -89,9 +89,6 @@ class GreenGiantInternal(object):
         self._bus.write_byte_data(_GG_I2C_ADDR, _GG_ENABLE_12V, int(on))
 
     def get_version(self):
-        for i in range(32):
-            print i, ":", self._bus.read_byte_data(_GG_I2C_ADDR, i)
-
         return self._bus.read_byte_data(_GG_I2C_ADDR, _GG_VERSION + 1)
 
     def get_battery_voltage(self):
@@ -128,6 +125,7 @@ class GreenGiantGPIOPin(object):
             raise ValueError("digital write attempted on none OUTPUT pin")
         self._bus.write_byte_data(_GG_I2C_ADDR, _GG_DIGITAL_START + self._index, int(value))
 
+    # TODO: convert to volts
     @property
     def analog(self):
         if self._mode != INPUT_ANALOG and self._mode != INPUT_PULLUP:

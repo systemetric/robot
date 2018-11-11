@@ -3,7 +3,8 @@ import robot
 
 R = robot.Robot()
 
-print(R._internal.get_version())
+# for i in range(64):
+#     print(i, ":", R._internal._bus.read_byte_data(0x8, i))
 
 # for i in range(4):
 #     R.gpio[i + 1].mode = robot.INPUT_ANALOG

@@ -83,6 +83,13 @@ class Robot(object):
         bus = SMBus(1)
         self._internal = GreenGiantInternal(bus)
         self._internal.set_12v(True)
+        self._gg_version = self._internal.get_version()
+
+        battery_voltage = self._internal.get_battery_voltage()
+        battery_warning = ""
+        if battery_voltage < 11.5:
+            battery_warning = " [WARNING: battery voltage below 11.5V, consider changing for a charged battery]"
+        logger.info("Battery voltage: %dV%s" % (battery_voltage, battery_warning))
 
         self.gpio = [None]
         for i in range(4):
@@ -130,6 +137,10 @@ class Robot(object):
         logger.info("Found the following devices:")
 
         self._dump_webcam()
+
+        gg_warning = "" if self._gg_version == 2 else " [WARNING: version not 2]"
+        print " - Green Giant Board (v%d)%s" % (self._gg_version, gg_warning)
+        print " - Cytron Board"
 
     def _dump_webcam(self):
         """Write information about the webcam to stdout"""
