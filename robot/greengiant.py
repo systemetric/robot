@@ -69,12 +69,9 @@ _GG_FVR_L = 31
 _GG_VERSION = 32
 
 
-def read_high_low_data(bus, high, low, print_values=False):
+def read_high_low_data(bus, high, low):
     high_value = bus.read_byte_data(_GG_I2C_ADDR, high)
     low_value = bus.read_byte_data(_GG_I2C_ADDR, low)
-
-    if print_values:
-        print "H at (%d): %x   L at (%d): %x" % (high, high_value, low, low_value)
 
     return low_value + (high_value << 8)
 
@@ -163,8 +160,6 @@ class GreenGiantPWM(object):
 
         value = _GG_PWM_CENTER + (percent / 100 * _GG_PWM_PERCENT_HALF_RANGE)
         value = clamp(value, _GG_PWM_MIN, _GG_PWM_MAX)
-
-        print index, value
 
         low = value & 0x7F
         high = value >> 7

@@ -32,7 +32,6 @@ class CytronBoard(object):
         ]
 
     def __getitem__(self, index):
-        print index
         if not (1 <= index <= 2):
             raise IndexError("motor index must be 1 or 2")
         index -= 1
@@ -43,7 +42,6 @@ class CytronBoard(object):
         return value
 
     def __setitem__(self, index, percent):
-        print index
         if not (1 <= index <= 2):
             raise IndexError("motor index must be 1 or 2")
         index -= 1
@@ -54,11 +52,8 @@ class CytronBoard(object):
         else:
             self._dir_value[index] = GPIO.HIGH
 
-        print "Setting dir", index, "to", self._dir_value[index]
         GPIO.output(self._dir[index], self._dir_value[index])
 
-        print "Setting pwm", index, "to", abs_value
-        print self._pwm[index]
         self._pwm_value[index] = abs_value
         self._pwm[index].start(self._pwm_value[index])
 
