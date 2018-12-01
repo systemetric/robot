@@ -12,8 +12,6 @@ _CYTRON_GPIO_PWM_2 = 13
 
 class CytronBoard(object):
     def __init__(self):
-        self.safety_override = False
-
         GPIO.setup(_CYTRON_GPIO_DIR_1, GPIO.OUT)
         GPIO.setup(_CYTRON_GPIO_DIR_2, GPIO.OUT)
         GPIO.setup(_CYTRON_GPIO_PWM_1, GPIO.OUT)
@@ -48,7 +46,7 @@ class CytronBoard(object):
             raise IndexError("motor index must be 1 or 2")
         index -= 1
 
-        max_value = 100 if self.safety_override else 25
+        max_value = 100
 
         abs_value = abs(percent)
         if abs_value == percent:
