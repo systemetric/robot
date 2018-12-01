@@ -101,7 +101,7 @@ class Robot(object):
 
         logger.info("------HARDWARE REPORT------")
         logger.info("Time:   %s" % datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-		logger.info("Patch Version:     2")
+        logger.info("Patch Version:     2")
 
         battery_voltage = self._internal.get_battery_voltage()
         battery_str = "Battery Voltage:   %.2fv" % battery_voltage
