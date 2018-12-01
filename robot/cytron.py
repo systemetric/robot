@@ -1,5 +1,6 @@
 import RPi.GPIO as GPIO
 from time import sleep
+from greengiant import clamp
 
 GPIO.setmode(GPIO.BCM)
 GPIO.setwarnings(False)
@@ -57,8 +58,9 @@ class CytronBoard(object):
         GPIO.output(self._dir[index], self._dir_value[index])
 
         value = abs_value * max_value / 100
+        value = clamp(value, 0, max_value)
 
-        self._pwm_value[index] = abs_value
+        self._pwm_value[index] = value
         self._pwm[index].start(self._pwm_value[index])
 
     def stop(self):
