@@ -18,6 +18,8 @@ from . import vision
 
 logger = logging.getLogger("sr.robot")
 
+# path to file with status of USB program copy,
+# if this exists it is output in logs and then deleted
 COPY_STAT_FILE = "/root/COPYSTAT"
 
 
@@ -87,6 +89,7 @@ class Robot(object):
 
         self._parse_cmdline()
 
+        # check if copy stat file exists and read it if it does then delete it
         try:
             with open(COPY_STAT_FILE, "r") as f:
                 logger.info("Copied %s from USB\n" % f.read().strip())
@@ -94,15 +97,18 @@ class Robot(object):
         except IOError:
             pass
 
+        # register components
         bus = SMBus(1)
         self._internal = GreenGiantInternal(bus)
         self._internal.set_12v(True)
         self._gg_version = self._internal.get_version()
 
+        # print report of hardward
         logger.info("------HARDWARE REPORT------")
         logger.info("Time:   %s" % datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
         logger.info("Patch Version:     2")
 
+        # display battery voltage and warnings associated with it
         battery_voltage = self._internal.get_battery_voltage()
         battery_str = "Battery Voltage:   %.2fv" % battery_voltage
         # we cannot read voltages above 12.2v
@@ -114,6 +120,7 @@ class Robot(object):
         self._adc_max = self._internal.get_fvr_reading()
         logger.info("ADC Max:           %.2fv" % self._adc_max)
 
+        # gpio init
         self.gpio = [None]
         for i in range(4):
             self.gpio.append(GreenGiantGPIOPin(bus, i, self._adc_max))
@@ -130,6 +137,9 @@ class Robot(object):
             self._start_pressed = False
             self.wait_start()
 
+    """
+    Stops the robot and cuts power to the motors
+    """
     def stop(self):
         self.motors.stop()
         self._internal.set_12v(False)
@@ -145,6 +155,9 @@ class Robot(object):
                    # Logging is already configured
                    config_logging=False)
 
+    """
+    Initialises motors, pi cam and pwm
+    """
     def init(self, bus):
         # Find and initialise hardware
         if self._initialised:
@@ -159,6 +172,9 @@ class Robot(object):
 
         self._initialised = True
 
+    """
+    Turns motors off
+    """
     def off(self):
         for motor in self.motors:
             motor.off()
