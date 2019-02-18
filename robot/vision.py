@@ -283,7 +283,7 @@ class Vision(object):
             raise ValueError
         usbcamera_focal_lengths[res] = length
 
-    def see(self, mode, arena, res=None, stats=False, save=True, fast_capture=True, zone=0):
+    def see(self, mode, arena, res=None, stats=False, save=True, fast_capture=True, zone=0, letterBox=None):
         if isinstance(self.camera, picamera.PiCamera):
             if res is not None and res not in picamera_focal_lengths:
                 raise ValueError("Invalid resolution: {}".format(res))
@@ -304,9 +304,13 @@ class Vision(object):
             if isinstance(self.camera, picamera.PiCamera):
                 with picamera.array.PiRGBArray(self.camera) as stream:
                     self.camera.capture(stream, format="bgr", use_video_port=fast_capture)
+                    if (type(letterBox) == tuple):
+                        #Crop the stream, expects a tuple (top, bottom)
+                        cropped_stream_array = stream.array[letterBox[0]: letterBox[1]: 1]
+                        
                     if save:
-                        cv2.imwrite("/tmp/colimage.jpg", stream.array)
-                    image = cv2.cvtColor(stream.array, cv2.COLOR_BGR2GRAY)
+                        cv2.imwrite("/tmp/colimage.jpg", cropped_stream_array)
+                    image = cv2.cvtColor(cropped_stream_array, cv2.COLOR_BGR2GRAY)
             else:
                 frame = self.camera.get_frame()
         times["cam"] = timer.time
