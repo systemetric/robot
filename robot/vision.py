@@ -19,6 +19,15 @@ picamera_focal_lengths = {  # fx, fy tuples
     (640, 480): (463, 463),
 }
 
+#For now we are assuming that the USB camera is exactly like the Pi Cam
+usbcamera_focal_lengths = {
+    (1920, 1440): (1393, 1395),
+    (1920, 1088): (2431, 2431),
+    (1296, 976): (955, 955),
+    (1296, 736): (962, 962),
+    (640, 480): (463, 463),
+}
+
 # Source: <https://elinux.org/Rpi_Camera_Module#Technical_Parameters_.28v.2_board.29>
 FOCAL_LENGTH_MM = 4.0
 SENSOR_WIDTH_MM = 3.674
@@ -27,6 +36,7 @@ SENSOR_HEIGHT_MM = 2.760
 # Estimate focal lengths for resolutions we don't have a focal length for.
 # These aren't particularly accurate; the estimate for 1920x1080 caused a
 # length of 50 cm to be reported as 60 cm.
+# We should proablly document to only use the resolutions that we actually have the focal lengths for
 # <http://answers.opencv.org/question/17076/conversion-focal-distance-from-mm-to-pixels/?answer=17180#post-id-17180>
 for res in picamera_focal_lengths:
     if picamera_focal_lengths[res] is None:
@@ -34,6 +44,8 @@ for res in picamera_focal_lengths:
         focal_length_px_x = (FOCAL_LENGTH_MM / SENSOR_WIDTH_MM) * res[0]
         focal_length_px_y = (FOCAL_LENGTH_MM / SENSOR_HEIGHT_MM) * res[1]
         picamera_focal_lengths[res] = (focal_length_px_x, focal_length_px_y)
+
+#Lets not bother doing this for USB camera's
 
 MARKER_ARENA, MARKER_TOKEN, MARKER_BUCKET_SIDE, MARKER_BUCKET_END = 'arena', 'token', 'bucket-side', 'bucket-end'
 TOKEN_NONE, TOKEN_ORE, TOKEN_FOOLS_GOLD, TOKEN_GOLD = 'none', 'ore', 'fools-gold', 'gold'
@@ -236,7 +248,7 @@ class Vision(object):
         self._res = actual
 
         if was_streaming:
-            self._start_camera_stream()
+            self._start_camera_stream() 
 
     def _start_camera_stream(self):
         assert not isinstance(self.camera, picamera.PiCamera)
@@ -257,9 +269,27 @@ class Vision(object):
 
         return lut[code].size
 
+    @property
+    def USBFocalLengths(self, res):
+        if res not in usbcamera_focal_lengths.keys():
+            raise KeyError
+        return usbcamera_focal_lengths[res]
+
+    @USBFocalLengths.setter
+    def USBFocalLengths(self, res, length):
+        if res not in usbcamera_focal_lengths.keys():
+            raise KeyError
+        if not isinstance(length, tuple):
+            raise ValueError
+        usbcamera_focal_lengths[res] = length
+
     def see(self, mode, arena, res=None, stats=False, save=True, fast_capture=True, zone=0):
-        if res is not None and res not in picamera_focal_lengths:
-            raise ValueError("Invalid resolution: {}".format(res))
+        if isinstance(self.camera, picamera.PiCamera):
+            if res is not None and res not in picamera_focal_lengths:
+                raise ValueError("Invalid resolution: {}".format(res))
+        else:
+            if res is not None and res not in usbcamera_focal_lengths:
+                raise ValueError("Invalid resolution: {}".format(res))
 
         self.lock.acquire()
         if res is not None:
@@ -310,7 +340,7 @@ class Vision(object):
         else:
             params = CameraParams(Point2Df(self._res[0] / 2,
                                            self._res[1] / 2),
-                                  Point2Df(*picamera_focal_lengths[self._res]),
+                                  Point2Df(*usbcamera_focal_lengths[self._res]),
                                   Point2Di(*self._res))
 
         with timer:
