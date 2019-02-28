@@ -19,6 +19,15 @@ picamera_focal_lengths = {  # fx, fy tuples
     (640, 480): (463, 463),
 }
 
+#For now we are assuming that the USB camera is exactly like the Pi Cam
+usbcamera_focal_lengths = {
+    (1920, 1440): (1393, 1395),
+    (1920, 1088): (2431, 2431),
+    (1296, 976): (955, 955),
+    (1296, 736): (962, 962),
+    (640, 480): (463, 463),
+}
+
 # Source: <https://elinux.org/Rpi_Camera_Module#Technical_Parameters_.28v.2_board.29>
 FOCAL_LENGTH_MM = 4.0
 SENSOR_WIDTH_MM = 3.674
@@ -27,6 +36,7 @@ SENSOR_HEIGHT_MM = 2.760
 # Estimate focal lengths for resolutions we don't have a focal length for.
 # These aren't particularly accurate; the estimate for 1920x1080 caused a
 # length of 50 cm to be reported as 60 cm.
+# We should proablly document to only use the resolutions that we actually have the focal lengths for
 # <http://answers.opencv.org/question/17076/conversion-focal-distance-from-mm-to-pixels/?answer=17180#post-id-17180>
 for res in picamera_focal_lengths:
     if picamera_focal_lengths[res] is None:
@@ -34,6 +44,8 @@ for res in picamera_focal_lengths:
         focal_length_px_x = (FOCAL_LENGTH_MM / SENSOR_WIDTH_MM) * res[0]
         focal_length_px_y = (FOCAL_LENGTH_MM / SENSOR_HEIGHT_MM) * res[1]
         picamera_focal_lengths[res] = (focal_length_px_x, focal_length_px_y)
+
+#Lets not bother doing this for USB camera's
 
 MARKER_ARENA, MARKER_TOKEN, MARKER_BUCKET_SIDE, MARKER_BUCKET_END = 'arena', 'token', 'bucket-side', 'bucket-end'
 TOKEN_NONE, TOKEN_ORE, TOKEN_FOOLS_GOLD, TOKEN_GOLD = 'none', 'ore', 'fools-gold', 'gold'
@@ -168,34 +180,86 @@ class Timer(object):
 
 # noinspection PyShadowingNames
 class Vision(object):
-    def __init__(self, lib=None, res=(640, 480)):
+    def __init__(self, camera_device, lib=None, res=(640, 480)):
         if lib is not None:
             self.koki = pykoki.PyKoki(lib)
         else:
             self.koki = pykoki.PyKoki()
-        self.camera = picamera.PiCamera(resolution=res)
+        
+        self._camera_device = camera_device
+        
+        if camera_device is not None:
+            self.camera = self.koki.open_camera(self._camera_device)
+        else:
+            self.camera = picamera.PiCamera(resolution=res)
 
         # Lock for the use of the vision
         self.lock = threading.Lock()
 
+        if not isinstance(self.camera, picamera.PiCamera):
+            self.lock.acquire()
+            self._res = None
+            self._buffers = None
+            self._streaming = False
+            self._set_res(res)
+            self._start_camera_stream()
+            self.lock.release()
     def __del__(self):
-        self.camera.close()
+        if not isinstance(self.camera, picamera.PiCamera):
+            self._stop_camera_stream()
 
     def _set_res(self, res):
         """Set the resolution of the camera if different to what we were"""
-        if res == self.camera.resolution:
-            # Resolution already the requested one
-            return
 
-        try:
-            self.camera.resolution = res
-        except Exception as e:
-            raise ValueError("Setting camera resolution failed with {}".format(type(e)))
+        if isinstance(self.camera, picamera.PiCamera):
+            if res == self.camera.resolution:
+                # Resolution already the requested one
+                return
 
-        actual = self.camera.resolution
+            try:
+                self.camera.resolution = res
+            except Exception as e:
+                raise ValueError("Setting camera resolution failed with {}".format(type(e)))
+
+            actual = self.camera.resolution
+            if res != actual:
+                raise ValueError("Unsupported image resolution {0} (got: {1})".format(res, actual))
+        else:
+            if res == self._res:
+                # Resolution already the requested one
+                return
+
+            was_streaming = self._streaming
+            if was_streaming:
+                self._stop_camera_stream()
+
+            del self.camera
+            self.camera = self.koki.open_camera(self._camera_device)
+            self.camera.format = self.koki.v4l_create_YUYV_format(*res)
+
+            fmt = self.camera.format.fmt
+            width = fmt.pix.width
+            height = fmt.pix.height
+            actual = (width, height)
 
         if res != actual:
             raise ValueError("Unsupported image resolution {0} (got: {1})".format(res, actual))
+
+        self._res = actual
+
+        if was_streaming:
+            self._start_camera_stream() 
+
+    def _start_camera_stream(self):
+        assert not isinstance(self.camera, picamera.PiCamera)
+        self.camera.prepare_buffers(1)
+        self.camera.start_stream()
+        self._streaming = True
+
+    def _stop_camera_stream(self):
+        assert not isinstance(self.camera, picamera.PiCamera)
+        self.camera.stop_stream()
+        self._streaming = False
 
     @staticmethod
     def _width_from_code(lut, code):
@@ -206,8 +270,12 @@ class Vision(object):
         return lut[code].size
 
     def see(self, mode, arena, res=None, stats=False, save=True, fast_capture=True, zone=0):
-        if res is not None and res not in picamera_focal_lengths:
-            raise ValueError("Invalid resolution: {}".format(res))
+        if isinstance(self.camera, picamera.PiCamera):
+            if res is not None and res not in picamera_focal_lengths:
+                raise ValueError("Invalid resolution: {}".format(res))
+        else:
+            if res is not None and res not in usbcamera_focal_lengths:
+                raise ValueError("Invalid resolution: {}".format(res))
 
         self.lock.acquire()
         if res is not None:
@@ -219,35 +287,47 @@ class Vision(object):
         times = {}
 
         with timer:
-            with picamera.array.PiRGBArray(self.camera) as stream:
-                self.camera.capture(stream, format="bgr", use_video_port=fast_capture)
-                if save:
-                    cv2.imwrite("/tmp/colimage.jpg", stream.array)
-                image = cv2.cvtColor(stream.array, cv2.COLOR_BGR2GRAY)
+            if isinstance(self.camera, picamera.PiCamera):
+                with picamera.array.PiRGBArray(self.camera) as stream:
+                    self.camera.capture(stream, format="bgr", use_video_port=fast_capture)
+                    if save:
+                        cv2.imwrite("/tmp/colimage.jpg", stream.array)
+                    image = cv2.cvtColor(stream.array, cv2.COLOR_BGR2GRAY)
+            else:
+                frame = self.camera.get_frame()
         times["cam"] = timer.time
 
         with timer:
-            if os.path.exists('/media/RobotUSB/collect_images.txt'):
-                filename = "/media/RobotUSB/" + str(int(acq_time)) + ".jpg"
-                cv2.imwrite(filename, image)
-            # Create an IplImage header for the image.
-            # (width, height), depth, num_channels
-            ipl_image = cv2.cv.CreateImageHeader((image.shape[1], image.shape[0]), cv2.cv.IPL_DEPTH_8U, 1)
-            # Put the actual image data in the IplImage.
-            # The third argument is the row length ("step").
-            # Note that pykoki will automatically free `ipl_image` after the markers are obtained from it.
-            cv2.cv.SetData(ipl_image, image.tobytes(), image.dtype.itemsize * image.shape[1])
-            # Make sure the image data is actually in the IplImage. Don't touch this line!
-            ipl_image.tostring()
+            if isinstance(self.camera, picamera.PiCamera):
+                if os.path.exists('/media/RobotUSB/collect_images.txt'):
+                    filename = "/media/RobotUSB/" + str(int(acq_time)) + ".jpg"
+                    cv2.imwrite(filename, image)
+                # Create an IplImage header for the image.
+                # (width, height), depth, num_channels
+                ipl_image = cv2.cv.CreateImageHeader((image.shape[1], image.shape[0]), cv2.cv.IPL_DEPTH_8U, 1)
+                # Put the actual image data in the IplImage.
+                # The third argument is the row length ("step").
+                # Note that pykoki will automatically free `ipl_image` after the markers are obtained from it.
+                cv2.cv.SetData(ipl_image, image.tobytes(), image.dtype.itemsize * image.shape[1])
+                # Make sure the image data is actually in the IplImage. Don't touch this line!
+                ipl_image.tostring()
+            else:
+                ipl_image = self.koki.v4l_YUYV_frame_to_grayscale_image(frame, *self._res)
         times["manipulation"] = timer.time
 
         # Now that we're dealing with a copy of the image, release the camera lock
         self.lock.release()
 
-        params = CameraParams(Point2Df(self.camera.resolution[0] / 2,
-                                       self.camera.resolution[1] / 2),
-                              Point2Df(*picamera_focal_lengths[self.camera.resolution]),
-                              Point2Di(*self.camera.resolution))
+        if isinstance(self.camera, picamera.PiCamera):
+            params = CameraParams(Point2Df(self.camera.resolution[0] / 2,
+                                        self.camera.resolution[1] / 2),
+                                Point2Df(*picamera_focal_lengths[self.camera.resolution]),
+                                Point2Di(*self.camera.resolution))
+        else:
+            params = CameraParams(Point2Df(self._res[0] / 2,
+                                           self._res[1] / 2),
+                                  Point2Df(*usbcamera_focal_lengths[self._res]),
+                                  Point2Di(*self._res))
 
         with timer:
             markers = self.koki.find_markers_fp(ipl_image,
@@ -313,6 +393,9 @@ class Vision(object):
 
         if markers and usb_log:
             logfile.close()
+
+        if not isinstance(self.camera, picamera.PiCamera):
+            self.koki.image_free(ipl_image)
 
         if stats:
             return srmarkers, times

@@ -8,6 +8,7 @@ import logging
 import time
 import threading
 from datetime import datetime
+import pyudev
 
 from smbus2 import SMBus
 
@@ -78,9 +79,12 @@ class Robot(object):
     def __init__(self,
                  quiet=False,
                  init=True,
-                 config_logging=True):
+                 config_logging=True,
+                 use_usb_camera=False):
         if config_logging:
             setup_logging()
+
+        self._use_usb_camera = use_usb_camera
 
         self._initialised = False
         self._quiet = quiet
@@ -106,7 +110,7 @@ class Robot(object):
         # print report of hardward
         logger.info("------HARDWARE REPORT------")
         logger.info("Time:   %s" % datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-        logger.info("Patch Version:     2")
+        logger.info("Patch Version:     2 (USBCAM)")
 
         # display battery voltage and warnings associated with it
         battery_voltage = self._internal.get_battery_voltage()
@@ -145,7 +149,7 @@ class Robot(object):
         self._internal.set_12v(False)
 
     @classmethod
-    def setup(cls, quiet=False, config_logging=True):
+    def setup(cls, quiet=False, config_logging=True, use_usb_camera=False):
         if config_logging:
             setup_logging()
 
@@ -153,7 +157,8 @@ class Robot(object):
         return cls(init=False,
                    quiet=quiet,
                    # Logging is already configured
-                   config_logging=False)
+                    config_logging=False,
+                   use_usb_camera=use_usb_camera)
 
     """
     Initialises motors, pi cam and pwm
@@ -294,7 +299,60 @@ class Robot(object):
     def _init_pwm(self, bus):
         self.servos = GreenGiantPWM(bus)
 
+    def _list_usb_devices(self, model, subsystem=None):
+        """Create a sorted list of USB devices of the given type"""
+        udev = pyudev.Context()
+        devs = list(udev.list_devices(ID_MODEL=model, subsystem=subsystem))
+        # Sort by serial number
+        devs.sort(key=lambda x: x["ID_SERIAL_SHORT"])
+        return devs
+
+    def _init_usb_devices(self, model, ctor, subsystem=None):
+        devs = self._list_usb_devices(model, subsystem)
+
+        # Devices stored in a dictionary
+        # Each device appears twice in this dictionary:
+        #  1. Under its serial number
+        #  2. Under an integer key.  Integers assigned by ordering
+        #     boards by serial number.
+        srdevs = {}
+
+        n = 0
+        for dev in devs:
+            serialnum = dev["ID_SERIAL_SHORT"]
+
+            if "BUSNUM" in dev:
+                srdev = ctor(dev.device_node,
+                             busnum=int(dev["BUSNUM"]),
+                             devnum=int(dev["DEVNUM"]),
+                             serialnum=serialnum)
+            else:
+                srdev = ctor(dev.device_node,
+                             busnum=None,
+                             devnum=None,
+                             serialnum=serialnum)
+
+            srdevs[n] = srdev
+            srdevs[serialnum] = srdev
+            n += 1
+
+        return srdevs
+
     def _init_vision(self):
+           if self._use_usb_camera:
+            udev = pyudev.Context()
+            cams = list(udev.list_devices(
+                subsystem="video4linux",
+                ID_USB_DRIVER="uvcvideo",
+            ))
+
+            if not cams:
+                return
+
+            camera = cams[0].device_node
+        else:
+            camera = None
+
         # Find libkoki.so:
         libpath = None
         if "LD_LIBRARY_PATH" in os.environ:
@@ -305,9 +363,9 @@ class Robot(object):
                     libpath = os.path.abspath(d)
                     break
         if libpath is None:
-            v = vision.Vision("/home/pi/libkoki/lib")  # /root/libkoki/lib
+            v = vision.Vision(camera, "/home/pi/libkoki/lib")  # /root/libkoki/lib
         else:
-            v = vision.Vision(libpath)
+            v = vision.Vision(camera, libpath)
 
         self.vision = v
 
