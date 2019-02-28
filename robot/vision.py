@@ -269,20 +269,6 @@ class Vision(object):
 
         return lut[code].size
 
-    @property
-    def USBFocalLengths(self, res):
-        if res not in usbcamera_focal_lengths.keys():
-            raise KeyError
-        return usbcamera_focal_lengths[res]
-
-    @USBFocalLengths.setter
-    def USBFocalLengths(self, res, length):
-        if res not in usbcamera_focal_lengths.keys():
-            raise KeyError
-        if not isinstance(length, tuple):
-            raise ValueError
-        usbcamera_focal_lengths[res] = length
-
     def see(self, mode, arena, res=None, stats=False, save=True, fast_capture=True, zone=0):
         if isinstance(self.camera, picamera.PiCamera):
             if res is not None and res not in picamera_focal_lengths:
