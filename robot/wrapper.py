@@ -110,7 +110,7 @@ class Robot(object):
         # print report of hardward
         logger.info("------HARDWARE REPORT------")
         logger.info("Time:   %s" % datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-        logger.info("Patch Version:     2")
+        logger.info("Patch Version:     2 (USBCAM)")
 
         # display battery voltage and warnings associated with it
         battery_voltage = self._internal.get_battery_voltage()
