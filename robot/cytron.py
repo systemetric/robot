@@ -18,8 +18,6 @@ class CytronBoard(object):
         GPIO.setup(_CYTRON_GPIO_PWM_1, GPIO.OUT)
         GPIO.setup(_CYTRON_GPIO_PWM_2, GPIO.OUT)
 
-        sleep(0.5)
-
         self._dir_value = [GPIO.LOW, GPIO.LOW]
         self._dir = [
             _CYTRON_GPIO_DIR_1,
