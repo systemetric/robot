@@ -93,10 +93,10 @@ def create_marker_lut(counts, zone):  # def create_marker_lut(offset, counts, zo
         for n in range(0, num_markers):
             token_type = TOKEN_NONE
             if marker_type == MARKER_TOKEN:
-                if n < 9:
+                if n < 10:
                     token_type = TOKEN_ORE
                 else:
-                    token_n = n - 9
+                    token_n = n - 10
                     if int(token_n / 3) == zone:
                         token_type = TOKEN_GOLD
                     else:
