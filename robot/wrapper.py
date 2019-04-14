@@ -190,8 +190,8 @@ class Robot(object):
 
         self._dump_webcam()
 
-        if self._gg_version != 2:
-            self._warnings.append("Green Giant version not 2")
+        if self._gg_version != 3:
+            self._warnings.append("Green Giant version not 3")
         logger.info("Green Giant Board: Yes (v%d)" % self._gg_version)
         logger.info("Cytron Board:      Yes")
 
