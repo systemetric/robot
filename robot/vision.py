@@ -1,3 +1,8 @@
+"""TODO
+    When implementing USB camera preview saving bounding box/threading issues and
+    deadlocks will likely be encountered. 
+"""
+
 import functools
 import os
 import threading
@@ -86,6 +91,8 @@ marker_group_counts = {
              (MARKER_BUCKET_END, 4)],
 }
 
+#Image post processing
+BOUNDING_BOX_THICKNESS = 2
 
 def create_marker_lut(counts, zone):  # def create_marker_lut(offset, counts, zone):
     lut = {}
@@ -193,10 +200,9 @@ class Vision(object):
         else:
             self.camera = picamera.PiCamera(resolution=res)
 
-        # Lock for the use of the vision
-        self.lock = threading.Lock()
-
         if not isinstance(self.camera, picamera.PiCamera):
+            # Lock for the use of the vision
+            self.lock = threading.Lock()
             self.lock.acquire()
             self._res = None
             self._buffers = None
@@ -204,6 +210,7 @@ class Vision(object):
             self._set_res(res)
             self._start_camera_stream()
             self.lock.release()
+
     def __del__(self):
         if not isinstance(self.camera, picamera.PiCamera):
             self._stop_camera_stream()
@@ -241,14 +248,15 @@ class Vision(object):
             width = fmt.pix.width
             height = fmt.pix.height
             actual = (width, height)
+            
+            if was_streaming:
+                self._start_camera_stream() 
 
         if res != actual:
             raise ValueError("Unsupported image resolution {0} (got: {1})".format(res, actual))
 
         self._res = actual
-
-        if was_streaming:
-            self._start_camera_stream() 
+        
 
     def _start_camera_stream(self):
         assert not isinstance(self.camera, picamera.PiCamera)
@@ -269,15 +277,25 @@ class Vision(object):
 
         return lut[code].size
 
-    def see(self, mode, arena, res=None, stats=False, save=True, fast_capture=True, zone=0):
+    def see(self,
+            mode,
+            arena,
+            res=None,
+            stats=False,
+            save=True,
+            fast_capture=True,
+            zone=0,
+            bounding_box_enable=True):
+                
+                
         if isinstance(self.camera, picamera.PiCamera):
             if res is not None and res not in picamera_focal_lengths:
                 raise ValueError("Invalid resolution: {}".format(res))
         else:
             if res is not None and res not in usbcamera_focal_lengths:
                 raise ValueError("Invalid resolution: {}".format(res))
-
-        self.lock.acquire()
+            self.lock.acquire()
+        
         if res is not None:
             self._set_res(res)
 
@@ -290,11 +308,11 @@ class Vision(object):
             if isinstance(self.camera, picamera.PiCamera):
                 with picamera.array.PiRGBArray(self.camera) as stream:
                     self.camera.capture(stream, format="bgr", use_video_port=fast_capture)
-                    if save:
-                        cv2.imwrite("/tmp/colimage.jpg", stream.array)
+                    col_image = stream.array
                     image = cv2.cvtColor(stream.array, cv2.COLOR_BGR2GRAY)
             else:
                 frame = self.camera.get_frame()
+
         times["cam"] = timer.time
 
         with timer:
@@ -315,8 +333,9 @@ class Vision(object):
                 ipl_image = self.koki.v4l_YUYV_frame_to_grayscale_image(frame, *self._res)
         times["manipulation"] = timer.time
 
-        # Now that we're dealing with a copy of the image, release the camera lock
-        self.lock.release()
+        if not isinstance(self.camera, picamera.PiCamera):
+            # Lock for the use of the vision
+            self.lock = threading.Lock()
 
         if isinstance(self.camera, picamera.PiCamera):
             params = CameraParams(Point2Df(self.camera.resolution[0] / 2,
@@ -355,8 +374,55 @@ class Vision(object):
 
             info = marker_luts[mode][arena][zone][int(m.code)]
 
+            if bounding_box_enable:
+                #Colours for the bounding box
+                #Note BGR values not RGB
+            
+                #Marker arena
+                if info.marker_type == MARKER_ARENA:
+                    bounding_box_colour = (255,0,215) #Purple
+                
+                #Marker "Ore"
+                elif info.code in range(32,42):
+                    bounding_box_colour = (0,128,255) #Orange
+                
+                #Marker "Team 0"
+                elif info.code in range(42,45):
+                    bounding_box_colour = (0,255,255) #Yellow
+                
+                #Marker "Team 1"
+                elif info.code in range(45,48):
+                    bounding_box_colour = (0,255,0) #Green
+                
+                #Marker "Team 2"
+                elif info.code in range(48,51):
+                    bounding_box_colour = (0,0,255) #Red
+                
+                #Marker "Team 3"
+                elif info.code in range(42,45):
+                    bounding_box_colour = (255,0,0) #Blue
+                
+                #This should never happen
+                else:
+                    bounding_box_colour = (255, 255, 255) #White
+
+                for i in range(0, len(m.vertices)):
+                    v = m.vertices[i]
+                    
+                    point1 = (int(v.image.x), int(v.image.y))
+                    #Get next marker cord for boudning box
+                    
+                    try:
+                        vertex2 = m.vertices[i+1].image
+                    except IndexError:
+                        vertex2 = m.vertices[0].image
+
+                    point2 = (int(vertex2.x), int(vertex2.y))
+                    cv2.line(col_image, point1, point2, bounding_box_colour, BOUNDING_BOX_THICKNESS)
+            
             vertices = []
             for v in m.vertices:
+                #Append to the list
                 vertices.append(Point(image=ImageCoord(x=v.image.x,
                                                        y=v.image.y),
                                       world=WorldCoord(x=v.world.x,
@@ -391,6 +457,9 @@ class Vision(object):
                             orientation=orientation)
             srmarkers.append(marker)
 
+        if save:
+            cv2.imwrite("/tmp/colimage.jpg", col_image)
+        
         if markers and usb_log:
             logfile.close()
 
