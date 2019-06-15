@@ -110,7 +110,7 @@ class Robot(object):
         # print report of hardward
         logger.info("------HARDWARE REPORT------")
         logger.info("Time:   %s" % datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-        logger.info("Patch Version:     2")
+        logger.info("Patch Version:     2 (USBCAM)")
 
         # display battery voltage and warnings associated with it
         battery_voltage = self._internal.get_battery_voltage()
@@ -190,8 +190,8 @@ class Robot(object):
 
         self._dump_webcam()
 
-        if self._gg_version != 2:
-            self._warnings.append("Green Giant version not 2")
+        if self._gg_version != 3:
+            self._warnings.append("Green Giant version not 3")
         logger.info("Green Giant Board: Yes (v%d)" % self._gg_version)
         logger.info("Cytron Board:      Yes")
 
@@ -339,7 +339,7 @@ class Robot(object):
         return srdevs
 
     def _init_vision(self):
-           if self._use_usb_camera:
+        if self._use_usb_camera:
             udev = pyudev.Context()
             cams = list(udev.list_devices(
                 subsystem="video4linux",
@@ -370,7 +370,8 @@ class Robot(object):
         self.vision = v
 
     # noinspection PyUnresolvedReferences
-    def see(self, res=(640, 480), stats=False, save=True):
+    def see(self, res=(640, 480), stats=False, save=True,
+     bounding_box=True):
         if not hasattr(self, "vision"):
             raise NoCameraPresent()
 
@@ -379,4 +380,5 @@ class Robot(object):
                                arena=self.arena,
                                stats=stats,
                                save=save,
-                               zone=self.zone)
+                               zone=self.zone,
+                               bounding_box_enable = bounding_box)
