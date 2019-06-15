@@ -80,7 +80,9 @@ class Robot(object):
                  quiet=False,
                  init=True,
                  config_logging=True,
-                 use_usb_camera=False):
+                 use_usb_camera=False,
+                 motor_max=25):
+
         if config_logging:
             setup_logging()
 
@@ -92,6 +94,8 @@ class Robot(object):
         self._warnings = []
 
         self._parse_cmdline()
+
+        self.motor_max = motor_max
 
         # check if copy stat file exists and read it if it does then delete it
         try:
@@ -294,7 +298,7 @@ class Robot(object):
         self._init_pwm(bus)
 
     def _init_motors(self):
-        self.motors = CytronBoard()
+        self.motors = CytronBoard(self.motor_max)
 
     def _init_pwm(self, bus):
         self.servos = GreenGiantPWM(bus)
