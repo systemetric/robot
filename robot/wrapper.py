@@ -81,7 +81,8 @@ class Robot(object):
                  init=True,
                  config_logging=True,
                  use_usb_camera=False,
-                 motor_max=25):
+                 motor_max=25,
+                 servo_defaults=None):
 
         if config_logging:
             setup_logging()
@@ -141,6 +142,10 @@ class Robot(object):
                     logger.warn("WARNING: %s" % warning)
             else:
                 logger.info("Hardware looks good")
+                  
+            if servo_defaults is not None:
+                for servo, position in servo_defaults.iteritems():
+                    self.servos[servo] = position
 
             self._start_pressed = False
             self.wait_start()
