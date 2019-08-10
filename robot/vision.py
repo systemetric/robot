@@ -50,7 +50,7 @@ for res in picamera_focal_lengths:
         focal_length_px_y = (FOCAL_LENGTH_MM / SENSOR_HEIGHT_MM) * res[1]
         picamera_focal_lengths[res] = (focal_length_px_x, focal_length_px_y)
 
-#Lets not bother doing this for USB camera's
+#Lets not bother doing this for USB camera's if we don't support it they can't use it
 
 MARKER_ARENA, MARKER_TOKEN, MARKER_BUCKET_SIDE, MARKER_BUCKET_END = 'arena', 'token', 'bucket-side', 'bucket-end'
 TOKEN_NONE, TOKEN_ORE, TOKEN_FOOLS_GOLD, TOKEN_GOLD = 'none', 'ore', 'fools-gold', 'gold'
@@ -187,7 +187,7 @@ class Timer(object):
 
 # noinspection PyShadowingNames
 class Vision(object):
-    def __init__(self, camera_device, lib=None, res=(640, 480)):
+    def __init__(self, camera_device, lib=None, res=(1296, 736)):
         if lib is not None:
             self.koki = pykoki.PyKoki(lib)
         else:
