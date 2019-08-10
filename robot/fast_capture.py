@@ -17,8 +17,6 @@ import pykoki
 import picamera.array  # Required, see <https://picamera.readthedocs.io/en/latest/api_array.html>
 from pykoki import CameraParams, Point2Df, Point2Di
 
-frames_processed = 0
-
 picamera_focal_lengths = {  # fx, fy tuples
     (1920, 1440): (1393, 1395),
     (1920, 1088): (2431, 2431),
@@ -197,6 +195,7 @@ class ImageProcessor(threading.Thread):
                                     functools.partial(self._width_from_code, marker_luts[mode][arena]),
                                     params)
                                     
+                    print(markers)
                     # Set done to True if you want the script to terminate
                     # at some point
                     #self.owner.done=True
@@ -212,6 +211,7 @@ class ImageProcessor(threading.Thread):
 class ProcessOutput(object):
     def __init__(self):
         self.done = False
+        self.processed_frames = 0
         
         # Find libkoki.so:
         libpath = None
@@ -246,9 +246,9 @@ class ProcessOutput(object):
                     # No processor's available, we'll have to skip
                     self.processor = None
         if self.processor:
+            self.processed_frames += 1
+            print self.processed_frames
             self.processor.stream.write(buf)
-            frames_processed += 1
-
 
     def flush(self):
         # When told to flush (this indicates end of recording), shut
@@ -268,20 +268,18 @@ class ProcessOutput(object):
             proc.terminated = True
             proc.join()
 
-
-
 with picamera.PiCamera(resolution=pi_cam_resolution) as camera:
     #camera.start_preview()
-    print "camera init waiting 2 seconds for it to settle"
-    time.sleep(2)
-    print "starting processing"
-    output = ProcessOutput()
-    camera.start_recording(output, format='mjpeg')
-    t_end = time.time() + 10
-    while (time.time() < t_end) or not output.done:
-        camera.wait_recording(1)
-    print "processed frames: " + frames_processed
-    print "average FPS" + str(frames_processed/10)
-    camera.stop_recording()
-
-
+    start = time.time()
+    try:
+        print "Camera init waiting 2 seconds for it to settle"
+        time.sleep(2)
+        print "Running"
+        output = ProcessOutput()
+        camera.start_recording(output, format='mjpeg')
+        while not output.done:
+            camera.wait_recording(1)
+    finally:
+        time_taken = time.time() - start
+        print "ending after: " + time_taken
+        camera.stop_recording()
