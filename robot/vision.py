@@ -16,6 +16,7 @@ import pykoki
 # noinspection PyUnresolvedReferences
 from pykoki import CameraParams, Point2Df, Point2Di
 
+
 picamera_focal_lengths = {  # fx, fy tuples
     (1920, 1440): (1393, 1395),
     (1920, 1088): (2431, 2431),
@@ -52,6 +53,18 @@ for res in picamera_focal_lengths:
 
 #Lets not bother doing this for USB camera's if we don't support it they can't use it
 
+# Colours are in the format BGR
+PURPLE = (255,0,215) #Purple
+ORANGE = (0,128,255) #Orange
+YELLOW = (0,255,255) #Yellow
+GREEN = (0,255,0) #Green
+RED = (0,0,255) #Red
+BLUE = (255,0,0) #Blue
+WHITE = (255, 255, 255) #White
+
+#Image post processing
+BOUNDING_BOX_THICKNESS = 2
+
 MARKER_ARENA, MARKER_TOKEN, MARKER_BUCKET_SIDE, MARKER_BUCKET_END = 'arena', 'token', 'bucket-side', 'bucket-end'
 TOKEN_NONE, TOKEN_ORE, TOKEN_FOOLS_GOLD, TOKEN_GOLD = 'none', 'ore', 'fools-gold', 'gold'
 
@@ -72,7 +85,7 @@ marker_sizes = {
     MARKER_BUCKET_END: 0.1 * (10.0 / 12),
 }
 
-MarkerInfo = namedtuple("MarkerInfo", "code marker_type token_type offset size")
+MarkerInfo = namedtuple("MarkerInfo", "code marker_type token_type offset size bounding_box_colour")
 ImageCoord = namedtuple("ImageCoord", "x y")
 WorldCoord = namedtuple("WorldCoord", "x y z")
 PolarCoord = namedtuple("PolarCoord", "length rot_x rot_y")
@@ -91,9 +104,6 @@ marker_group_counts = {
              (MARKER_BUCKET_END, 4)],
 }
 
-#Image post processing
-BOUNDING_BOX_THICKNESS = 2
-
 def create_marker_lut(counts, zone):  # def create_marker_lut(offset, counts, zone):
     lut = {}
     for marker_type, num_markers in counts:
@@ -102,19 +112,25 @@ def create_marker_lut(counts, zone):  # def create_marker_lut(offset, counts, zo
             if marker_type == MARKER_TOKEN:
                 if n < 10:
                     token_type = TOKEN_ORE
+                    bounding_box_colour = GREEN
                 else:
                     token_n = n - 10
                     if int(token_n / 3) == zone:
                         token_type = TOKEN_GOLD
+                        bounding_box_colour = YELLOW
                     else:
                         token_type = TOKEN_FOOLS_GOLD
+                        bounding_box_colour = RED
+            else: #arena marker
+                bounding_box_colour = BLUE
 
             code = marker_offsets[marker_type] + n
             m = MarkerInfo(code=code,
                            marker_type=marker_type,
                            token_type=token_type,
                            offset=n,
-                           size=marker_sizes[marker_type])
+                           size=marker_sizes[marker_type],
+                           bounding_box_colour = bounding_box_colour)
             lut[code] = m
     return lut
 
@@ -375,49 +391,18 @@ class Vision(object):
             info = marker_luts[mode][arena][zone][int(m.code)]
 
             if bounding_box_enable:
-                #Colours for the bounding box
-                #Note BGR values not RGB
-            
-                #Marker arena
-                if info.marker_type == MARKER_ARENA:
-                    bounding_box_colour = (255,0,215) #Purple
-                
-                #Marker "Ore"
-                elif info.code in range(32,42):
-                    bounding_box_colour = (0,128,255) #Orange
-                
-                #Marker "Team 0"
-                elif info.code in range(42,45):
-                    bounding_box_colour = (0,255,255) #Yellow
-                
-                #Marker "Team 1"
-                elif info.code in range(45,48):
-                    bounding_box_colour = (0,255,0) #Green
-                
-                #Marker "Team 2"
-                elif info.code in range(48,51):
-                    bounding_box_colour = (0,0,255) #Red
-                
-                #Marker "Team 3"
-                elif info.code in range(42,45):
-                    bounding_box_colour = (255,0,0) #Blue
-                
-                #This should never happen
-                else:
-                    bounding_box_colour = (255, 255, 255) #White
-
+                bounding_box_colour = info.bounding_box_colour
                 for i in range(0, len(m.vertices)):
-                    v = m.vertices[i]
-                    
-                    point1 = (int(v.image.x), int(v.image.y))
-                    #Get next marker cord for boudning box
+                    vertex1 = m.vertices[i].image
                     
                     try:
                         vertex2 = m.vertices[i+1].image
                     except IndexError:
                         vertex2 = m.vertices[0].image
 
+                    point1 = (int(vertex1.x), int(vertex1.y))
                     point2 = (int(vertex2.x), int(vertex2.y))
+                    
                     cv2.line(col_image, point1, point2, bounding_box_colour, BOUNDING_BOX_THICKNESS)
             
             vertices = []
