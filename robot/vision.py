@@ -323,6 +323,7 @@ class Vision(object):
         with timer:
             if isinstance(self.camera, picamera.PiCamera):
                 with picamera.array.PiRGBArray(self.camera) as stream:
+                    start = time.time()
                     self.camera.capture(stream, format="bgr", use_video_port=fast_capture)
                     col_image = stream.array
                     image = cv2.cvtColor(stream.array, cv2.COLOR_BGR2GRAY)
@@ -390,6 +391,9 @@ class Vision(object):
 
             info = marker_luts[mode][arena][zone][int(m.code)]
 
+        times["logging"] = timer.time
+        
+        for m in markers:
             if bounding_box_enable:
                 bounding_box_colour = info.bounding_box_colour
                 for i in range(0, len(m.vertices)):
@@ -404,7 +408,10 @@ class Vision(object):
                     point2 = (int(vertex2.x), int(vertex2.y))
                     
                     cv2.line(col_image, point1, point2, bounding_box_colour, BOUNDING_BOX_THICKNESS)
-            
+        
+        times["bounding_boxes"] = timer.time
+        
+        for m in markers:
             vertices = []
             for v in m.vertices:
                 #Append to the list
@@ -451,6 +458,7 @@ class Vision(object):
         if not isinstance(self.camera, picamera.PiCamera):
             self.koki.image_free(ipl_image)
 
+        times["output_properties"] = timer.time
         if stats:
             return srmarkers, times
 
