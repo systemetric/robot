@@ -2,6 +2,8 @@ import RPi.GPIO as GPIO
 from time import sleep
 from greengiant import clamp
 
+DEFAULT_MOTOR_CLAMP = 25
+
 GPIO.setmode(GPIO.BCM)
 GPIO.setwarnings(False)
 

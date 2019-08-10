@@ -12,7 +12,7 @@ import pyudev
 
 from smbus2 import SMBus
 
-from robot.cytron import CytronBoard
+from robot.cytron import CytronBoard, DEFAULT_MOTOR_CLAMP
 from robot.greengiant import GreenGiantInternal, GreenGiantGPIOPin, GreenGiantPWM
 
 from . import vision
@@ -22,7 +22,6 @@ logger = logging.getLogger("sr.robot")
 # path to file with status of USB program copy,
 # if this exists it is output in logs and then deleted
 COPY_STAT_FILE = "/root/COPYSTAT"
-
 
 def setup_logging():
     """Apply default settings for logging"""
@@ -81,7 +80,7 @@ class Robot(object):
                  init=True,
                  config_logging=True,
                  use_usb_camera=False,
-                 motor_max=25,
+                 motor_max=DEFAULT_MOTOR_CLAMP,
                  servo_defaults=None):
 
         if config_logging:
