@@ -6,7 +6,6 @@ import picamera
 import functools
 import os
 import threading
-import time
 from collections import namedtuple
 
 from PIL import Image
@@ -16,6 +15,8 @@ import pykoki
 # noinspection PyUnresolvedReferences
 import picamera.array  # Required, see <https://picamera.readthedocs.io/en/latest/api_array.html>
 from pykoki import CameraParams, Point2Df, Point2Di
+
+thread_count = 4
 
 picamera_focal_lengths = {  # fx, fy tuples
     (1920, 1440): (1393, 1395),
@@ -169,12 +170,15 @@ class ImageProcessor(threading.Thread):
             # Wait for an image to be written to the stream
             if self.event.wait(1):
                 try:
-                    # Read the image and do some processing on it
-                    #Image.open(self.stream)
+                    # Move to the start of the stream
                     self.stream.seek(0)
-                    pil_image = Image.open(self.stream)
-                    image = cv2.cvtColor(numpy.array(pil_image), cv2.COLOR_RGB2GRAY)
-                    #image = cv2.cvtColor(picamera.array.PiRGBArray, cv2.COLOR_BGR2GRAY)
+                    
+                    # Construct a numpy array from the stream
+                    data = numpy.fromstring(self.stream.getvalue(), dtype=numpy.uint8)
+                    
+                    start_manipulation = time.time()
+                    # "Decode" the image from the array converting to gray
+                    image = cv2.imdecode(data, cv2.CV_LOAD_IMAGE_GRAYSCALE)
                     
                     # Create an IplImage header for the image.
                     # (width, height), depth, num_channels
@@ -191,14 +195,16 @@ class ImageProcessor(threading.Thread):
                                 Point2Df(*focal_length),
                                 Point2Di(*pi_cam_resolution))
                                 
+                    print "manipulation: ", (time.time() - start_manipulation)
+                    
+                    start_koki = time.time()
+                    #call koki on the image
                     markers = self.koki.find_markers_fp(ipl_image,
                                     functools.partial(self._width_from_code, marker_luts[mode][arena]),
                                     params)
+                    print "koki: ", (time.time() - start_koki)
+                    
                                     
-                    print(markers)
-                    # Set done to True if you want the script to terminate
-                    # at some point
-                    #self.owner.done=True
                 finally:
                     # Reset the stream and event
                     self.stream.seek(0)
@@ -211,14 +217,12 @@ class ImageProcessor(threading.Thread):
 class ProcessOutput(object):
     def __init__(self):
         self.done = False
-        self.processed_frames = 0
         
         # Find libkoki.so:
         libpath = None
         if "LD_LIBRARY_PATH" in os.environ:
             for d in os.environ["LD_LIBRARY_PATH"].split(":"):
                 l = glob.glob("%s/libkoki.so*" % os.path.abspath(d))
-
                 if len(l):
                     libpath = os.path.abspath(d)
                     break
@@ -227,9 +231,9 @@ class ProcessOutput(object):
         # to control access between threads
         self.lock = threading.Lock()            
         if libpath is None:
-           self.pool = [ImageProcessor(self, "/home/pi/libkoki/lib") for i in range(4)]
+           self.pool = [ImageProcessor(self, "/home/pi/libkoki/lib") for i in range(thread_count)]
         else:
-           self.pool = [ImageProcessor(self, libpath) for i in range(4)]
+           self.pool = [ImageProcessor(self, libpath) for i in range(thread_count)]
             
         self.processor = None
 
@@ -239,15 +243,16 @@ class ProcessOutput(object):
             # a spare one
             if self.processor:
                 self.processor.event.set()
+                
             with self.lock:
                 if self.pool:
                     self.processor = self.pool.pop()
                 else:
                     # No processor's available, we'll have to skip
                     self.processor = None
+        
+        #Pass the buffer to current processor 
         if self.processor:
-            self.processed_frames += 1
-            print self.processed_frames
             self.processor.stream.write(buf)
 
     def flush(self):
@@ -259,18 +264,18 @@ class ProcessOutput(object):
                 self.pool.append(self.processor)
                 self.processor = None
         # Now, empty the pool, joining each thread as we go
-        while True:
+        for i in range(thread_count):
             with self.lock:
                 try:
                     proc = self.pool.pop()
+                    proc.terminated = True
+                    proc.join()
                 except IndexError:
                     pass # pool is empty
-            proc.terminated = True
-            proc.join()
+            
 
 with picamera.PiCamera(resolution=pi_cam_resolution) as camera:
     #camera.start_preview()
-    start = time.time()
     try:
         print "Camera init waiting 2 seconds for it to settle"
         time.sleep(2)
@@ -280,6 +285,5 @@ with picamera.PiCamera(resolution=pi_cam_resolution) as camera:
         while not output.done:
             camera.wait_recording(1)
     finally:
-        time_taken = time.time() - start
-        print "ending after: " + time_taken
+        output.done = True
         camera.stop_recording()
