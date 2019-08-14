@@ -289,6 +289,7 @@ class Vision(object):
     def _width_from_code(lut, code):
         if code not in lut:
             # We really want to ignore these...
+            print "WARNING: detected code: ", code, " not in marker LUT assuming marker size of 0.1m"
             return 0.1
 
         return lut[code].size
