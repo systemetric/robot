@@ -140,8 +140,19 @@ marker_luts = {
     }
 }
 
+MarkerBase = namedtuple("Marker", "info timestamp res vertices centre orientation")
+
+
+class Marker(MarkerBase):
+    # noinspection PyUnusedLocal,PyMissingConstructor
+    def __init__(self, *a, **kwd):
+        # Aliases
+        self.dist = self.centre.polar.length
+        self.rot_y = self.centre.polar.rot_y
+
 mode = "dev"
 arena = "A"
+zone=0
 
 class FrameProcessor(threading.Thread):
     """
@@ -404,15 +415,20 @@ class VisionController(object):
     def see(self):
         # If there is no analysis for the user then we wait 1/20 of a 
         # in a way that doesn't hold the GIL
+        # TODO: Check if we need to use a use a deepcopy or use a lock
+        # on the postprocessing
         while not self.new_analysis_for_user.wait(0.05):
             pass
             
         self.new_analysis_for_user.clear()
-        markers = self.stream_analyzer.last_analyzed_frame.result            
+        markers = self.stream_analyzer.last_analyzed_frame.result
+        acq_time = self.stream_analyzer.last_analyzed_frame.time
+        res = pi_cam_resolution            
 
-        info = marker_luts[mode][arena][zone][int(m.code)]
+        for m in markers:
+            info = marker_luts[mode][arena][zone][int(m.code)]
     
-        robocon_markers
+        robocon_markers = []
     
         for m in markers:
             vertices = []
@@ -470,7 +486,7 @@ myVisionController = VisionController(pi_cam_resolution)
 try:    
 
     myVisionController.preprocessing = "picture-denoise"
-
+    time.sleep(1)#DO NOT TOUCH
     """
     Thankyou for testing out the code!!!!!
     
@@ -482,10 +498,19 @@ try:
     I'm particularly interested if the minibot works just as well after
     it has stopped.
     
+    If your code does stuff with dynamic resolution shifting note this 
+    vision controller currently does not support that.
+    
     Please place your code bellow :-)
     """
 
-    print myVisionController.see()
+
+
+    """
+    End your code above this comment so that it is contained in the try
+    block
+    """
+    
 finally:
     myVisionController.tidyUp()
         
