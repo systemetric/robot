@@ -143,18 +143,21 @@ marker_luts = {
 mode = "dev"
 arena = "A"
 
-class camera():
-    def __init__(self):
-        pass
-
-
 class FrameProcessor(threading.Thread):
+    """
+    Turns a frame into a numpy array -> cv::mat -> iplimage passes it to
+    koki then tries to store the result its owner.
+    
+    Each instance of this class runs in a seperate thread
+    """
     def __init__(self, owner, lib=None, preprocessing=None):
         super(FrameProcessor, self).__init__()
         
         self.stream = io.BytesIO()
         self.owner = owner
         self.preprocessing = preprocessing
+        
+        self.fast_capture = True
         
         #create events that let us control this processor
         self.new_image_event = threading.Event()
@@ -176,36 +179,35 @@ class FrameProcessor(threading.Thread):
     @staticmethod
     def _width_from_code(lut, code):
         if code not in lut:
-            # We really want to ignore these...
+            # TODO: ignore these...
             return 0.1
 
     def run(self):
         while not self._stop_event.is_set():
-            # Wait for an image to be written to the stream
             if self.new_image_event.wait(1):
                 try:
                     start_work_time = time.time()
                     
-                    # Move to the start of the stream
                     self.stream.seek(0)
                     
                     if self.preprocessing == None:
-                        # Construct a numpy array from the last video frame in the stream
                         data = numpy.fromstring(self.stream.getvalue(), dtype=numpy.uint8)
-                        # "Decode" the image from the array converting to gray
                         image = cv2.imdecode(data, cv2.CV_LOAD_IMAGE_GRAYSCALE)
-                        
-                    elif self.preprocessing == "picture-denoise":
-                        #Should use YUV instead of BGR so the GPU has to do less work
-                        with picamera.array.PiRGBArray(self.camera) as stream:
-                            self.camera.capture(stream, format="bgr", use_video_port=fast_capture)
-                            image = cv2.cvtColor(stream.array, cv2.COLOR_BGR2GRAY)
-                    # TODO: test if this is actually more accurate or can see further
-                    """
+                    
                     elif self.preprocessing == "video-denoise":
                         pil_image = Image.open(self.stream)
                         image = cv2.cvtColor(numpy.array(pil_image), cv2.COLOR_RGB2GRAY)
-                    """
+                        
+                    elif self.preprocessing == "picture-denoise":
+                        with picamera.array.PiRGBArray(self.owner.camera) as stream:
+                            self.owner.camera.capture(stream, format="bgr")#, use_video_port=self.fast_capture)
+                            image = cv2.cvtColor(stream.array, cv2.COLOR_BGR2GRAY)
+                    # TODO: test if this is actually more accurate or can see further
+                    # TODO: check if it is possible to use `capture_sequence` with an infinite iterable to prevent reinitalization of encoders
+                    # TODO: use YUV instead of BGR to prevent GPU doing excess work
+                    # TODO: try to use the video port for fast capture
+                    # See: https://picamera.readthedocs.io/en/release-1.13/recipes2.html#rapid-capture-and-processing
+                    
                     
                                             
                     # Create an IplImage header for the image.
@@ -223,7 +225,6 @@ class FrameProcessor(threading.Thread):
                                 Point2Df(*focal_length),
                                 Point2Di(*pi_cam_resolution))
                                 
-                    #call koki on the image
                     markers = self.koki.find_markers_fp(ipl_image,
                                     functools.partial(self._width_from_code, marker_luts[mode][arena]),
                                     params)
@@ -231,7 +232,6 @@ class FrameProcessor(threading.Thread):
                     # Lock the thread so that the parent varible doesn't change under our feet
                     # Not sure if this is needed but it doesn't cost us much
                     with self.owner.lock:
-                        #Only add the frame if the last one added was older
                         if self.owner.last_analyzed_frame.time < time.time():
                             self.owner.last_analyzed_frame = FrameResult(
                                 time = time.time(),
@@ -240,7 +240,6 @@ class FrameProcessor(threading.Thread):
                             self.owner.owner.new_analysis_for_user.set()
                                     
                 finally:
-                    # Reset the stream and event
                     self.stream.seek(0)
                     self.stream.truncate()
                     self.new_image_event.clear()
@@ -249,20 +248,48 @@ class FrameProcessor(threading.Thread):
                         self.owner.pool.append(self)
                         
         #We have been asked to stop and so we will exit here
-        self.stopped()    
+        self.stopped()
+        
+class PreprocessingSetter(object):
+    """
+    Alows setting/getting of each the threads preprocessing mode
+    """
+    def __init__(self, stream_analyzer):
+        self.stream_analyzer = stream_analyzer
+    
+    def __setitem__(self, value):
+        if value not in [None, "video-denoise", "picture-denoise"]:
+            raise ValueError("Invalid Preprossing mode {}".format(value))
+        
+        with self.stream_analyzer.lock:
+            for processor in self.stream_analyzer.pool:
+                processor.preprocessing = value
+                
+    def __getitem__(self, value):
+        result = []
+        
+        with self.stream_analyzer.lock:
+            for processor in self.stream_analyzer.pool:
+                result.append(processor.preprocessing)
+        
+        return result
 
+        
 class StreamAnalyzer(object):
+    """
+    Schedules threads with frames comming in from a stream storing the
+    most recent analysis.
+    """
     def __init__(self, owner, camera, libkoki_path):
         self.camera = camera
         self.owner = owner
                     
-        # Construct a pool of image processors along with a lock
-        # to control access between threads
+        # Construct a pool of frame processors
         self.lock = threading.Lock()            
         self.pool = [FrameProcessor(self, libkoki_path) for i in range(thread_count)]
             
         self.processor = None
-        self.processed_frames = 0
+        self.thread_count = thread_count
         
         # fake the time of the last analyzed frame as the time the 
         # program started. This feels a bit hacky but works.
@@ -290,20 +317,30 @@ class StreamAnalyzer(object):
         if self.processor:
             self.processor.stream.write(buf)
 
-    def flush(self):
-        running_threads = thread_count
-        print "output.flush() called"
-        # When told to flush (this indicates end of recording), shut
-        # down in an orderly fashion. First, add the current processor
-        # back to the pool
+    def return_processor_to_pool(self):
         if self.processor:
             with self.lock:
                 self.pool.append(self.processor)
                 self.processor = None
         
-        # Now, empty the pool, joining each thread as we go.
-        # We keep track of how many threads are left so that we don't
-        # leave any still running before the main thread exits
+
+    def flush(self):
+        """
+        This method is called by the camera when it stops recording
+        so we add the current processor back to the pool
+        """
+        self.return_processor_to_pool()
+        
+
+                    
+    def shutdown(self):
+        """
+        Stops and returns threads to the pool. Joining them as we go.
+        """        
+        self.return_processor_to_pool()
+        
+        running_threads = self.thread_count
+        
         while running_threads:
             with self.lock:
                 try:
@@ -313,12 +350,11 @@ class StreamAnalyzer(object):
                     proc.join()
                     running_threads -= 1
                 except IndexError:
-                    print "waiting for threads to return to pool"
-                    # Wait for the threads to return themselves to the pool
+                    print "WAITING FOR THREAD TO ENTER POOL"
                     time.sleep(0.1)
 
 
-class VisionController():
+class VisionController(object):
     """
     The controller class for vision. Contains an instance of the 
     StreamAnalyzer class (the scheduler for threads) and camera classes.
@@ -341,6 +377,8 @@ class VisionController():
         
         self.camera = picamera.PiCamera(resolution=res)
         self.stream_analyzer = StreamAnalyzer(self, self.camera, libpath)
+        
+        self.preprocessing = PreprocessingSetter(self.stream_analyzer)
         
         self.new_analysis_for_user = threading.Event() 
         self.new_analysis_for_user.clear()
@@ -372,8 +410,10 @@ class VisionController():
         self.new_analysis_for_user.clear()
         return self.stream_analyzer.last_analyzed_frame.result            
             
+            
     def tidyUp(self):    
         self.done = True
+        self.stream_analyzer.shutdown()
         self.analyze_thread.join()
         self.camera.stop_recording()
         
@@ -383,13 +423,26 @@ class VisionController():
         
 myVisionController = VisionController(pi_cam_resolution)
 
-time.sleep(0.5)
+from math import sqrt
 
-for i in range(10):
-    x_start_time = time.time()
-    print myVisionController.see()
-    x_total_time = time.time() - x_start_time
-    print "Saw in: ", x_total_time
-    
-myVisionController.tidyUp()
+try:    
+    distances = []
+
+    myVisionController.preprocessing = "picture-denoise"
+
+    for i in range(30):
+        markers = myVisionController.see()
+        if len(markers) == 1:
+            distances.append(markers[0].distance)
+            print(markers[0].distance)
+
+
+    mean = float(sum(distances)) / len(distances)
+    sd = sqrt(sum((x - mean)**2 for x in distances) / len(distances))
+
+    print "number: ", len(distances)
+    print "mean: ", mean
+    print "sd: ", sd
+finally:
+    myVisionController.tidyUp()
         

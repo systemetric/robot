@@ -325,8 +325,8 @@ class Vision(object):
             if isinstance(self.camera, picamera.PiCamera):
                 with picamera.array.PiRGBArray(self.camera) as stream:
                     start = time.time()
-                    
                     self.camera.capture(stream, format="bgr", use_video_port=fast_capture)
+                    print "capture time: ", (time.time() - start)
                     col_image = stream.array
                     image = cv2.cvtColor(stream.array, cv2.COLOR_BGR2GRAY)
             else:
