@@ -149,7 +149,7 @@ class camera():
 
 
 class FrameProcessor(threading.Thread):
-    def __init__(self, owner, lib=None, preprocessing="picture-denoise"):
+    def __init__(self, owner, lib=None, preprocessing=None):
         super(FrameProcessor, self).__init__()
         
         self.stream = io.BytesIO()
@@ -227,9 +227,7 @@ class FrameProcessor(threading.Thread):
                     markers = self.koki.find_markers_fp(ipl_image,
                                     functools.partial(self._width_from_code, marker_luts[mode][arena]),
                                     params)
-                                    
-                    print markers
-                    
+                                                        
                     # Lock the thread so that the parent varible doesn't change under our feet
                     # Not sure if this is needed but it doesn't cost us much
                     with self.owner.lock:
@@ -239,6 +237,7 @@ class FrameProcessor(threading.Thread):
                                 time = time.time(),
                                 frame_pointer = image,
                                 result = markers)
+                            self.owner.owner.new_analysis_for_user.set()
                                     
                 finally:
                     # Reset the stream and event
@@ -253,8 +252,9 @@ class FrameProcessor(threading.Thread):
         self.stopped()    
 
 class StreamAnalyzer(object):
-    def __init__(self, camera, libkoki_path):
+    def __init__(self, owner, camera, libkoki_path):
         self.camera = camera
+        self.owner = owner
                     
         # Construct a pool of image processors along with a lock
         # to control access between threads
@@ -278,8 +278,6 @@ class StreamAnalyzer(object):
             # a spare one
             if self.processor:
                 self.processor.new_image_event.set()
-                self.processed_frames += 1
-                print "processed frames: ", self.processed_frames
                 
             with self.lock:
                 if self.pool:
@@ -316,7 +314,7 @@ class StreamAnalyzer(object):
                     running_threads -= 1
                 except IndexError:
                     print "waiting for threads to return to pool"
-                    #Wait for the threads to return themselves to the pool
+                    # Wait for the threads to return themselves to the pool
                     time.sleep(0.1)
 
 
@@ -342,7 +340,7 @@ class VisionController():
                     break
         
         self.camera = picamera.PiCamera(resolution=res)
-        self.stream_analyzer = StreamAnalyzer(self.camera, libpath)
+        self.stream_analyzer = StreamAnalyzer(self, self.camera, libpath)
         
         self.new_analysis_for_user = threading.Event() 
         self.new_analysis_for_user.clear()
@@ -363,21 +361,35 @@ class VisionController():
         print "camera has started recording"
         while not self.done:
             self.camera.wait_recording(1)
-        #finally:
-        self.camera.stop_recording()
-                
-    def see(self):
-        if self.new_analysis_for_user.wait(1):
-            self.new_analysis_for_user.clear()
-            return self.stream_analyzer.last_analyzed_frame
-        else:
-            raise IOError("StreamAnalyzer failed to return new analysis")
-            
         
-    def __del__(self):
+            
+    def see(self):
+        # If there is no analysis for the user then we wait 1/20 of a 
+        # in a way that doesn't hold the GIL
+        while not self.new_analysis_for_user.wait(0.05):
+            pass
+            
+        self.new_analysis_for_user.clear()
+        return self.stream_analyzer.last_analyzed_frame.result            
+            
+    def tidyUp(self):    
         self.done = True
         self.analyze_thread.join()
+        self.camera.stop_recording()
+        
+            
+    def __del__(self):
+        self.tidyUp()
         
 myVisionController = VisionController(pi_cam_resolution)
-print myVisionController.see()
+
+time.sleep(0.5)
+
+for i in range(10):
+    x_start_time = time.time()
+    print myVisionController.see()
+    x_total_time = time.time() - x_start_time
+    print "Saw in: ", x_total_time
+    
+myVisionController.tidyUp()
         
