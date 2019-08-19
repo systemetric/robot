@@ -408,8 +408,52 @@ class VisionController(object):
             pass
             
         self.new_analysis_for_user.clear()
-        return self.stream_analyzer.last_analyzed_frame.result            
-            
+        markers = self.stream_analyzer.last_analyzed_frame.result            
+
+        info = marker_luts[mode][arena][zone][int(m.code)]
+    
+        robocon_markers
+    
+        for m in markers:
+            vertices = []
+            for v in m.vertices:
+                #Append to the list
+                vertices.append(Point(image=ImageCoord(x=v.image.x,
+                                                       y=v.image.y),
+                                      world=WorldCoord(x=v.world.x,
+                                                       y=v.world.y,
+                                                       z=v.world.z),
+                                      # libkoki does not yet provide these coords
+                                      polar=PolarCoord(0, 0, 0)))
+
+            num_quarter_turns = int(m.rotation_offset / 90)
+            num_quarter_turns %= 4
+
+            vertices = vertices[num_quarter_turns:] + vertices[:num_quarter_turns]
+
+            centre = Point(image=ImageCoord(x=m.centre.image.x,
+                                            y=m.centre.image.y),
+                           world=WorldCoord(x=m.centre.world.x,
+                                            y=m.centre.world.y,
+                                            z=m.centre.world.z),
+                           polar=PolarCoord(length=m.distance,
+                                            rot_x=m.bearing.x,
+                                            rot_y=m.bearing.y))
+
+            orientation = Orientation(rot_x=m.rotation.x,
+                                      rot_y=m.rotation.y,
+                                      rot_z=m.rotation.z)
+
+            marker = Marker(info=info,
+                            timestamp=acq_time,
+                            res=res,
+                            vertices=vertices,
+                            centre=centre,
+                            orientation=orientation)
+            robocon_markers.append(marker)
+
+        return robocon_markers
+
             
     def tidyUp(self):    
         self.done = True
@@ -423,26 +467,25 @@ class VisionController(object):
         
 myVisionController = VisionController(pi_cam_resolution)
 
-from math import sqrt
-
 try:    
-    distances = []
 
     myVisionController.preprocessing = "picture-denoise"
 
-    for i in range(30):
-        markers = myVisionController.see()
-        if len(markers) == 1:
-            distances.append(markers[0].distance)
-            print(markers[0].distance)
+    """
+    Thankyou for testing out the code!!!!!
+    
+    If you could please take a program that you know works with your mini
+    bot and involves vision and replace all occurences of R.see() with
+    myVisionController.see() and tell me if there is any degragation to
+    mini-bot performace that would really help me out. 
+    
+    I'm particularly interested if the minibot works just as well after
+    it has stopped.
+    
+    Please place your code bellow :-)
+    """
 
-
-    mean = float(sum(distances)) / len(distances)
-    sd = sqrt(sum((x - mean)**2 for x in distances) / len(distances))
-
-    print "number: ", len(distances)
-    print "mean: ", mean
-    print "sd: ", sd
+    print myVisionController.see()
 finally:
     myVisionController.tidyUp()
         
