@@ -9,6 +9,7 @@ import threading
 import time
 from collections import namedtuple
 
+import numpy as np
 import cv2
 import picamera
 import picamera.array  # Required, see <https://picamera.readthedocs.io/en/latest/api_array.html>
@@ -301,7 +302,7 @@ class Vision(object):
             save=True,
             fast_capture=True,
             zone=0,
-            bounding_box_enable=True):
+            bounding_box_enable=False):
                 
                 
         if isinstance(self.camera, picamera.PiCamera):
@@ -324,6 +325,7 @@ class Vision(object):
             if isinstance(self.camera, picamera.PiCamera):
                 with picamera.array.PiRGBArray(self.camera) as stream:
                     start = time.time()
+                    
                     self.camera.capture(stream, format="bgr", use_video_port=fast_capture)
                     col_image = stream.array
                     image = cv2.cvtColor(stream.array, cv2.COLOR_BGR2GRAY)
