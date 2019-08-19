@@ -12,9 +12,9 @@ from PIL import Image
 import numpy
 import cv2
 import pykoki
-# noinspection PyUnresolvedReferences
-import picamera.array  # Required, see <https://picamera.readthedocs.io/en/latest/api_array.html>
 from pykoki import CameraParams, Point2Df, Point2Di
+import picamera.array  # Required, see <https://picamera.readthedocs.io/en/latest/api_array.html>
+
 
 thread_count = 4
 
@@ -49,6 +49,7 @@ marker_sizes = {
     MARKER_BUCKET_END: 0.1 * (10.0 / 12),
 }
 
+FrameResult = namedtuple("FrameResult", "time frame_pointer result")
 MarkerInfo = namedtuple("MarkerInfo", "code marker_type token_type offset size")
 ImageCoord = namedtuple("ImageCoord", "x y")
 WorldCoord = namedtuple("WorldCoord", "x y z")
@@ -142,19 +143,27 @@ marker_luts = {
 mode = "dev"
 arena = "A"
 
+class camera():
+    def __init__(self):
+        pass
 
-class ImageProcessor(threading.Thread):
-    def __init__(self, owner, lib=None):
-        super(ImageProcessor, self).__init__()
+
+class FrameProcessor(threading.Thread):
+    def __init__(self, owner, lib=None, preprocessing=None):
+        super(FrameProcessor, self).__init__()
+        
         self.stream = io.BytesIO()
+        self.owner = owner
+        self.preprocessing = preprocessing
+        
+        #create events that let us control this processor
         self.new_image_event = threading.Event()
         self._stop_event = threading.Event()
-        self.owner = owner
         
-        if lib is not None:
-            self.koki = pykoki.PyKoki(lib)
+        if lib is None:
+            self.koki = pykoki.PyKoki()
         else:
-            self.koki = pykoki.PyKoki()       
+            self.koki = pykoki.PyKoki(lib)       
         
         self.start()
 
@@ -171,21 +180,34 @@ class ImageProcessor(threading.Thread):
             return 0.1
 
     def run(self):
-        print "im.run"
         while not self._stop_event.is_set():
             # Wait for an image to be written to the stream
             if self.new_image_event.wait(1):
                 try:
+                    start_work_time = time.time()
+                    
                     # Move to the start of the stream
                     self.stream.seek(0)
                     
-                    # Construct a numpy array from the stream
-                    data = numpy.fromstring(self.stream.getvalue(), dtype=numpy.uint8)
+                    if self.preprocessing == None:
+                        # Construct a numpy array from the last video frame in the stream
+                        data = numpy.fromstring(self.stream.getvalue(), dtype=numpy.uint8)
+                        # "Decode" the image from the array converting to gray
+                        image = cv2.imdecode(data, cv2.CV_LOAD_IMAGE_GRAYSCALE)
+                        
+                    elif self.preprocessing == "picture-denoise":
+                        #Should use YUV instead of BGR so the GPU has to do less work
+                        with picamera.array.PiRGBArray(self.camera) as stream:
+                            self.camera.capture(stream, format="bgr", use_video_port=fast_capture)
+                            image = cv2.cvtColor(stream.array, cv2.COLOR_BGR2GRAY)
+                    # TODO: test if this is actually more accurate or can see further
+                    """
+                    elif self.preprocessing == "video-denoise":
+                        pil_image = Image.open(self.stream)
+                        image = cv2.cvtColor(numpy.array(pil_image), cv2.COLOR_RGB2GRAY)
+                    """
                     
-                    start_manipulation = time.time()
-                    # "Decode" the image from the array converting to gray
-                    image = cv2.imdecode(data, cv2.CV_LOAD_IMAGE_GRAYSCALE)
-                    
+                                            
                     # Create an IplImage header for the image.
                     # (width, height), depth, num_channels
                     ipl_image = cv2.cv.CreateImageHeader((image.shape[1], image.shape[0]), cv2.cv.IPL_DEPTH_8U, 1)
@@ -201,15 +223,21 @@ class ImageProcessor(threading.Thread):
                                 Point2Df(*focal_length),
                                 Point2Di(*pi_cam_resolution))
                                 
-                    
-                    start_koki = time.time()
                     #call koki on the image
                     markers = self.koki.find_markers_fp(ipl_image,
                                     functools.partial(self._width_from_code, marker_luts[mode][arena]),
                                     params)
-                                    
-                    print markers
-                    
+                                                        
+                    # Lock the thread so that the parent varible doesn't change under our feet
+                    # Not sure if this is needed but it doesn't cost us much
+                    with self.owner.lock:
+                        #Only add the frame if the last one added was older
+                        if self.owner.last_analyzed_frame.time < time.time():
+                            self.owner.last_analyzed_frame = FrameResult(
+                                time = time.time(),
+                                frame_pointer = image,
+                                result = markers)
+                            self.owner.owner.new_analysis_for_user.set()
                                     
                 finally:
                     # Reset the stream and event
@@ -221,32 +249,29 @@ class ImageProcessor(threading.Thread):
                         self.owner.pool.append(self)
                         
         #We have been asked to stop and so we will exit here
-        print "stopping processing"
         self.stopped()    
 
-class ProcessOutput(object):
-    def __init__(self):
-        self.done = False
-        
-        # Find libkoki.so:
-        libpath = None
-        if "LD_LIBRARY_PATH" in os.environ:
-            for d in os.environ["LD_LIBRARY_PATH"].split(":"):
-                l = glob.glob("%s/libkoki.so*" % os.path.abspath(d))
-                if len(l):
-                    libpath = os.path.abspath(d)
-                    break
+class StreamAnalyzer(object):
+    def __init__(self, owner, camera, libkoki_path):
+        self.camera = camera
+        self.owner = owner
                     
-        # Construct a pool of 4 image processors along with a lock
+        # Construct a pool of image processors along with a lock
         # to control access between threads
         self.lock = threading.Lock()            
-        if libpath is None:
-           self.pool = [ImageProcessor(self, "/home/pi/libkoki/lib") for i in range(thread_count)]
-        else:
-           self.pool = [ImageProcessor(self, libpath) for i in range(thread_count)]
+        self.pool = [FrameProcessor(self, libkoki_path) for i in range(thread_count)]
             
         self.processor = None
+        self.processed_frames = 0
+        
+        # fake the time of the last analyzed frame as the time the 
+        # program started. This feels a bit hacky but works.
+        self.last_analyzed_frame = FrameResult(
+                            time = time.time(),
+                            frame_pointer = None,
+                            result = None)
 
+        
     def write(self, buf):
         if buf.startswith(b'\xff\xd8'):
             # New frame; set the current processor going and grab
@@ -275,7 +300,10 @@ class ProcessOutput(object):
             with self.lock:
                 self.pool.append(self.processor)
                 self.processor = None
-        # Now, empty the pool, joining each thread as we go
+        
+        # Now, empty the pool, joining each thread as we go.
+        # We keep track of how many threads are left so that we don't
+        # leave any still running before the main thread exits
         while running_threads:
             with self.lock:
                 try:
@@ -286,21 +314,82 @@ class ProcessOutput(object):
                     running_threads -= 1
                 except IndexError:
                     print "waiting for threads to return to pool"
-                    #Wait for the threads to return themselves to the pool
+                    # Wait for the threads to return themselves to the pool
                     time.sleep(0.1)
 
-with picamera.PiCamera(resolution=pi_cam_resolution) as camera:
-    #camera.start_preview()
-    try:
-        print "Camera init"
-        output = ProcessOutput()
-        print "process handeler created"
-        camera.start_recording(output, format='mjpeg')
-        print "streaming"
-        while not output.done:
-            camera.wait_recording(1)
-    finally:
-        print "EXITING NOW"
-        output.done = True
-        camera.stop_recording()
-        print "camera stopped"
+
+class VisionController():
+    """
+    The controller class for vision. Contains an instance of the 
+    StreamAnalyzer class (the scheduler for threads) and camera classes.
+    It's purpose is to set everything up for the StreamAnalyzer class and
+    to feed it frames from the camera's
+    
+    This probally could be merged with the ProcessOuput class by using self
+    as the writeable object. Not sure if that is more or less readable.
+    """
+    def __init__(self, res):
+        
+        # Find libkoki.so:
+        libpath = "/home/pi/libkoki/lib"
+        if "LD_LIBRARY_PATH" in os.environ:
+            for d in os.environ["LD_LIBRARY_PATH"].split(":"):
+                l = glob.glob("%s/libkoki.so*" % os.path.abspath(d))
+                if len(l):
+                    libpath = os.path.abspath(d)
+                    break
+        
+        self.camera = picamera.PiCamera(resolution=res)
+        self.stream_analyzer = StreamAnalyzer(self, self.camera, libpath)
+        
+        self.new_analysis_for_user = threading.Event() 
+        self.new_analysis_for_user.clear()
+        
+        self.done = False
+        
+        try:
+            self.analyze_thread = threading.Thread(target=self.record_to_analyzer)
+            self.analyze_thread.start()
+        except:
+            print "Error: Failed starting analyzer"
+
+        
+    def record_to_analyzer(self):
+        print "record_to_analyzer has been called"
+        print "attempting to start recording"
+        self.camera.start_recording(self.stream_analyzer, format='mjpeg')
+        print "camera has started recording"
+        while not self.done:
+            self.camera.wait_recording(1)
+        
+            
+    def see(self):
+        # If there is no analysis for the user then we wait 1/20 of a 
+        # in a way that doesn't hold the GIL
+        while not self.new_analysis_for_user.wait(0.05):
+            pass
+            
+        self.new_analysis_for_user.clear()
+        return self.stream_analyzer.last_analyzed_frame.result            
+            
+    def tidyUp(self):    
+        self.done = True
+        self.analyze_thread.join()
+        self.camera.stop_recording()
+        
+            
+    def __del__(self):
+        self.tidyUp()
+        
+myVisionController = VisionController(pi_cam_resolution)
+
+time.sleep(0.5)
+
+for i in range(10):
+    x_start_time = time.time()
+    print myVisionController.see()
+    x_total_time = time.time() - x_start_time
+    print "Saw in: ", x_total_time
+    
+myVisionController.tidyUp()
+        

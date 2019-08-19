@@ -1,4 +1,3 @@
-# Copyright Robert Spanton 2014
 import json
 import sys
 import optparse
