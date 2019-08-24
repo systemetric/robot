@@ -149,6 +149,14 @@ class Marker(MarkerBase):
         # Aliases
         self.dist = self.centre.polar.length
         self.rot_y = self.centre.polar.rot_y
+        
+class Timer(object):
+    def __enter__(self):
+        self.start = time.time()
+
+    def __exit__(self, t, v, tb):
+        self.time = time.time() - self.start
+        return False
 
 mode = "dev"
 arena = "A"
@@ -159,7 +167,8 @@ class FrameProcessor(threading.Thread):
     Turns a frame into a numpy array -> cv::mat -> iplimage passes it to
     koki then tries to store the result its owner.
     
-    Each instance of this class runs in a seperate thread
+    Each instance of this class runs in a seperate thread and is controled
+    by the StreamAnalyzer class.
     """
     def __init__(self, owner, lib=None, preprocessing=None):
         super(FrameProcessor, self).__init__()
@@ -194,6 +203,18 @@ class FrameProcessor(threading.Thread):
             return 0.1
 
     def run(self):
+        """
+        The main loop for the processor, waits to be told a frame has been
+        writen to the buffer using the new_image_event. Then it takes the
+        frame applying different processing techniques. As we are multithreaded
+        waiting on a long IO event does not cost us much in fps only latency.
+        
+        Once we have the frame, we convert into a form koki can use call
+        koki and update the last_analyzed_frame parameter in the controlling
+        class.
+        
+        Then the thread is returned to the pool to await another frame
+        """
         while not self._stop_event.is_set():
             if self.new_image_event.wait(1):
                 try:
@@ -254,7 +275,6 @@ class FrameProcessor(threading.Thread):
                     self.stream.seek(0)
                     self.stream.truncate()
                     self.new_image_event.clear()
-                    # Return ourselves to the available pool
                     with self.owner.lock:
                         self.owner.pool.append(self)
                         
@@ -263,7 +283,8 @@ class FrameProcessor(threading.Thread):
         
 class PreprocessingSetter(object):
     """
-    Alows setting/getting of each the threads preprocessing mode
+    Alows setting/getting of all the threads preprocessing modes from a
+    signle parameter of the StreamAnalyzer class 
     """
     def __init__(self, stream_analyzer):
         self.stream_analyzer = stream_analyzer
@@ -311,17 +332,23 @@ class StreamAnalyzer(object):
 
         
     def write(self, buf):
+        """
+        When a frame is writen from the camera we set the current processor
+        going, and attempt to get a new one from the pool however the pool maybe
+        empty in which case we have to skip the frame. 
+        
+        We then start writing the buffer to the next processor, which we
+        know has finished when the next frame comes in
+        """
         if buf.startswith(b'\xff\xd8'):
-            # New frame; set the current processor going and grab
-            # a spare one
             if self.processor:
                 self.processor.new_image_event.set()
                 
             with self.lock:
                 if self.pool:
                     self.processor = self.pool.pop()
-                else:
-                    # No processor's available, we'll have to skip
+                else: 
+                    #No avalible processor
                     self.processor = None
         
         #Pass the buffer to current processor 
@@ -329,6 +356,9 @@ class StreamAnalyzer(object):
             self.processor.stream.write(buf)
 
     def return_processor_to_pool(self):
+        """
+        Returns the processor to the pool
+        """
         if self.processor:
             with self.lock:
                 self.pool.append(self.processor)
@@ -361,7 +391,6 @@ class StreamAnalyzer(object):
                     proc.join()
                     running_threads -= 1
                 except IndexError:
-                    print "WAITING FOR THREAD TO ENTER POOL"
                     time.sleep(0.1)
 
 
@@ -404,7 +433,6 @@ class VisionController(object):
 
         
     def record_to_analyzer(self):
-        print "record_to_analyzer has been called"
         print "attempting to start recording"
         self.camera.start_recording(self.stream_analyzer, format='mjpeg')
         print "camera has started recording"
@@ -412,62 +440,97 @@ class VisionController(object):
             self.camera.wait_recording(1)
         
             
-    def see(self):
-        # If there is no analysis for the user then we wait 1/20 of a 
-        # in a way that doesn't hold the GIL
+    def see(self, save=True, stats=None, zone=0):
+        """
+        The function which interacts with the user to return the markers
+        which the robot last saw in a useful form to the user
+        Parameters: 
+        save  - BOOL Weather the robot should save a copy of what it saw to /tmp
+        stats - DICT Passing an empty dictionary {} will be filled during
+                     the call with times for each step of the pipeline
+        zone  - INT  What zone the robot will for the LUTs
+        
+        """
+        timer = Timer()
+        times = {}
+        
+        res = pi_cam_resolution #Set the res until we have proper resolution switching            
+        
+        # If there is no analys is for the user then we wait 1/20s
         # TODO: Check if we need to use a use a deepcopy or use a lock
         # on the postprocessing
-        while not self.new_analysis_for_user.wait(0.05):
-            pass
+        
+        with timer:
+            while not self.new_analysis_for_user.wait(0.05):
+                pass
+                
+            self.new_analysis_for_user.clear()
+            markers = self.stream_analyzer.last_analyzed_frame.result
+            acq_time = self.stream_analyzer.last_analyzed_frame.time
             
-        self.new_analysis_for_user.clear()
-        markers = self.stream_analyzer.last_analyzed_frame.result
-        acq_time = self.stream_analyzer.last_analyzed_frame.time
-        res = pi_cam_resolution            
+        times["acq"] = timer.time
+        
+        with timer:
+            if save:
+                cv2.imwrite("/tmp/image.jpg", self.stream_analyzer.last_analyzed_frame.frame_pointer)
 
-        for m in markers:
-            info = marker_luts[mode][arena][zone][int(m.code)]
-    
-        robocon_markers = []
-    
-        for m in markers:
-            vertices = []
-            for v in m.vertices:
-                #Append to the list
-                vertices.append(Point(image=ImageCoord(x=v.image.x,
-                                                       y=v.image.y),
-                                      world=WorldCoord(x=v.world.x,
-                                                       y=v.world.y,
-                                                       z=v.world.z),
-                                      # libkoki does not yet provide these coords
-                                      polar=PolarCoord(0, 0, 0)))
+        times["save"] = timer.time
 
-            num_quarter_turns = int(m.rotation_offset / 90)
-            num_quarter_turns %= 4
 
-            vertices = vertices[num_quarter_turns:] + vertices[:num_quarter_turns]
+        with timer:
+            robocon_markers = []
 
-            centre = Point(image=ImageCoord(x=m.centre.image.x,
-                                            y=m.centre.image.y),
-                           world=WorldCoord(x=m.centre.world.x,
-                                            y=m.centre.world.y,
-                                            z=m.centre.world.z),
-                           polar=PolarCoord(length=m.distance,
-                                            rot_x=m.bearing.x,
-                                            rot_y=m.bearing.y))
+            for m in markers:
+                if m.code not in marker_luts[mode][arena][zone]:
+                    print "WARNING: Libkoki detected marker not found in competition"
+                    print "try using better lighting"
+                    print "IGNORING MARKER", m
+                    continue
+        
+                
+                info = marker_luts[mode][arena][zone][int(m.code)]
+                vertices = []
+                
+                for v in m.vertices:
+                    #Append to the list
+                    vertices.append(Point(image=ImageCoord(x=v.image.x,
+                                                           y=v.image.y),
+                                          world=WorldCoord(x=v.world.x,
+                                                           y=v.world.y,
+                                                           z=v.world.z),
+                                          # libkoki does not yet provide these coords
+                                          polar=PolarCoord(0, 0, 0)))
 
-            orientation = Orientation(rot_x=m.rotation.x,
-                                      rot_y=m.rotation.y,
-                                      rot_z=m.rotation.z)
+                num_quarter_turns = int(m.rotation_offset / 90)
+                num_quarter_turns %= 4
 
-            marker = Marker(info=info,
-                            timestamp=acq_time,
-                            res=res,
-                            vertices=vertices,
-                            centre=centre,
-                            orientation=orientation)
-            robocon_markers.append(marker)
+                vertices = vertices[num_quarter_turns:] + vertices[:num_quarter_turns]
 
+                centre = Point(image=ImageCoord(x=m.centre.image.x,
+                                                y=m.centre.image.y),
+                               world=WorldCoord(x=m.centre.world.x,
+                                                y=m.centre.world.y,
+                                                z=m.centre.world.z),
+                               polar=PolarCoord(length=m.distance,
+                                                rot_x=m.bearing.x,
+                                                rot_y=m.bearing.y))
+
+                orientation = Orientation(rot_x=m.rotation.x,
+                                          rot_y=m.rotation.y,
+                                          rot_z=m.rotation.z)
+
+                marker = Marker(info=info,
+                                timestamp=acq_time,
+                                res=res,
+                                vertices=vertices,
+                                centre=centre,
+                                orientation=orientation)
+                robocon_markers.append(marker)
+        
+        times["post-processing"] = timer.time
+        if stats:
+            stats = times
+        
         return robocon_markers
 
             
@@ -503,7 +566,18 @@ try:
     
     Please place your code bellow :-)
     """
+    
+    duration = 0
+    start_time = time.time()
+    for i in range(100):
+        for m in myVisionController.see():
+            print "attempt: ", i , " code: " , m.info.code, " with dist ", m.dist
 
+    end_time = time.time()
+    duration += (end_time - start_time)
+        
+    print "took: ", duration
+    print "fps: ", (100/duration)
 
 
     """
