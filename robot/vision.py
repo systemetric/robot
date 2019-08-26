@@ -93,10 +93,11 @@ Point = namedtuple("Point", "image world polar")
 # Number of markers per group
 marker_group_counts = {
     "dev": [(MARKER_ARENA, 24),
-            (MARKER_BUCKET_END, 4)
+            (MARKER_TOKEN, 40),
+            (MARKER_BUCKET_END, 4),
             ],
     "comp": [(MARKER_ARENA, 24),
-             (MARKER_BUCKET_END, 4)
+            (MARKER_BUCKET_END, 4)
             ],
 }
 
@@ -108,6 +109,8 @@ def create_marker_lut(counts, zone):  # def create_marker_lut(offset, counts, zo
             token_type = TOKEN_NONE
             if marker_type == MARKER_BUCKET_END:
                 bounding_box_colour = GREEN
+            elif marker_type == MARKER_TOKEN:
+                bounding_box_colour = RED
             else:  # MARKER_ARENA
                 bounding_box_colour = BLUE
 
