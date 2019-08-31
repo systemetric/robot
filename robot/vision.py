@@ -15,9 +15,6 @@ import pykoki
 from pykoki import CameraParams, Point2Df, Point2Di
 import picamera.array  # Required, see <https://picamera.readthedocs.io/en/latest/api_array.html>
 
-
-thread_count = 4
-
 picamera_focal_lengths = {  # fx, fy tuples
     (1920, 1440): (1393, 1395),
     (1920, 1088): (2431, 2431),
@@ -26,8 +23,19 @@ picamera_focal_lengths = {  # fx, fy tuples
     (640, 480): (463, 463),
 }
 
-pi_cam_resolution = (1296, 736)
+pi_cam_resolution = (1296, 730)
 focal_length = (962, 962)
+
+# Colours are in the format BGR
+PURPLE = (255,0,215) #Purple
+ORANGE = (0,128,255) #Orange
+YELLOW = (0,255,255) #Yellow
+GREEN = (0,255,0) #Green
+RED = (0,0,255) #Red
+BLUE = (255,0,0) #Blue
+WHITE = (255, 255, 255) #White
+
+BOUNDING_BOX_THICKNESS = 2
 
 MARKER_ARENA, MARKER_TOKEN, MARKER_BUCKET_SIDE, MARKER_BUCKET_END = 'arena', 'token', 'bucket-side', 'bucket-end'
 TOKEN_NONE, TOKEN_ORE, TOKEN_FOOLS_GOLD, TOKEN_GOLD = 'none', 'ore', 'fools-gold', 'gold'
@@ -49,8 +57,8 @@ marker_sizes = {
     MARKER_BUCKET_END: 0.1 * (10.0 / 12),
 }
 
-FrameResult = namedtuple("FrameResult", "time frame_pointer result")
-MarkerInfo = namedtuple("MarkerInfo", "code marker_type token_type offset size")
+FrameResult = namedtuple("FrameResult", "time frame result")
+MarkerInfo = namedtuple("MarkerInfo", "code marker_type token_type offset size bounding_box_colour")
 ImageCoord = namedtuple("ImageCoord", "x y")
 WorldCoord = namedtuple("WorldCoord", "x y z")
 PolarCoord = namedtuple("PolarCoord", "length rot_x rot_y")
@@ -69,8 +77,10 @@ marker_group_counts = {
              (MARKER_BUCKET_END, 4)],
 }
 
+
 def create_marker_lut(counts, zone):  # def create_marker_lut(offset, counts, zone):
     lut = {}
+    bounding_box_colour = GREEN
     for marker_type, num_markers in counts:
         for n in range(0, num_markers):
             token_type = TOKEN_NONE
@@ -89,7 +99,8 @@ def create_marker_lut(counts, zone):  # def create_marker_lut(offset, counts, zo
                            marker_type=marker_type,
                            token_type=token_type,
                            offset=n,
-                           size=marker_sizes[marker_type])
+                           size=marker_sizes[marker_type],
+                           bounding_box_colour=bounding_box_colour)
             lut[code] = m
     return lut
 
@@ -199,7 +210,6 @@ class FrameProcessor(threading.Thread):
     @staticmethod
     def _width_from_code(lut, code):
         if code not in lut:
-            # TODO: ignore these...
             return 0.1
 
     def run(self):
@@ -225,22 +235,19 @@ class FrameProcessor(threading.Thread):
                     if self.preprocessing == None:
                         data = numpy.fromstring(self.stream.getvalue(), dtype=numpy.uint8)
                         image = cv2.imdecode(data, cv2.CV_LOAD_IMAGE_GRAYSCALE)
+                        colour_image = cv2.imdecode(data, cv2.CV_LOAD_IMAGE_COLOR)
                     
                     elif self.preprocessing == "video-denoise":
-                        pil_image = Image.open(self.stream)
-                        image = cv2.cvtColor(numpy.array(pil_image), cv2.COLOR_RGB2GRAY)
+                        colour_image = Image.open(self.stream)
+                        image = cv2.cvtColor(numpy.array(colour_image), cv2.COLOR_RGB2GRAY)
                         
                     elif self.preprocessing == "picture-denoise":
-                        with picamera.array.PiRGBArray(self.owner.camera) as stream:
-                            self.owner.camera.capture(stream, format="bgr")#, use_video_port=self.fast_capture)
-                            image = cv2.cvtColor(stream.array, cv2.COLOR_BGR2GRAY)
-                    # TODO: test if this is actually more accurate or can see further
-                    # TODO: check if it is possible to use `capture_sequence` with an infinite iterable to prevent reinitalization of encoders
-                    # TODO: use YUV instead of BGR to prevent GPU doing excess work
-                    # TODO: try to use the video port for fast capture
+                        with self.owner.lock:
+                            with picamera.array.PiRGBArray(self.owner.camera) as stream:
+                                self.owner.camera.capture(stream, format="bgr", use_video_port=self.fast_capture)
+                                colour_image = stream.array
+                                image = cv2.cvtColor(colour_image, cv2.COLOR_BGR2GRAY)
                     # See: https://picamera.readthedocs.io/en/release-1.13/recipes2.html#rapid-capture-and-processing
-                    
-                    
                                             
                     # Create an IplImage header for the image.
                     # (width, height), depth, num_channels
@@ -267,7 +274,7 @@ class FrameProcessor(threading.Thread):
                         if self.owner.last_analyzed_frame.time < time.time():
                             self.owner.last_analyzed_frame = FrameResult(
                                 time = time.time(),
-                                frame_pointer = image,
+                                frame = colour_image,
                                 result = markers)
                             self.owner.owner.new_analysis_for_user.set()
                                     
@@ -312,7 +319,7 @@ class StreamAnalyzer(object):
     Schedules threads with frames comming in from a stream storing the
     most recent analysis.
     """
-    def __init__(self, owner, camera, libkoki_path):
+    def __init__(self, owner, camera, libkoki_path, thread_count):
         self.camera = camera
         self.owner = owner
                     
@@ -324,10 +331,10 @@ class StreamAnalyzer(object):
         self.thread_count = thread_count
         
         # fake the time of the last analyzed frame as the time the 
-        # program started. This feels a bit hacky but works.
+        # program started.
         self.last_analyzed_frame = FrameResult(
                             time = time.time(),
-                            frame_pointer = None,
+                            frame = None,
                             result = None)
 
         
@@ -404,7 +411,7 @@ class VisionController(object):
     This probally could be merged with the ProcessOuput class by using self
     as the writeable object. Not sure if that is more or less readable.
     """
-    def __init__(self, res):
+    def __init__(self, res, thread_count):
         
         # Find libkoki.so:
         libpath = "/home/pi/libkoki/lib"
@@ -416,7 +423,7 @@ class VisionController(object):
                     break
         
         self.camera = picamera.PiCamera(resolution=res)
-        self.stream_analyzer = StreamAnalyzer(self, self.camera, libpath)
+        self.stream_analyzer = StreamAnalyzer(self, self.camera, libpath, thread_count)
         
         self.preprocessing = PreprocessingSetter(self.stream_analyzer)
         
@@ -433,14 +440,18 @@ class VisionController(object):
 
         
     def record_to_analyzer(self):
-        print "attempting to start recording"
         self.camera.start_recording(self.stream_analyzer, format='mjpeg')
-        print "camera has started recording"
         while not self.done:
             self.camera.wait_recording(1)
         
             
-    def see(self, save=True, stats=None, zone=0):
+    def see(self,
+            save=True,
+            stats=None,
+            bounding_box_enable=True,
+            zone=0,
+            mode="dev",
+            arena="A"):
         """
         The function which interacts with the user to return the markers
         which the robot last saw in a useful form to the user
@@ -449,17 +460,15 @@ class VisionController(object):
         stats - DICT Passing an empty dictionary {} will be filled during
                      the call with times for each step of the pipeline
         zone  - INT  What zone the robot will for the LUTs
+        bounding_box_enable - allows or prevents bounding boxes from being drawn
         
         """
         timer = Timer()
         times = {}
         
-        res = pi_cam_resolution #Set the res until we have proper resolution switching            
+        res = pi_cam_resolution #Set the res until we have proper resolution switching   
         
-        # If there is no analys is for the user then we wait 1/20s
-        # TODO: Check if we need to use a use a deepcopy or use a lock
-        # on the postprocessing
-        
+        # If there is no analys is for the user then we wait 1/20s        
         with timer:
             while not self.new_analysis_for_user.wait(0.05):
                 pass
@@ -467,16 +476,11 @@ class VisionController(object):
             self.new_analysis_for_user.clear()
             markers = self.stream_analyzer.last_analyzed_frame.result
             acq_time = self.stream_analyzer.last_analyzed_frame.time
-            
+            colour_frame = self.stream_analyzer.last_analyzed_frame.frame
+                        
         times["acq"] = timer.time
-        
-        with timer:
-            if save:
-                cv2.imwrite("/tmp/image.jpg", self.stream_analyzer.last_analyzed_frame.frame_pointer)
 
-        times["save"] = timer.time
-
-
+        # Post asignment 
         with timer:
             robocon_markers = []
 
@@ -528,6 +532,25 @@ class VisionController(object):
                 robocon_markers.append(marker)
         
         times["post-processing"] = timer.time
+        
+        if bounding_box_enable:
+            with timer:
+                #Should this include the markers not found in the LUT?
+                for m in robocon_markers:
+                    bounding_box_colour = m.info.bounding_box_colour
+                    #get the image cords of the diganoally oposite vertecies
+                    vertex1 = (int(m.vertices[0].image.x), int(m.vertices[0].image.y))
+                    vertex3 = (int(m.vertices[2].image.x), int(m.vertices[2].image.y))
+                    cv2.rectangle(colour_frame, vertex1, vertex3, bounding_box_colour, BOUNDING_BOX_THICKNESS)
+            times["bounding_box"] = timer.time
+    
+        
+        if save:
+            with timer:
+                cv2.imwrite("/tmp/colimage.jpg", colour_frame)
+
+            times["save"] = timer.time
+        
         if stats:
             stats = times
         

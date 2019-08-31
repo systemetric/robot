@@ -80,12 +80,14 @@ class Robot(object):
                  config_logging=True,
                  use_usb_camera=False,
                  motor_max=DEFAULT_MOTOR_CLAMP,
-                 servo_defaults=None):
+                 servo_defaults=None
+                 vision_worker_thread_count=4):
 
         if config_logging:
             setup_logging()
 
         self._use_usb_camera = use_usb_camera
+        self.vision_worker_thread_count = vision_worker_thread_count
 
         self._initialised = False
         self._quiet = quiet
@@ -110,7 +112,7 @@ class Robot(object):
         self._internal.set_12v(True)
         self._gg_version = self._internal.get_version()
 
-        # print report of hardward
+        # print report of hardware
         logger.info("------HARDWARE REPORT------")
         logger.info("Time:   %s" % datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
         logger.info("Patch Version:     2 (USBCAM)")
@@ -350,18 +352,14 @@ class Robot(object):
             raise Error("USB camera's are not currently supported")
         else:
             camera = None
-
-        print "preparing to init visionController"
-        self.vision = vision.VisionController(res=((1296, 736)))
-        print "vision controler is running"
-        self.vision.preprocessing = "picture-denoise"
-        print "picture denoising mode selected"
-
-
-    # noinspection PyUnresolvedReferences
-    def see(self, res=(640, 480), stats=False, save=True,
-     bounding_box=True):
+        self.vision = vision.VisionController(res=(1296, 736), thread_count=self.vision_worker_thread_count) 
+    
+    def see(self,
+            stats=False,
+            save=True,
+            bounding_box=True):
+                
         if not hasattr(self, "vision"):
             raise NoCameraPresent()
 
-        return self.vision.see()
+        return self.vision.see(save, stats, bounding_box, zone=self.zone, mode=self.mode, arena=self.arena)
