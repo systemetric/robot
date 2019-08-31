@@ -1,4 +1,3 @@
-# Copyright Robert Spanton 2014
 import json
 import sys
 import optparse
@@ -81,12 +80,14 @@ class Robot(object):
                  config_logging=True,
                  use_usb_camera=False,
                  motor_max=DEFAULT_MOTOR_CLAMP,
-                 servo_defaults=None):
+                 servo_defaults=None
+                 vision_worker_thread_count=4):
 
         if config_logging:
             setup_logging()
 
         self._use_usb_camera = use_usb_camera
+        self.vision_worker_thread_count = vision_worker_thread_count
 
         self._initialised = False
         self._quiet = quiet
@@ -111,7 +112,7 @@ class Robot(object):
         self._internal.set_12v(True)
         self._gg_version = self._internal.get_version()
 
-        # print report of hardward
+        # print report of hardware
         logger.info("------HARDWARE REPORT------")
         logger.info("Time:   %s" % datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
         logger.info("Patch Version:     2 (USBCAM)")
@@ -348,45 +349,17 @@ class Robot(object):
 
     def _init_vision(self):
         if self._use_usb_camera:
-            udev = pyudev.Context()
-            cams = list(udev.list_devices(
-                subsystem="video4linux",
-                ID_USB_DRIVER="uvcvideo",
-            ))
-
-            if not cams:
-                return
-
-            camera = cams[0].device_node
+            raise Error("USB camera's are not currently supported")
         else:
             camera = None
-
-        # Find libkoki.so:
-        libpath = None
-        if "LD_LIBRARY_PATH" in os.environ:
-            for d in os.environ["LD_LIBRARY_PATH"].split(":"):
-                l = glob.glob("%s/libkoki.so*" % os.path.abspath(d))
-
-                if len(l):
-                    libpath = os.path.abspath(d)
-                    break
-        if libpath is None:
-            v = vision.Vision(camera, "/home/pi/libkoki/lib")  # /root/libkoki/lib
-        else:
-            v = vision.Vision(camera, libpath)
-
-        self.vision = v
-
-    # noinspection PyUnresolvedReferences
-    def see(self, res=(640, 480), stats=False, save=True,
-     bounding_box=True):
+        self.vision = vision.VisionController(res=(1296, 736), thread_count=self.vision_worker_thread_count) 
+    
+    def see(self,
+            stats=False,
+            save=True,
+            bounding_box=True):
+                
         if not hasattr(self, "vision"):
             raise NoCameraPresent()
 
-        return self.vision.see(res=res,
-                               mode=self.mode,
-                               arena=self.arena,
-                               stats=stats,
-                               save=save,
-                               zone=self.zone,
-                               bounding_box_enable = bounding_box)
+        return self.vision.see(save, stats, bounding_box, zone=self.zone, mode=self.mode, arena=self.arena)
