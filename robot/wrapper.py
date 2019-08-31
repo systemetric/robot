@@ -80,12 +80,14 @@ class Robot(object):
                  config_logging=True,
                  use_usb_camera=False,
                  motor_max=DEFAULT_MOTOR_CLAMP,
-                 servo_defaults=None):
+                 servo_defaults=None
+                 vision_worker_thread_count=4):
 
         if config_logging:
             setup_logging()
 
         self._use_usb_camera = use_usb_camera
+        self.vision_worker_thread_count = vision_worker_thread_count
 
         self._initialised = False
         self._quiet = quiet
@@ -350,14 +352,14 @@ class Robot(object):
             raise Error("USB camera's are not currently supported")
         else:
             camera = None
-        self.vision = vision.VisionController(res=((1296, 736))) 
-        
+        self.vision = vision.VisionController(res=(1296, 736), thread_count=self.vision_worker_thread_count) 
     
-
-    # noinspection PyUnresolvedReferences
-    def see(self, res=(640, 480), stats=False, save=True,
-     bounding_box=True):
+    def see(self,
+            stats=False,
+            save=True,
+            bounding_box=True):
+                
         if not hasattr(self, "vision"):
             raise NoCameraPresent()
 
-        return self.vision.see()
+        return self.vision.see(save, stats, bounding_box, zone=self.zone, mode=self.mode, arena=self.arena)
