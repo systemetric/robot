@@ -42,8 +42,6 @@ TOKEN_NONE, TOKEN_ORE, TOKEN_FOOLS_GOLD, TOKEN_GOLD = 'none', 'ore', 'fools-gold
 
 marker_offsets = {
     MARKER_ARENA: 0,
-    MARKER_TOKEN: 32,
-    MARKER_BUCKET_SIDE: 72,
     MARKER_BUCKET_END: 76,
 }
 
@@ -58,7 +56,8 @@ marker_sizes = {
 }
 
 FrameResult = namedtuple("FrameResult", "time frame result")
-MarkerInfo = namedtuple("MarkerInfo", "code marker_type token_type offset size bounding_box_colour")
+MarkerInfo = namedtuple("MarkerInfo", "code marker_type offset size bounding_box_colour")
+
 ImageCoord = namedtuple("ImageCoord", "x y")
 WorldCoord = namedtuple("WorldCoord", "x y z")
 PolarCoord = namedtuple("PolarCoord", "length rot_x rot_y")
@@ -69,12 +68,11 @@ Point = namedtuple("Point", "image world polar")
 marker_group_counts = {
     "dev": [(MARKER_ARENA, 24),
             (MARKER_TOKEN, 40),
-            (MARKER_BUCKET_SIDE, 4),
-            (MARKER_BUCKET_END, 4)],
+            (MARKER_BUCKET_END, 4),
+            ],
     "comp": [(MARKER_ARENA, 24),
-             (MARKER_TOKEN, 40),
-             (MARKER_BUCKET_SIDE, 4),
-             (MARKER_BUCKET_END, 4)],
+            (MARKER_BUCKET_END, 4)
+            ],
 }
 
 
@@ -84,20 +82,17 @@ def create_marker_lut(counts, zone):  # def create_marker_lut(offset, counts, zo
     for marker_type, num_markers in counts:
         for n in range(0, num_markers):
             token_type = TOKEN_NONE
-            if marker_type == MARKER_TOKEN:
-                if n < 10:
-                    token_type = TOKEN_ORE
-                else:
-                    token_n = n - 10
-                    if int(token_n / 3) == zone:
-                        token_type = TOKEN_GOLD
-                    else:
-                        token_type = TOKEN_FOOLS_GOLD
+            if marker_type == MARKER_BUCKET_END:
+                bounding_box_colour = GREEN
+            elif marker_type == MARKER_TOKEN:
+                bounding_box_colour = RED
+            else:  # MARKER_ARENA
+                bounding_box_colour = BLUE
+
 
             code = marker_offsets[marker_type] + n
             m = MarkerInfo(code=code,
                            marker_type=marker_type,
-                           token_type=token_type,
                            offset=n,
                            size=marker_sizes[marker_type],
                            bounding_box_colour=bounding_box_colour)
