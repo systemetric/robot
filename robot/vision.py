@@ -227,7 +227,7 @@ class FrameProcessor(threading.Thread):
                     
                     self.stream.seek(0)
                     
-                    if self.preprocessing == None:
+                    if self.preprocessing == "JPEG":
                         data = numpy.fromstring(self.stream.getvalue(), dtype=numpy.uint8)
                         image = cv2.imdecode(data, cv2.CV_LOAD_IMAGE_GRAYSCALE)
                         colour_image = cv2.imdecode(data, cv2.CV_LOAD_IMAGE_COLOR)
@@ -236,7 +236,7 @@ class FrameProcessor(threading.Thread):
                         colour_image = Image.open(self.stream)
                         image = cv2.cvtColor(numpy.array(colour_image), cv2.COLOR_RGB2GRAY)
                         
-                    elif self.preprocessing == "picture-denoise":
+                    elif self.preprocessing == None:
                         with self.owner.lock:
                             with picamera.array.PiRGBArray(self.owner.camera) as stream:
                                 self.owner.camera.capture(stream, format="bgr", use_video_port=self.fast_capture)
@@ -292,7 +292,7 @@ class PreprocessingSetter(object):
         self.stream_analyzer = stream_analyzer
     
     def __setitem__(self, value):
-        if value not in [None, "video-denoise", "picture-denoise"]:
+        if value not in [None, "video-denoise", "JPEG"]:
             raise ValueError("Invalid Preprossing mode {}".format(value))
         
         with self.stream_analyzer.lock:
