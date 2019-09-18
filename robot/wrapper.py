@@ -108,7 +108,7 @@ class Robot(object):
         # register components
         bus = SMBus(1)
         self._internal = GreenGiantInternal(bus)
-        self._internal.set_12v(True)
+        self._internal.set_12v(False)
         self._gg_version = self._internal.get_version()
 
         # print report of hardward
@@ -147,6 +147,7 @@ class Robot(object):
                     self.servos[servo] = position
 
             self._start_pressed = False
+            self._internal.set_12v(True)
             self.wait_start()
 
     """
