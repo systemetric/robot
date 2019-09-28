@@ -97,8 +97,9 @@ marker_group_counts = {
             (MARKER_BUCKET_END, 4),
             ],
     "comp": [(MARKER_ARENA, 24),
-            (MARKER_BUCKET_END, 4)
-            ],
+             (MARKER_TOKEN, 40),
+             (MARKER_BUCKET_END, 4)
+             ],
 }
 
 
@@ -114,13 +115,13 @@ def create_marker_lut(counts, zone):  # def create_marker_lut(offset, counts, zo
             else:  # MARKER_ARENA
                 bounding_box_colour = BLUE
 
-            code = marker_offsets[marker_type] + n
-            m = MarkerInfo(code=code,
+            # code = marker_offsets[marker_type] + n
+            m = MarkerInfo(code=counts[marker_type],
                            marker_type=marker_type,
                            offset=n,
                            size=marker_sizes[marker_type],
                            bounding_box_colour=bounding_box_colour)
-            lut[code] = m
+            lut[counts[marker_type]] = m
     return lut
 
 
