@@ -11,15 +11,16 @@ from datetime import datetime
 
 from smbus2 import SMBus
 
-from robot.cytron import CytronBoard
+from robot.cytron import CytronBoard, DEFAULT_MOTOR_CLAMP
 from robot.greengiant import GreenGiantInternal, GreenGiantGPIOPin, GreenGiantPWM
 
 from . import vision
 
 logger = logging.getLogger("sr.robot")
 
+# path to file with status of USB program copy,
+# if this exists it is output in logs and then deleted
 COPY_STAT_FILE = "/root/COPYSTAT"
-
 
 def setup_logging():
     """Apply default settings for logging"""
@@ -76,9 +77,15 @@ class Robot(object):
     def __init__(self,
                  quiet=False,
                  init=True,
-                 config_logging=True):
+                 config_logging=True,
+                 use_usb_camera=False,
+                 motor_max=DEFAULT_MOTOR_CLAMP,
+                 servo_defaults=None):
+
         if config_logging:
             setup_logging()
+
+        self._use_usb_camera = use_usb_camera
 
         self._initialised = False
         self._quiet = quiet
@@ -87,6 +94,9 @@ class Robot(object):
 
         self._parse_cmdline()
 
+        self.motor_max = motor_max
+
+        # check if copy stat file exists and read it if it does then delete it
         try:
             with open(COPY_STAT_FILE, "r") as f:
                 logger.info("Copied %s from USB\n" % f.read().strip())
@@ -94,14 +104,18 @@ class Robot(object):
         except IOError:
             pass
 
+        # register components
         bus = SMBus(1)
         self._internal = GreenGiantInternal(bus)
         self._internal.set_12v(True)
         self._gg_version = self._internal.get_version()
 
+        # print report of hardward
         logger.info("------HARDWARE REPORT------")
         logger.info("Time:   %s" % datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+        logger.info("Patch Version:     2 (USBCAM)")
 
+        # display battery voltage and warnings associated with it
         battery_voltage = self._internal.get_battery_voltage()
         battery_str = "Battery Voltage:   %.2fv" % battery_voltage
         # we cannot read voltages above 12.2v
@@ -113,6 +127,7 @@ class Robot(object):
         self._adc_max = self._internal.get_fvr_reading()
         logger.info("ADC Max:           %.2fv" % self._adc_max)
 
+        # gpio init
         self.gpio = [None]
         for i in range(4):
             self.gpio.append(GreenGiantGPIOPin(bus, i, self._adc_max))
@@ -125,16 +140,23 @@ class Robot(object):
                     logger.warn("WARNING: %s" % warning)
             else:
                 logger.info("Hardware looks good")
+                  
+            if servo_defaults is not None:
+                for servo, position in servo_defaults.iteritems():
+                    self.servos[servo] = position
 
             self._start_pressed = False
             self.wait_start()
 
+    """
+    Stops the robot and cuts power to the motors
+    """
     def stop(self):
         self.motors.stop()
         self._internal.set_12v(False)
 
     @classmethod
-    def setup(cls, quiet=False, config_logging=True):
+    def setup(cls, quiet=False, config_logging=True, use_usb_camera=False):
         if config_logging:
             setup_logging()
 
@@ -142,8 +164,12 @@ class Robot(object):
         return cls(init=False,
                    quiet=quiet,
                    # Logging is already configured
-                   config_logging=False)
+                    config_logging=False,
+                   use_usb_camera=use_usb_camera)
 
+    """
+    Initialises motors, pi cam and pwm
+    """
     def init(self, bus):
         # Find and initialise hardware
         if self._initialised:
@@ -158,6 +184,9 @@ class Robot(object):
 
         self._initialised = True
 
+    """
+    Turns motors off
+    """
     def off(self):
         for motor in self.motors:
             motor.off()
@@ -168,8 +197,8 @@ class Robot(object):
 
         self._dump_webcam()
 
-        if self._gg_version != 2:
-            self._warnings.append("Green Giant version not 2")
+        if self._gg_version != 3:
+            self._warnings.append("Green Giant version not 3")
         logger.info("Green Giant Board: Yes (v%d)" % self._gg_version)
         logger.info("Cytron Board:      Yes")
 
@@ -272,12 +301,65 @@ class Robot(object):
         self._init_pwm(bus)
 
     def _init_motors(self):
-        self.motors = CytronBoard()
+        self.motors = CytronBoard(self.motor_max)
 
     def _init_pwm(self, bus):
         self.servos = GreenGiantPWM(bus)
 
+    def _list_usb_devices(self, model, subsystem=None):
+        """Create a sorted list of USB devices of the given type"""
+        udev = pyudev.Context()
+        devs = list(udev.list_devices(ID_MODEL=model, subsystem=subsystem))
+        # Sort by serial number
+        devs.sort(key=lambda x: x["ID_SERIAL_SHORT"])
+        return devs
+
+    def _init_usb_devices(self, model, ctor, subsystem=None):
+        devs = self._list_usb_devices(model, subsystem)
+
+        # Devices stored in a dictionary
+        # Each device appears twice in this dictionary:
+        #  1. Under its serial number
+        #  2. Under an integer key.  Integers assigned by ordering
+        #     boards by serial number.
+        srdevs = {}
+
+        n = 0
+        for dev in devs:
+            serialnum = dev["ID_SERIAL_SHORT"]
+
+            if "BUSNUM" in dev:
+                srdev = ctor(dev.device_node,
+                             busnum=int(dev["BUSNUM"]),
+                             devnum=int(dev["DEVNUM"]),
+                             serialnum=serialnum)
+            else:
+                srdev = ctor(dev.device_node,
+                             busnum=None,
+                             devnum=None,
+                             serialnum=serialnum)
+
+            srdevs[n] = srdev
+            srdevs[serialnum] = srdev
+            n += 1
+
+        return srdevs
+
     def _init_vision(self):
+        if self._use_usb_camera:
+            udev = pyudev.Context()
+            cams = list(udev.list_devices(
+                subsystem="video4linux",
+                ID_USB_DRIVER="uvcvideo",
+            ))
+
+            if not cams:
+                return
+
+            camera = cams[0].device_node
+        else:
+            camera = None
+
         # Find libkoki.so:
         libpath = None
         if "LD_LIBRARY_PATH" in os.environ:
@@ -288,14 +370,15 @@ class Robot(object):
                     libpath = os.path.abspath(d)
                     break
         if libpath is None:
-            v = vision.Vision("/home/pi/libkoki/lib")  # /root/libkoki/lib
+            v = vision.Vision(camera, "/home/pi/libkoki/lib")  # /root/libkoki/lib
         else:
-            v = vision.Vision(libpath)
+            v = vision.Vision(camera, libpath)
 
         self.vision = v
 
     # noinspection PyUnresolvedReferences
-    def see(self, res=(640, 480), stats=False, save=True):
+    def see(self, res=(640, 480), stats=False, save=True,
+     bounding_box=True):
         if not hasattr(self, "vision"):
             raise NoCameraPresent()
 
@@ -304,4 +387,5 @@ class Robot(object):
                                arena=self.arena,
                                stats=stats,
                                save=save,
-                               zone=self.zone)
+                               zone=self.zone,
+                               bounding_box_enable = bounding_box)

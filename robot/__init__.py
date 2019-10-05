@@ -4,7 +4,7 @@ from robot import log as _log
 
 from robot.wrapper import Robot, NoCameraPresent
 from robot.greengiant import OUTPUT, INPUT, INPUT_ANALOG, INPUT_PULLUP
-from robot.vision import MARKER_ARENA, MARKER_TOKEN, TOKEN_NONE, TOKEN_ORE, TOKEN_GOLD, TOKEN_FOOLS_GOLD
+from robot.vision import MARKER_ARENA, MARKER_TOKEN#, TOKEN_NONE, TOKEN_ORE, TOKEN_GOLD, TOKEN_FOOLS_GOLD
 
 __all__ = ["Robot", "NoCameraPresent", "OUTPUT", "INPUT", "INPUT_ANALOG", "INPUT_PULLUP", "MARKER_ARENA",
-           "MARKER_TOKEN", "TOKEN_NONE", "TOKEN_ORE", "TOKEN_GOLD", "TOKEN_FOOLS_GOLD"]
+           "MARKER_TOKEN"] #"TOKEN_NONE", "TOKEN_ORE", "TOKEN_GOLD", "TOKEN_FOOLS_GOLD"]

@@ -147,7 +147,7 @@ class GreenGiantPWM(object):
 
         high = self._bus.read_byte_data(_GG_I2C_ADDR, command)
         low = self._bus.read_byte_data(_GG_I2C_ADDR, command + 1)
-        value = low + (high << 7)
+        value = low + (high << 8)
 
         return (value - _GG_PWM_CENTER) * 100 / _GG_PWM_PERCENT_HALF_RANGE
 
@@ -161,8 +161,8 @@ class GreenGiantPWM(object):
         value = _GG_PWM_CENTER + (percent / 100 * _GG_PWM_PERCENT_HALF_RANGE)
         value = clamp(value, _GG_PWM_MIN, _GG_PWM_MAX)
 
-        low = value & 0x7F
-        high = value >> 7
+        low = value & 0xFF
+        high = value >> 8
 
         self._bus.write_byte_data(_GG_I2C_ADDR, command, high)
         self._bus.write_byte_data(_GG_I2C_ADDR, command + 1, low)
