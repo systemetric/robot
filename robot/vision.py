@@ -67,24 +67,6 @@ WHITE = (255, 255, 255) #White
 #Image post processing
 BOUNDING_BOX_THICKNESS = 2
 
-MARKER_ARENA, MARKER_TOKEN, MARKER_BUCKET_SIDE, MARKER_BUCKET_END = 'arena', 'token', 'bucket-side', 'bucket-end'
-TOKEN_NONE, TOKEN_ORE, TOKEN_FOOLS_GOLD, TOKEN_GOLD = 'none', 'ore', 'fools-gold', 'gold'
-
-marker_offsets = {
-    MARKER_ARENA: 0,
-    MARKER_BUCKET_END: 76,
-}
-
-# The numbers here (e.g. `0.25`) are in metres -- the 10/12 is a scaling factor
-# so that libkoki gets the size of the 10x10 black/white portion (not including
-# the white border), but so that humans can measure sizes including the border.
-marker_sizes = {
-    MARKER_ARENA: 0.25 * (10.0 / 12),
-    MARKER_TOKEN: 0.1 * (10.0 / 12),
-    MARKER_BUCKET_SIDE: 0.1 * (10.0 / 12),
-    MARKER_BUCKET_END: 0.1 * (10.0 / 12),
-}
-
 MarkerInfo = namedtuple("MarkerInfo", "code marker_type offset size bounding_box_colour")
 ImageCoord = namedtuple("ImageCoord", "x y")
 WorldCoord = namedtuple("WorldCoord", "x y z")
@@ -92,66 +74,95 @@ PolarCoord = namedtuple("PolarCoord", "length rot_x rot_y")
 Orientation = namedtuple("Orientation", "rot_x rot_y rot_z")
 Point = namedtuple("Point", "image world polar")
 
-# Number of markers per group
-marker_group_counts = {
-    "comp": [(MARKER_ARENA, 24),
-             (MARKER_TOKEN, 40),
-             (MARKER_BUCKET_END, 4)
-             ],
-}
+MarkerBase = namedtuple("Marker", "info timestamp res vertices centre orientation")
 
+"""
+NOTE Key constants:
+    MARKER_: Marker Data Types
+    MARKER_TYPE_: Marker Types
+    MODE_: Round Mode Types
+"""
+MARKER_TYPE, MARKER_OFFSET, MARKER_COUNT, MARKER_SIZE, MARKER_COLOUR = 'type', 'offset', 'count', 'size', 'colour' 
+MARKER_TYPE_ARENA, MARKER_TYPE_TOKEN, MARKER_TYPE_BUCKET_SIDE, MARKER_TYPE_BUCKET_END = 'arena', 'token', 'bucket-side', 'bucket-end'
+MODE_DEV, MODE_COMP = 'dev', 'comp'
 
-def create_marker_lut(counts, zone):  # def create_marker_lut(offset, counts, zone):
-    lut = {}
-
-    for marker_type, num_markers in counts:
-        for n in range(0, num_markers):
-            token_type = TOKEN_NONE
-            if marker_type == MARKER_BUCKET_END:
-                bounding_box_colour = GREEN
-            elif marker_type == MARKER_TOKEN:
-                bounding_box_colour = RED
-            elif marker_type == MARKER_ARENA:
-                bounding_box_colour = BLUE
-            else:
-                print "WARNING: Creating a no-existant marker LUT. This should never happen!!"
-            
-            # code = marker_offsets[marker_type] + n
-            m = MarkerInfo(code=counts[1],
-                           marker_type=marker_type,
-                           offset=n,
-                           size=marker_sizes[marker_type],
-                           bounding_box_colour=bounding_box_colour)
-            lut[counts[1]] = m
-    return lut
-
-# 0: arena
-# ...
-# 23: arena
-# [24-31 undefined]
-# 32: token
-# ...
-# 71: token
-# 72: bucket side
-# ...
-# 75: bucket side
-# 76: bucket end
-# ...
-# 79: bucket end
-
-
-marker_luts = {
-    "comp": {
-        "A": [
-            create_marker_lut(marker_group_counts["comp"], 0),
-            create_marker_lut(marker_group_counts["comp"], 1),
-            create_marker_lut(marker_group_counts["comp"], 2),
-            create_marker_lut(marker_group_counts["comp"], 3)
-        ]
+"""
+NOTE Data about each marker
+    MARKER_TYPE: Name of marker type
+    MARKER_OFFSET: Offset
+    MARKER_COUNT: Number of markers of type that exist
+    MARKER_SIZE: Real life size of marker
+        # The numbers here (e.g. `0.25`) are in metres -- the 10/12 is a scaling factor
+        # so that libkoki gets the size of the 10x10 black/white portion (not including
+        # the white border), but so that humans can measure sizes including the border.
+    MARKER_COLOUR: Bounding box colour
+"""
+marker_data = {
+    MARKER_TYPE_ARENA: { 
+        MARKER_TYPE: MARKER_TYPE_ARENA,
+        MARKER_OFFSET: 0,
+        MARKER_COUNT: {
+            MODE_DEV: 24,
+            MODE_COMP: 4
+        },
+        MARKER_SIZE: 0.25 * (10.0 / 12),
+        MARKER_COLOUR: RED
+    },
+    MARKER_TYPE_TOKEN: {
+        MARKER_TYPE: MARKER_TYPE_TOKEN,
+        MARKER_OFFSET: 32,
+        MARKER_COUNT: {
+            MODE_DEV: 40,
+            MODE_COMP: 0
+        },
+        MARKER_SIZE: 0.1 * (10.0 / 12),
+        MARKER_COLOUR: YELLOW
+    },
+    MARKER_TYPE_BUCKET_SIDE: {
+        MARKER_TYPE: MARKER_TYPE_BUCKET_SIDE,
+        MARKER_OFFSET: 72,
+        MARKER_COUNT: {
+            MODE_DEV: 4,
+            MODE_COMP: 0
+        },
+        MARKER_SIZE: 0.1 * (10.0 / 12),
+        MARKER_COLOUR: ORANGE
+    },
+    MARKER_TYPE_BUCKET_END: {
+        MARKER_TYPE: MARKER_TYPE_BUCKET_END,
+        MARKER_OFFSET: 76,
+        MARKER_COUNT: {
+            MODE_DEV: 4,
+            MODE_COMP: 2
+        },
+        MARKER_SIZE: 0.1 * (10.0 / 12),
+        MARKER_COLOUR: GREEN
     }
 }
 
-MarkerBase = namedtuple("Marker", "info timestamp res vertices centre orientation")
+
+def create_marker_lut(mode):
+    """
+    Create a look up table based on the the arena mode
+    """
+    lut = {}
+    for name, marker in marker_data.iteritems():
+        for n in range(0, marker[MARKER_COUNT][mode]):
+            code = marker[MARKER_OFFSET] + n
+            m = MarkerInfo(code=code,
+                           marker_type=marker[MARKER_TYPE],
+                           offset=n,
+                           size=marker[MARKER_SIZE],
+                           bounding_box_colour=marker[MARKER_COLOUR])
+            lut[code] = m
+
+    return lut
+
+'Generated look up tables'
+marker_luts = {
+    MODE_DEV: create_marker_lut(MODE_DEV),
+    MODE_COMP: create_marker_lut(MODE_COMP)
+}
 
 
 class Marker(MarkerBase):
@@ -195,20 +206,14 @@ class PostProcessor(threading.Thread):
 
     def run(self):
         # This method runs in a separate thread
-        print "post processing called"
         while not self.terminated:
             # Get a buffer from the owner's outgoing queue
             try:
-                print "======== size of frames_to_postprocess", self.owner.frames_to_postprocess.qsize()
                 frame, markers, bounding_box_enable = self.owner.frames_to_postprocess.get(timeout=1)
             except Queue.Empty:
-                print "Nothing in queue"
             else:
-                print "2"
                 if bounding_box_enable:
                     #Should this include the markers not found in the LUT?
-                    print "3"
-                    print markers
                     for m in markers:
                         bounding_box_colour = m.info.bounding_box_colour
                         #get the image cords of the diganoally oposite vertecies
@@ -319,7 +324,7 @@ class Vision(object):
         if code not in lut:
             # We really want to ignore these...
             print "WARNING: detected code: ", code, " not in marker LUT assuming marker size of 0.1m"
-            return 0.1
+            return marker_data[MARKER_TYPE_ARENA][MARKER_SIZE]
 
         return lut[code].size
 
@@ -399,7 +404,7 @@ class Vision(object):
 
         with timer:
             markers = self.koki.find_markers_fp(ipl_image,
-                                                functools.partial(self._width_from_code, marker_luts[mode][arena]),
+                                                functools.partial(self._width_from_code, marker_luts[mode]),
                                                 params)
         times["find_markers"] = timer.time
 
@@ -460,9 +465,7 @@ class Vision(object):
                             orientation=orientation)
             robocon_markers.append(marker)
 
-        print "found markers attempting to perform post processing"
         if save and colour_image is not None:
-            print "placing item in queue"
             try:
                 self.frames_to_postprocess.put((colour_image,
                                                 robocon_markers,
@@ -470,8 +473,6 @@ class Vision(object):
                                                 timeout=10)
             except Queue.Full:
                 print "WARNING: Queue full not able to update preview image!"
-            else:
-                print "Placed item queue", self.frames_to_postprocess.qsize()
 
         if markers and usb_log:
             logfile.close()
