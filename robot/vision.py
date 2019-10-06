@@ -116,7 +116,6 @@ def create_marker_lut(counts, zone):  # def create_marker_lut(offset, counts, zo
             else:
                 print "WARNING: Creating a no-existant marker LUT. This should never happen!!"
             
-            print counts
             # code = marker_offsets[marker_type] + n
             m = MarkerInfo(code=counts[1],
                            marker_type=marker_type,
@@ -183,6 +182,8 @@ class PostProcessor(threading.Thread):
         self.owner = owner
         self.bounding_box_enable = bounding_box_enable
         self.bounding_box_thickness = bounding_box_thickness
+        
+        self.terminated = False
 
         self.start()
 
@@ -192,17 +193,22 @@ class PostProcessor(threading.Thread):
     def stopped(self):
         return self._stop_event.is_set()
 
-    def post_process(self):
+    def run(self):
         # This method runs in a separate thread
+        print "post processing called"
         while not self.terminated:
             # Get a buffer from the owner's outgoing queue
             try:
+                print "======== size of frames_to_postprocess", self.owner.frames_to_postprocess.qsize()
                 frame, markers, bounding_box_enable = self.owner.frames_to_postprocess.get(timeout=1)
-            except queue.Empty:
+            except Queue.Empty:
                 print "Nothing in queue"
             else:
+                print "2"
                 if bounding_box_enable:
                     #Should this include the markers not found in the LUT?
+                    print "3"
+                    print markers
                     for m in markers:
                         bounding_box_colour = m.info.bounding_box_colour
                         #get the image cords of the diganoally oposite vertecies
@@ -454,11 +460,19 @@ class Vision(object):
                             orientation=orientation)
             robocon_markers.append(marker)
 
+        print "found markers attempting to perform post processing"
         if save and colour_image is not None:
-            self.frames_to_postprocess.put((colour_image,
-                                            robocon_markers,
-                                            bounding_box_enable))
-        
+            print "placing item in queue"
+            try:
+                self.frames_to_postprocess.put((colour_image,
+                                                robocon_markers,
+                                                bounding_box_enable),
+                                                timeout=10)
+            except Queue.Full:
+                print "WARNING: Queue full not able to update preview image!"
+            else:
+                print "Placed item queue", self.frames_to_postprocess.qsize()
+
         if markers and usb_log:
             logfile.close()
 
