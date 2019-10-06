@@ -140,14 +140,13 @@ marker_data = {
     }
 }
 
+
 def create_marker_lut(mode):
     """
     Create a look up table based on the the arena mode
     """
     lut = {}
-    print(marker_data)
     for name, marker in marker_data.iteritems():
-        print(marker)
         for n in range(0, marker[MARKER_COUNT][mode]):
             code = marker[MARKER_OFFSET] + n
             m = MarkerInfo(code=code,
@@ -194,6 +193,8 @@ class PostProcessor(threading.Thread):
         self.owner = owner
         self.bounding_box_enable = bounding_box_enable
         self.bounding_box_thickness = bounding_box_thickness
+        
+        self.terminated = False
 
         self.start()
 
@@ -203,14 +204,13 @@ class PostProcessor(threading.Thread):
     def stopped(self):
         return self._stop_event.is_set()
 
-    def post_process(self):
+    def run(self):
         # This method runs in a separate thread
         while not self.terminated:
             # Get a buffer from the owner's outgoing queue
             try:
                 frame, markers, bounding_box_enable = self.owner.frames_to_postprocess.get(timeout=1)
-            except queue.Empty:
-                print "Nothing in queue"
+            except Queue.Empty:
             else:
                 if bounding_box_enable:
                     #Should this include the markers not found in the LUT?
@@ -466,10 +466,14 @@ class Vision(object):
             robocon_markers.append(marker)
 
         if save and colour_image is not None:
-            self.frames_to_postprocess.put((colour_image,
-                                            robocon_markers,
-                                            bounding_box_enable))
-        
+            try:
+                self.frames_to_postprocess.put((colour_image,
+                                                robocon_markers,
+                                                bounding_box_enable),
+                                                timeout=10)
+            except Queue.Full:
+                print "WARNING: Queue full not able to update preview image!"
+
         if markers and usb_log:
             logfile.close()
 
