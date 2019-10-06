@@ -1,4 +1,3 @@
-# Copyright Robert Spanton 2014
 import json
 import sys
 import optparse
@@ -8,6 +7,7 @@ import logging
 import time
 import threading
 from datetime import datetime
+import pyudev
 
 from smbus2 import SMBus
 
@@ -110,7 +110,7 @@ class Robot(object):
         self._internal.set_12v(True)
         self._gg_version = self._internal.get_version()
 
-        # print report of hardward
+        # print report of hardware
         logger.info("------HARDWARE REPORT------")
         logger.info("Time:   %s" % datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
         logger.info("Patch Version:     2 (USBCAM)")
@@ -140,7 +140,7 @@ class Robot(object):
                     logger.warn("WARNING: %s" % warning)
             else:
                 logger.info("Hardware looks good")
-                  
+
             if servo_defaults is not None:
                 for servo, position in servo_defaults.iteritems():
                     self.servos[servo] = position
@@ -374,10 +374,12 @@ class Robot(object):
         else:
             v = vision.Vision(camera, libpath)
 
-        self.vision = v
+            srdevs[n] = srdev
+            srdevs[serialnum] = srdev
+            n += 1
 
     # noinspection PyUnresolvedReferences
-    def see(self, res=(640, 480), stats=False, save=True,
+    def see(self, res=(1296, 736), stats=False, save=True,
      bounding_box=True):
         if not hasattr(self, "vision"):
             raise NoCameraPresent()

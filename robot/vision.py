@@ -1,8 +1,3 @@
-"""TODO
-    When implementing USB camera preview saving bounding box/threading issues and
-    deadlocks will likely be encountered. 
-"""
-
 import functools
 import os
 import threading
@@ -11,12 +6,12 @@ import time
 import Queue
 from collections import namedtuple
 
+from PIL import Image
+import numpy
 import cv2
-import picamera
-import picamera.array  # Required, see <https://picamera.readthedocs.io/en/latest/api_array.html>
 import pykoki
-# noinspection PyUnresolvedReferences
 from pykoki import CameraParams, Point2Df, Point2Di
+import picamera.array  # Required, see <https://picamera.readthedocs.io/en/latest/api_array.html>
 
 
 picamera_focal_lengths = {  # fx, fy tuples
@@ -82,7 +77,7 @@ NOTE Key constants:
     MARKER_TYPE_: Marker Types
     MODE_: Round Mode Types
 """
-MARKER_TYPE, MARKER_OFFSET, MARKER_COUNT, MARKER_SIZE, MARKER_COLOUR = 'type', 'offset', 'count', 'size', 'colour' 
+MARKER_TYPE, MARKER_OFFSET, MARKER_COUNT, MARKER_SIZE, MARKER_COLOUR = 'type', 'offset', 'count', 'size', 'colour'
 MARKER_TYPE_ARENA, MARKER_TYPE_TOKEN, MARKER_TYPE_BUCKET_SIDE, MARKER_TYPE_BUCKET_END = 'arena', 'token', 'bucket-side', 'bucket-end'
 MODE_DEV, MODE_COMP = 'dev', 'comp'
 
@@ -98,7 +93,7 @@ NOTE Data about each marker
     MARKER_COLOUR: Bounding box colour
 """
 marker_data = {
-    MARKER_TYPE_ARENA: { 
+    MARKER_TYPE_ARENA: {
         MARKER_TYPE: MARKER_TYPE_ARENA,
         MARKER_OFFSET: 0,
         MARKER_COUNT: {
@@ -172,7 +167,6 @@ class Marker(MarkerBase):
         self.dist = self.centre.polar.length
         self.rot_y = self.centre.polar.rot_y
 
-
 class Timer(object):
     def __enter__(self):
         self.start = time.time()
@@ -180,7 +174,7 @@ class Timer(object):
     def __exit__(self, t, v, tb):
         self.time = time.time() - self.start
         return False
-        
+
 
 class PostProcessor(threading.Thread):
     def __init__(self,
@@ -193,7 +187,7 @@ class PostProcessor(threading.Thread):
         self.owner = owner
         self.bounding_box_enable = bounding_box_enable
         self.bounding_box_thickness = bounding_box_thickness
-        
+
         self.terminated = False
 
         self.start()
@@ -211,6 +205,7 @@ class PostProcessor(threading.Thread):
             try:
                 frame, markers, bounding_box_enable = self.owner.frames_to_postprocess.get(timeout=1)
             except Queue.Empty:
+                pass # Silence this error
             else:
                 if bounding_box_enable:
                     #Should this include the markers not found in the LUT?
@@ -227,7 +222,7 @@ class PostProcessor(threading.Thread):
                                         bounding_box_colour,
                                         self.bounding_box_thickness)
                 #End if bounding_box_enable
-                
+
                 cv2.imwrite("/tmp/colimage.jpg", frame)
 
 
@@ -245,7 +240,7 @@ class Vision(object):
             self.camera = self.koki.open_camera(self._camera_device)
         else:
             self.camera = picamera.PiCamera(resolution=res)
-            
+
         # Construct a pool of image processors
         self.frames_to_postprocess = Queue.Queue(queue_size)
         self.processor = PostProcessor(self)
@@ -298,15 +293,14 @@ class Vision(object):
             width = fmt.pix.width
             height = fmt.pix.height
             actual = (width, height)
-            
-            if was_streaming:
-                self._start_camera_stream() 
 
-        if res != actual:
-            raise ValueError("Unsupported image resolution {0} (got: {1})".format(res, actual))
+            if was_streaming:
+                self._start_camera_stream()
+
+    def stopped(self):
+        return self._stop_event.is_set()
 
         self._res = actual
-        
 
     def _start_camera_stream(self):
         assert not isinstance(self.camera, picamera.PiCamera)
@@ -338,8 +332,8 @@ class Vision(object):
             zone=0,
             bounding_box_enable=True):
 
-        #Robocon has one arena and an identical practice. We do not need to make things more complicated with two. 
-        mode = "comp"                
+        #Robocon has one arena and an identical practice. We do not need to make things more complicated with two.
+        mode = "comp"
         arena = "A"
 
         if isinstance(self.camera, picamera.PiCamera):
@@ -349,7 +343,7 @@ class Vision(object):
             if res is not None and res not in usbcamera_focal_lengths:
                 raise ValueError("Invalid resolution: {}".format(res))
             self.lock.acquire()
-        
+
         if res is not None:
             self._set_res(res)
 
@@ -358,6 +352,9 @@ class Vision(object):
         timer = Timer()
         times = {}
 
+        res = pi_cam_resolution #Set the res until we have proper resolution switching
+
+        # If there is no analys is for the user then we wait 1/20s
         with timer:
             if isinstance(self.camera, picamera.PiCamera):
                 with picamera.array.PiRGBArray(self.camera) as stream:
