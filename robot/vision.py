@@ -216,7 +216,11 @@ class PostProcessor(threading.Thread):
                 if bounding_box_enable:
                     #Should this include the markers not found in the LUT?
                     for m in markers:
-                        bounding_box_colour = m.info.bounding_box_colour
+                        try:
+                            bounding_box_colour = m.info.bounding_box_colour
+                        except AttributeError:
+                            bounding_box_colour = WHITE
+                            
                         #get the image cords of the diganoally oposite vertecies
                         vertex1 = (int(m.vertices[0].image.x),
                                     int(m.vertices[0].image.y))
@@ -324,7 +328,7 @@ class Vision(object):
     def _width_from_code(lut, code):
         if code not in lut:
             # We really want to ignore these...
-            print "WARNING: detected code: ", code, " not in marker LUT assuming marker size of 0.1m"
+            print "WARNING: detected code not in marker LUT assuming marker size of 0.1m"
             return marker_data[MARKER_TYPE_ARENA][MARKER_SIZE]
 
         return lut[code].size
@@ -332,7 +336,7 @@ class Vision(object):
     def see(self,
             mode,
             arena,
-            res=None,
+            res=(1293, 736),
             stats=False,
             save=True,
             fast_capture=True,
@@ -421,13 +425,12 @@ class Vision(object):
                 # noinspection PyUnboundLocalVariable
                 logfile.write("code: {}, distance: {}, rot_x: {}, rot_y: {}\n".format(
                     m.code, round(m.distance, 3), round(m.bearing.x, 3), round(m.bearing.y, 3)))
-            if m.code not in marker_luts[mode][arena][zone]:
-                # Ignore other sets of codes
-                if usb_log:
-                    logfile.write("(last marker not part of competition, ignoring)\n")
-                continue
 
-            info = marker_luts[mode][arena][zone][int(m.code)]
+            if m.code not in marker_luts[mode]:
+                print "WARNING CODE NOT NOT LUT, returning no marker info"
+                info = None
+            else:
+                info = marker_luts[mode][int(m.code)]
 
             vertices = []
             for v in m.vertices:
