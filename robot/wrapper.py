@@ -377,7 +377,7 @@ class Robot(object):
         self.vision = v
 
     # noinspection PyUnresolvedReferences
-    def see(self, res=(640, 480), stats=False, save=True,
+    def see(self, res=(1293, 736), stats=False, save=True,
      bounding_box=True):
         if not hasattr(self, "vision"):
             raise NoCameraPresent()
