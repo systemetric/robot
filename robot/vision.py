@@ -82,7 +82,11 @@ NOTE Key constants:
     MARKER_TYPE_: Marker Types
     MODE_: Round Mode Types
 """
+<<<<<<< HEAD
 MARKER_TYPE, MARKER_OFFSET, MARKER_COUNT, MARKER_SIZE, MARKER_COLOUR = 'type', 'offset', 'count', 'size', 'colour'
+=======
+MARKER_TYPE, MARKER_OFFSET, MARKER_COUNT, MARKER_SIZE, MARKER_COLOUR = 'type', 'offset', 'count', 'size', 'colour' 
+>>>>>>> parent of d5e32ac... Updated marker luts
 MARKER_TYPE_ARENA, MARKER_TYPE_TOKEN, MARKER_TYPE_BUCKET_SIDE, MARKER_TYPE_BUCKET_END = 'arena', 'token', 'bucket-side', 'bucket-end'
 MODE_DEV, MODE_COMP = 'dev', 'comp'
 
