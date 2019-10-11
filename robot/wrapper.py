@@ -113,7 +113,7 @@ class Robot(object):
         # print report of hardward
         logger.info("------HARDWARE REPORT------")
         logger.info("Time:   %s" % datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-        logger.info("Patch Version:     2 (USBCAM)")
+        logger.info("Patch Version:     MiniC p3")
 
         # display battery voltage and warnings associated with it
         battery_voltage = self._internal.get_battery_voltage()
@@ -140,7 +140,7 @@ class Robot(object):
                     logger.warn("WARNING: %s" % warning)
             else:
                 logger.info("Hardware looks good")
-                  
+
             if servo_defaults is not None:
                 for servo, position in servo_defaults.iteritems():
                     self.servos[servo] = position
@@ -377,15 +377,21 @@ class Robot(object):
         self.vision = v
 
     # noinspection PyUnresolvedReferences
-    def see(self, res=(1293, 736), stats=False, save=True,
+    def see(self, res=(1296, 736), stats=False, save=True,
      bounding_box=True):
         if not hasattr(self, "vision"):
             raise NoCameraPresent()
 
-        return self.vision.see(res=res,
+        self._internal.set_status_led(False)
+
+        markers = self.vision.see(res=res,
                                mode=self.mode,
                                arena=self.arena,
                                stats=stats,
                                save=save,
                                zone=self.zone,
                                bounding_box_enable = bounding_box)
+
+        self._internal.set_status_led(True)
+
+        return markers
