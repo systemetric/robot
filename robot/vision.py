@@ -4,11 +4,11 @@
 """
 
 import functools
-import os
-import threading
 import io
-import time
+import os
 import Queue
+import threading
+import time
 from collections import namedtuple
 
 import cv2
@@ -17,7 +17,6 @@ import picamera.array  # Required, see <https://picamera.readthedocs.io/en/lates
 import pykoki
 # noinspection PyUnresolvedReferences
 from pykoki import CameraParams, Point2Df, Point2Di
-
 
 picamera_focal_lengths = {  # fx, fy tuples
     (1920, 1440): (1393, 1395),
@@ -67,7 +66,7 @@ WHITE = (255, 255, 255) #White
 #Image post processing
 BOUNDING_BOX_THICKNESS = 2
 
-MarkerInfo = namedtuple("MarkerInfo", "code marker_type offset size bounding_box_colour")
+MarkerInfo = namedtuple("MarkerInfo", "code marker_type offset size basket bounding_box_colour")
 ImageCoord = namedtuple("ImageCoord", "x y")
 WorldCoord = namedtuple("WorldCoord", "x y z")
 PolarCoord = namedtuple("PolarCoord", "length rot_x rot_y")
@@ -82,12 +81,8 @@ NOTE Key constants:
     MARKER_TYPE_: Marker Types
     MODE_: Round Mode Types
 """
-<<<<<<< HEAD
-MARKER_TYPE, MARKER_OFFSET, MARKER_COUNT, MARKER_SIZE, MARKER_COLOUR = 'type', 'offset', 'count', 'size', 'colour'
-=======
-MARKER_TYPE, MARKER_OFFSET, MARKER_COUNT, MARKER_SIZE, MARKER_COLOUR = 'type', 'offset', 'count', 'size', 'colour' 
->>>>>>> parent of d5e32ac... Updated marker luts
-MARKER_TYPE_ARENA, MARKER_TYPE_TOKEN, MARKER_TYPE_BUCKET_SIDE, MARKER_TYPE_BUCKET_END = 'arena', 'token', 'bucket-side', 'bucket-end'
+MARKER_TYPE, MARKER_OFFSET, MARKER_COUNT, MARKER_SIZE, MARKER_COLOUR, MARKER_BASKET = 'type', 'offset', 'count', 'size', 'colour', 'basket'
+MARKER_TYPE_ARENA, MARKER_TYPE_BASKET = 'arena', 'basket'
 MODE_DEV, MODE_COMP = 'dev', 'comp'
 
 """
@@ -100,6 +95,7 @@ NOTE Data about each marker
         # so that libkoki gets the size of the 10x10 black/white portion (not including
         # the white border), but so that humans can measure sizes including the border.
     MARKER_COLOUR: Bounding box colour
+    MARKER_BASKET: A lambda function to calculate which basket the marker belongs too.
 """
 marker_data = {
     MARKER_TYPE_ARENA: {
@@ -111,37 +107,19 @@ marker_data = {
         },
         MARKER_SIZE: 0.25 * (10.0 / 12),
         MARKER_COLOUR: RED
+        MARKER_BASKET: lambda n: None
     },
-    MARKER_TYPE_TOKEN: {
-        MARKER_TYPE: MARKER_TYPE_TOKEN,
+    MARKER_TYPE_BASKET: {
+        MARKER_TYPE: MARKER_TYPE_BASKET,
         MARKER_OFFSET: 32,
         MARKER_COUNT: {
-            MODE_DEV: 40,
-            MODE_COMP: 0
+            MODE_DEV: 20,
+            MODE_COMP: 20
         },
         MARKER_SIZE: 0.1 * (10.0 / 12),
-        MARKER_COLOUR: YELLOW
+        MARKER_COLOUR: BLUE,
+        MARKER_BASKET: lambda n: n // 4
     },
-    MARKER_TYPE_BUCKET_SIDE: {
-        MARKER_TYPE: MARKER_TYPE_BUCKET_SIDE,
-        MARKER_OFFSET: 72,
-        MARKER_COUNT: {
-            MODE_DEV: 4,
-            MODE_COMP: 0
-        },
-        MARKER_SIZE: 0.1 * (10.0 / 12),
-        MARKER_COLOUR: ORANGE
-    },
-    MARKER_TYPE_BUCKET_END: {
-        MARKER_TYPE: MARKER_TYPE_BUCKET_END,
-        MARKER_OFFSET: 76,
-        MARKER_COUNT: {
-            MODE_DEV: 4,
-            MODE_COMP: 2
-        },
-        MARKER_SIZE: 0.1 * (10.0 / 12),
-        MARKER_COLOUR: GREEN
-    }
 }
 
 
@@ -150,15 +128,28 @@ def create_marker_lut(mode):
     Create a look up table based on the the arena mode
     """
     lut = {}
-    for name, marker in marker_data.iteritems():
+    for name, marker in marker_data.items():
         for n in range(0, marker[MARKER_COUNT][mode]):
             code = marker[MARKER_OFFSET] + n
+
             m = MarkerInfo(code=code,
                            marker_type=marker[MARKER_TYPE],
                            offset=n,
                            size=marker[MARKER_SIZE],
                            bounding_box_colour=marker[MARKER_COLOUR])
             lut[code] = m
+
+    lut = {}	    lut = {}
+    for name, marker in marker_data.items():
+        for n in range(0, marker[MARKER_COUNT][mode]):
+            code = marker[MARKER_OFFSET] + n
+
+            m = MarkerInfo(code=code,
+                           marker_type=marker[MARKER_TYPE],
+                           offset=n,
+                           size=marker[MARKER_SIZE],
+                           basket=marker[MARKER_BASKET](n),
+                           bounding_box_colour=marker[MARKER_COLOUR])
 
     return lut
 
