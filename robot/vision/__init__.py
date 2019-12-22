@@ -3,13 +3,28 @@ A vision module for detecting April tags using the robocon kit
 TODO: This should be multiple files when everything is implemented
 """
 import abc #Abstract-base-class
-import apriltags3_py.__init__ as AT
+import functools
 import cv2
 import picamera
 import picamera.array
+import vision.apriltags3 as AT
 # required see <https://picamera.readthedocs.io/en/latest/api_array.html>
 
+
+APRIL_PATH = "/home/pi/apriltag"
 res = (1296, 736)
+
+# Camera details [fx, fy, cx, cy]
+camera_params = [336.7755634193813, 336.02729840829176, 333.3575643300718, 212.77376312080065]
+
+MAKER_ARENA, MAKER_TOKEN = "arena", "token"
+
+maker_sizes = {
+    MAKER_ARENA: 0.25,
+    MAKER_TOKEN: 0.1,
+}
+
+marker_size_lut = dict([(i, 0.1) for i in range(100)])
 
 
 class Timer(object):
@@ -28,7 +43,7 @@ class Camera(abc.ABC):
     """An abstract class which defines the methods the cameras must support"""
     @abc.abstractmethod
     def __init__(self):
-        pass
+        raise NotImplementedError
 
     @abc.abstractmethod
     def set_res(self, res):
@@ -72,10 +87,12 @@ class RoboconPiCamera(Camera):
 
 class Vision(object):
     def __init__(self):
-        print('Initalizing vision')
-        at_detector = AT.Detector(searchpath=[
-                                        'apriltags3-py/apriltags/lib',
-                                        'apriltags3-py/apriltags/lib64'],
+        print("Initalizing vision")
+        print("Initalizing AT detector")
+        self.at_detector = AT.Detector(searchpath=[
+                                        f'{APRIL_PATH}/lib',
+                                        f'{APRIL_PATH}/lib64'
+                                    ],
                                     families='tag36h11',
                                     nthreads=4,
                                     quad_decimate=1.0,
@@ -84,17 +101,28 @@ class Vision(object):
                                     decode_sharpening=0.25,
                                     debug=0)
 
+        print("Initalizing Pi Camera")
+        
         self.camera = RoboconPiCamera()
 
-    @staticmethod
-    def _width_from_code(lut, code):
-        if code not in lut:
-            # TODO ignore these
-            print(f"WARNING: CODE {code} NOT IN LUT {lut}")
-            return 0.1
-        else:
-            return
 
-    def see():
+    def see(self):
+        """Returns the markers the robot can see:
+            - Gets a frame
+            - Finds the tags
+            - Posts the result to shepherd
+        """
         frame = self.camera.capture()
 
+        tags = self.at_detector.detect(frame, True, camera_params, marker_size_lut)
+
+        robocon_tags = []
+        for tag in tags:
+            robocon_tags.append(tag)
+
+        save = True
+
+        if save:
+            cv2.imwrite("tag.jpg", frame)
+
+        return robocon_tags
