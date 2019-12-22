@@ -1,4 +1,3 @@
-# Copyright Robert Spanton 2014
 import json
 import sys
 import optparse
@@ -339,7 +338,7 @@ class Robot(object):
         return srdevs
 
     def _init_vision(self):
-           if self._use_usb_camera:
+        if self._use_usb_camera:
             udev = pyudev.Context()
             cams = list(udev.list_devices(
                 subsystem="video4linux",
