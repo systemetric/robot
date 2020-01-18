@@ -8,11 +8,10 @@ import logging
 import time
 import threading
 from datetime import datetime
-import pyudev
 
 from smbus2 import SMBus
 
-from robot.cytron import CytronBoard
+from robot.cytron import CytronBoard, DEFAULT_MOTOR_CLAMP
 from robot.greengiant import GreenGiantInternal, GreenGiantGPIOPin, GreenGiantPWM
 
 from . import vision
@@ -22,7 +21,6 @@ logger = logging.getLogger("sr.robot")
 # path to file with status of USB program copy,
 # if this exists it is output in logs and then deleted
 COPY_STAT_FILE = "/root/COPYSTAT"
-
 
 def setup_logging():
     """Apply default settings for logging"""
@@ -80,7 +78,10 @@ class Robot(object):
                  quiet=False,
                  init=True,
                  config_logging=True,
-                 use_usb_camera=False):
+                 use_usb_camera=False,
+                 motor_max=DEFAULT_MOTOR_CLAMP,
+                 servo_defaults=None):
+
         if config_logging:
             setup_logging()
 
@@ -92,6 +93,8 @@ class Robot(object):
         self._warnings = []
 
         self._parse_cmdline()
+
+        self.motor_max = motor_max
 
         # check if copy stat file exists and read it if it does then delete it
         try:
@@ -137,6 +140,10 @@ class Robot(object):
                     logger.warn("WARNING: %s" % warning)
             else:
                 logger.info("Hardware looks good")
+                  
+            if servo_defaults is not None:
+                for servo, position in servo_defaults.iteritems():
+                    self.servos[servo] = position
 
             self._start_pressed = False
             self.wait_start()
@@ -190,8 +197,8 @@ class Robot(object):
 
         self._dump_webcam()
 
-        if self._gg_version != 2:
-            self._warnings.append("Green Giant version not 2")
+        if self._gg_version != 3:
+            self._warnings.append("Green Giant version not 3")
         logger.info("Green Giant Board: Yes (v%d)" % self._gg_version)
         logger.info("Cytron Board:      Yes")
 
@@ -294,7 +301,7 @@ class Robot(object):
         self._init_pwm(bus)
 
     def _init_motors(self):
-        self.motors = CytronBoard()
+        self.motors = CytronBoard(self.motor_max)
 
     def _init_pwm(self, bus):
         self.servos = GreenGiantPWM(bus)
@@ -339,7 +346,7 @@ class Robot(object):
         return srdevs
 
     def _init_vision(self):
-           if self._use_usb_camera:
+        if self._use_usb_camera:
             udev = pyudev.Context()
             cams = list(udev.list_devices(
                 subsystem="video4linux",
@@ -370,7 +377,8 @@ class Robot(object):
         self.vision = v
 
     # noinspection PyUnresolvedReferences
-    def see(self, res=(640, 480), stats=False, save=True):
+    def see(self, res=(640, 480), stats=False, save=True,
+     bounding_box=True):
         if not hasattr(self, "vision"):
             raise NoCameraPresent()
 
@@ -379,4 +387,5 @@ class Robot(object):
                                arena=self.arena,
                                stats=stats,
                                save=save,
-                               zone=self.zone)
+                               zone=self.zone,
+                               bounding_box_enable = bounding_box)
