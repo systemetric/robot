@@ -140,7 +140,7 @@ class Robot(object):
                     logger.warn("WARNING: %s" % warning)
             else:
                 logger.info("Hardware looks good")
-                  
+
             if servo_defaults is not None:
                 for servo, position in servo_defaults.iteritems():
                     self.servos[servo] = position
