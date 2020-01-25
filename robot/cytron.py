@@ -4,8 +4,7 @@ Provides a nice interface for controlling the cytron motor board
 Uses hardware PWM to ensure reliability. (Note update time to board of 2ms)
 """
 import wiringpi as wp
-from greengiant import clamp
-
+# from greengiant import clamp
 
 DEFAULT_MOTOR_CLAMP = 25
 
@@ -48,6 +47,7 @@ class CytronBoard(object):
         wp.pinMode(_PWM_PIN_1, _WP_PWM)
         wp.pinMode(_PWM_PIN_2, _WP_PWM)
 
+
         self._dir_value = [False, False]
         self._dir = [
             _DIR_PIN_1,
@@ -55,10 +55,13 @@ class CytronBoard(object):
         ]
 
         self._pwm_value = [0, 0]
-        self._pwm = [
-            wp.pwmWrite(_PWM_PIN_1, 0),
-            wp.pwmWrite(_PWM_PIN_2, 0)
+        self._pwm_pins = [
+            _PWM_PIN_1,
+            _PWM_PIN_2
         ]
+
+        wp.pwmSetClock(100) # Set the clock to 100Hz????
+        [wp.pwmWrite(pin, 0) for pin in self._pwm_pins]
 
     def __getitem__(self, index):
         """Returns the current PWM value in RC units. Adds a sign to represent
@@ -89,14 +92,14 @@ class CytronBoard(object):
 
         # Scale, clamp and then convert to wp units the pwm value
         value = abs_value * self.max_value / 100
-        value = clamp(value, 0, self.max_value)
+        # value = clamp(value, 0, self.max_value)
         value = rc_to_wp_pwm(value)
 
         self._pwm_value[index] = value
-        self._pwm[index].pwmWrite(self._pwm_value[index])
+        wp.pwmWrite(self._pwm_pins[index], self._pwm_value[index])
 
     def stop(self):
         """Turns motors off"""
-        for i in range(len(self._pwm)):
-            self._pwm[i].pwmWrite(0)
+        for i in range(len(self._pwm_pins)):
+            wp.pwmWrite(self._pwm_pins[i], 0)
             self._pwm_value[i] = 0
