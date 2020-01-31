@@ -151,8 +151,15 @@ class Detection():
         self.center = None
         self.corners = None
         self.pose_R = None
-        self.pose_t = None
+        self.pose_T = None
         self.pose_err = None
+        self.rot_x = None
+        self.rot_y = None
+        self.rot_z = None
+        self.bearing_x = None
+        self.bearing_y = None
+        self.bearing_z = None
+        self.dist = None
 
     def __str__(self):
         return('Detection object:'+
@@ -164,8 +171,15 @@ class Detection():
         '\ncenter = ' + str(self.center)+
         '\ncorners = ' + str(self.corners)+
         '\npose_R = ' + str(self.pose_R)+
-        '\npose_t = ' + str(self.pose_t)+
-        '\npose_err = ' + str(self.pose_err)+'\n')
+        '\npose_T = ' + str(self.pose_T)+
+        '\npose_err = ' + str(self.pose_err)+
+        '\nself.rot_x = ' + str(self.rot_x)+
+        '\nself.rot_y = ' + str(self.rot_y)+
+        '\nself.rot_z = ' + str(self.rot_z)+
+        '\nself.bearing_x = ' + str(self.bearing_x)+
+        '\nself.bearing_y = ' + str(self.bearing_y)+
+        '\nself.bearing_z = ' + str(self.bearing_z)+
+        '\nself.dist = ' + str(self.dist)+'\n')
 
     def __repr__(self):
         return self.__str__()
@@ -374,7 +388,7 @@ class Detector(object):
                     raise Exception('tag_size_lut must be provided to detect if estimate_tag_pose is set to True')
 
                 tag_size = tag_size_lut[tag.id]
-                
+
                 camera_fx, camera_fy, camera_cx, camera_cy = [ c for c in camera_params ]
 
                 info = _ApriltagDetectionInfo(det=apriltag,
@@ -389,11 +403,30 @@ class Detector(object):
                 err = self.libc.estimate_tag_pose(ctypes.byref(info), ctypes.byref(pose))
 
                 detection.pose_R = _matd_get_array(pose.R).copy()
-                detection.pose_t = _matd_get_array(pose.t).copy()
+                detection.pose_T = _matd_get_array(pose.t).copy()
                 detection.pose_err = err
 
+                detection.dist = numpy.sqrt(detection.pose_T.dot(detection.pose_T))
 
-            #Append this dict to the tag data array
+                detection.bearing_x = numpy.arctan2(detection.pose_T[1],
+                                                    detection.pose_T[2])
+
+                detection.bearing_y = numpy.arctan2(detection.pose_T[2],
+                                                    detection.pose_T[0])
+
+                detection.bearing_z = numpy.arctan2(detection.pose_T[0],
+                                                    detection.pose_T[1])
+
+                detection.rot_x = numpy.arctan2(detection.pose_R[1],
+                                                detection.pose_R[2])
+
+                detection.rot_x = numpy.arctan2(detection.pose_R[2],
+                                                detection.pose_R[0])
+
+                detection.rot_x = numpy.arctan2(detection.pose_R[0],
+                                                detection.pose_R[1])
+
+            # Append this dict to the tag data array
             return_info.append(detection)
 
         self.libc.image_u8_destroy.restype = None
@@ -523,7 +556,7 @@ if __name__ == '__main__':
         time_sum+=time.time()-start
         time_num+=1
 
-        print(tags[0].pose_t, parameters['rotation_test']['posx'], parameters['rotation_test']['posy'], parameters['rotation_test']['posz'])
+        print(tags[0].pose_T, parameters['rotation_test']['posx'], parameters['rotation_test']['posy'], parameters['rotation_test']['posz'])
         print(tags[0].pose_R, parameters['rotation_test']['rotx'], parameters['rotation_test']['roty'], parameters['rotation_test']['rotz'])
 
     print("AVG time per detection: ", time_sum/time_num)
