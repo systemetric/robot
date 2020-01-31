@@ -139,23 +139,24 @@ class Vision(object):
             info = marker_luts[mode][arena][zone][int(tag.id)]
             markers.append(Maker(info, tag))
 
+        return markers
 
     def see(self, save):
         """Returns the markers the robot can see:
             - Gets a frame
-            - Finds the tags
+            - Finds the markers
             - Posts the result to shepherd
         """
         frame = self.camera.capture()
 
-        tags = self.at_detector.detect(frame,
+        detections = self.at_detector.detect(frame,
                                         estimate_tag_pose=True,
                                         camera_params=camera_params,
                                         tag_size_lut=marker_size_lut)
 
-        robocon_tags = self._generate_marker_properties(tags)
+        robocon_markers = self._generate_marker_properties(detections)
 
         if save:
             cv2.imwrite("tag.jpg", frame)
 
-        return robocon_tags
+        return robocon_markers
