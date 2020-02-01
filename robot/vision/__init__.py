@@ -6,6 +6,7 @@ import abc #Abstract-base-class
 import functools
 import cv2
 import os
+import multiprocessing
 import picamera
 import picamera.array
 import logger
@@ -13,8 +14,6 @@ import vision.apriltags3 as AT
 from datetime import datetime
 # required see <https://picamera.readthedocs.io/en/latest/api_array.html>
 
-
-res = (1296, 736)
 
 # Camera details [fx, fy, cx, cy]
 camera_params = [336.7755634193813, 336.02729840829176,
@@ -58,7 +57,7 @@ class Logger():
 class Camera(abc.ABC):
     """An abstract class which defines the methods the cameras must support"""
     @abc.abstractmethod
-    def __init__(self):
+    def __init__(self, start_res):
         raise NotImplementedError
 
     @abc.abstractmethod
@@ -75,8 +74,9 @@ class Camera(abc.ABC):
 
 
 class RoboconPiCamera(Camera):
-    """A wrapper for the PiCamera class providing RoboCon methods"""
-    def __init__(self, start_res=res):
+    """A wrapper for the PiCamera class providing the methods which are used by
+    the robocon classes"""
+    def __init__(self, start_res=(1296, 736)):
         self.camera = picamera.PiCamera(resolution=start_res)
 
     def set_res(self, res):
@@ -103,9 +103,72 @@ class RoboconPiCamera(Camera):
         return image
 
 
+class PostProcessor(multiprocessing.Process):
+    """Once AprilTags returns its marker properties then there convince outputs
+    todo e.g. send the image over to sheep. To make R.see() as quick as possible
+    we do this asynchronously in another process to avoid the GIL.
+
+    Note: because AprilTags can use all 4 cores that the pi has this still isn't
+    free if we are processing frames back to backs."""
+    def __init__(self,
+                    owner,
+                    bounding_box_enable=True,
+                    bounding_box_thickness=2):
+
+        super(PostProcessor, self).__init__()
+
+        self.owner = owner
+        self.bounding_box_enable = bounding_box_enable
+        self.bounding_box_thickness = bounding_box_thickness
+
+        self.terminated = False
+
+        self.start()
+
+    def stop(self):
+        self._stop_event.set()
+
+    def stopped(self):
+        return self._stop_event.is_set()
+
+    def run(self):
+        """This method runs in a separate process, and awaits for there to be
+        data in the queue, we need to wait for there to be frames to prcess. It
+        times out once a second so that we can check weather we should have
+        stopped processing."""
+        while not self.terminated:
+            try:
+                frame, markers = self.owner.frames_to_postprocess.get(timeout=1)
+            except Queue.Empty:
+                pass
+            else:
+                if self.bounding_box_enable:
+                    #Should this include the markers not found in the LUT?
+                    for m in markers:
+                        try:
+                            bounding_box_colour = m.info.bounding_box_colour
+                        except AttributeError:
+                            bounding_box_colour = WHITE
+
+                        #get the image cords of the diganoally oposite vertecies
+                        vertex1 = (int(m.vertices[0].image.x),
+                                    int(m.vertices[0].image.y))
+                        vertex3 = (int(m.vertices[2].image.x),
+                                    int(m.vertices[2].image.y))
+                        cv2.rectangle(frame,
+                                        vertex1,
+                                        vertex3,
+                                        bounding_box_colour,
+                                        self.bounding_box_thickness)
+                #End if bounding_box_enable
+
+                cv2.imwrite("/tmp/colimage.jpg", frame)
+
+
+
 class Vision(object):
     """A class to provide and interface and utilities for vision"""
-    def __init__(self, mode, arena, zone, at_path="/home/pi/apriltag"):
+    def __init__(self, mode, arena, zone, at_path="/home/pi/apriltag", max_queue_size=2):
         #NO-COMMIT should the at_path be a default at this level not at the top
         # level of the robot
         self.mode = mode
@@ -125,6 +188,13 @@ class Vision(object):
                                     debug=0)
 
         self.camera = RoboconPiCamera()
+
+        self.frames_to_postprocess = multiprocessing.Queue(max_queue_size)
+        self.post_processor = PostProcessor(self)
+
+
+    def __del__(self):
+        self.post_processor.shutdown()
 
 
     def _generate_marker_properties(self, tags):
