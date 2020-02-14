@@ -134,6 +134,7 @@ class RoboConUSBCamera(Camera):
                          time=capture_time)
         return result
 
+
 class PostProcessor(multiprocessing.Process):
     """Once AprilTags returns its marker properties then there convince outputs
     todo e.g. send the image over to sheep. To make R.see() as quick as possible
