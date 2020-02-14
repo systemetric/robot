@@ -248,7 +248,7 @@ class Vision(object):
         self._res = actual
 
         if was_streaming:
-            self._start_camera_stream() 
+            self._start_camera_stream()
 
     def _start_camera_stream(self):
         assert not isinstance(self.camera, picamera.PiCamera)
