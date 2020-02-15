@@ -102,7 +102,7 @@ class RoboConPiCamera(Camera):
 
 class RoboConUSBCamera(Camera):
     """A wrapper class for the open CV methods for generic cameras"""
-    def __init__(self, start_res=(1296, 736), lut=LOGITECH_C270_FOCAL_LENGTHS)
+    def __init__(self, start_res=(1296, 736), lut=LOGITECH_C270_FOCAL_LENGTHS):
         self._camera = cv2.VideoCapture(0)
         self.res = start_res
 
@@ -126,7 +126,7 @@ class RoboConUSBCamera(Camera):
         if not cam_running:
             raise IOError("Capture from USB camera failed")
 
-        grey_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        grey_frame = cv2.cvtColor(colour_frame, cv2.COLOR_BGR2GRAY)
 
         result = Capture(grey_frame=grey_frame,
                          colour_frame=colour_frame,
@@ -141,7 +141,10 @@ class PostProcessor(multiprocessing.Process):
     we do this asynchronously in another process to avoid the GIL.
 
     Note: because AprilTags can use all 4 cores that the pi has this still isn't
-    free if we are processing frames back to backs."""
+    free if we are processing frames back to backs.
+
+    #TODO check if this is faster as another process
+    """
     def __init__(self,
                     owner,
                     bounding_box_enable=True,
@@ -153,9 +156,11 @@ class PostProcessor(multiprocessing.Process):
         self.bounding_box_enable = bounding_box_enable
         self.bounding_box_thickness = bounding_box_thickness
 
+        # TODO allow these to be controlled by the user
         self.terminated = False
         self.usb_stick = False
         self.send_to_sheep = False
+        self.save = True
 
         # Sqwan the new process
         self.start()
@@ -167,7 +172,7 @@ class PostProcessor(multiprocessing.Process):
     def stopped(self):
         return self._stop_event.is_set()
 
-    def draw_bounding_box(self, frame, makers):
+    def draw_bounding_box(self, frame, markers):
         """Takes a frame and a list of markers drawing bounding boxes
         #TODO check if this is actually passed the frame object or if it is mutating it globally
         """
@@ -175,17 +180,19 @@ class PostProcessor(multiprocessing.Process):
             try:
                 bounding_box_colour = m.info.bounding_box_colour
             except AttributeError:
-                bounding_box_colour = WHITE # should be a "default colour"
+                bounding_box_colour = WHITE #TODO should be a "default colour"
 
             # Shift and wrap the list by 1
             rotated_vetecies = m.vertecies.roll(1)
 
-            for current_v, next_v in zip(vertices, rotated_vetecies):
+            for current_v, next_v in zip(m.vertecies, rotated_vetecies):
                 cv2.rectangle(frame,
                                 current_v,
                                 next_v,
                                 bounding_box_colour,
                                 self.bounding_box_thickness)
+
+        return frame
 
     def run(self):
         """This method runs in a separate process, and awaits for there to be
@@ -209,7 +216,7 @@ class PostProcessor(multiprocessing.Process):
 
 class Vision(object):
     """A class to provide and interface and utilities for vision"""
-    def __init__(self, mode, arena, zone, at_path="/home/pi/apriltag", max_queue_size=2):
+    def __init__(self, mode, arena, zone, at_path="/home/pi/apriltag", max_queue_size=4, use_usb_cam=False):
         self.mode = mode
         self.arena = arena
         self.zone = zone
@@ -226,7 +233,12 @@ class Vision(object):
                                     decode_sharpening=0.25,
                                     debug=0)
 
-        self.camera = RoboconPiCamera()
+        if use_usb_cam:
+            self.camera = RoboConUSBCamera()
+        else:
+            self.camera = RoboconPiCamera()
+
+        self._using_usb_cam = use_usb_cam
 
         self.frames_to_postprocess = multiprocessing.Queue(max_queue_size)
         self.post_processor = PostProcessor(self)
@@ -250,7 +262,7 @@ class Vision(object):
 
         return markers
 
-    def see(self, save):
+    def see(self, res, save):
         """Returns the markers the robot can see:
             - Gets a frame
             - Finds the markers

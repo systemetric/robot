@@ -93,6 +93,7 @@ class GreenGiantInternal(object):
         return 804519.936 / read_high_low_data(self._bus, _GG_BATTERY_V_H, _GG_BATTERY_V_L)
 
     def get_fvr_reading(self):
+        """#TODO work out what does fvr stand for?"""
         return 268173.312 / read_high_low_data(self._bus, _GG_FVR_H, _GG_FVR_L)
 
 
