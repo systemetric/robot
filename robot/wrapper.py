@@ -140,10 +140,10 @@ class Robot(object):
             self._start_pressed = False
             self.wait_start()
 
-    """
-    Stops the robot and cuts power to the motors
-    """
     def stop(self):
+        """
+        Stops the robot and cuts power to the motors
+        """
         self.motors.stop()
         self._internal.set_12v(False)
 
@@ -159,10 +159,10 @@ class Robot(object):
                     config_logging=False,
                    use_usb_camera=use_usb_camera)
 
-    """
-    Initialises motors, pi cam and pwm
-    """
     def init(self, bus):
+        """
+        Initialises motors, pi cam and pwm
+        """
         # Find and initialise hardware
         if self._initialised:
             raise AlreadyInitialised()
@@ -176,10 +176,10 @@ class Robot(object):
 
         self._initialised = True
 
-    """
-    Turns motors off
-    """
     def off(self):
+        """
+        Turns motors off
+        """
         for motor in self.motors:
             motor.off()
 
