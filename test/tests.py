@@ -1,2 +1,9 @@
+"""Test the robot module"""
+
 import unittest
-from unittest.mock import MagicMock
+import mock
+import robot
+
+class VisionTestCase(unittest.TestCase):
+
+    @mock.patch()
