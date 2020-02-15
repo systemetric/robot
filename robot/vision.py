@@ -12,6 +12,7 @@ import picamera.array
 import logger
 import vision.apriltags3 as AT
 from datetime import datetime
+from collections import namedtuple
 
 
 # Camera details [fx, fy, cx, cy]
@@ -36,7 +37,7 @@ LOGITECH_C270_FOCAL_LENGTHS = {  # fx, fy tuples
 
 MAKER_ARENA, MAKER_TOKEN = "arena", "token"
 
-maker_sizes = {
+marker_sizes = {
     MAKER_ARENA: 0.25,
     MAKER_TOKEN: 0.1,
 }
@@ -49,7 +50,7 @@ ImageCoord = namedtuple("ImageCoord", "x y")
 # Define a tuple for passing captured frames around, colour frames for speed
 # are stored in whatever encoding RGB, BGR, YUV which they were captured in
 # it is upto the postprocessor to deal with this.
-Capture = namedtuple("Capture", "grey_frame", "colour_frame", "colour_type", "time")
+Capture = namedtuple("Capture", "grey_frame colour_frame colour_type time")
 
 class Camera(abc.ABC):
     """An abstract class which defines the methods the cameras must support"""
@@ -257,7 +258,7 @@ class Vision(object):
                 print("WARNING: tag not in marker lut")
                 continue
 
-            info = marker_luts[mode][arena][zone][int(tag.id)]
+            info = marker_size_lut[mode][arena][zone][int(tag.id)]
             markers.append(Maker(info, tag))
 
         return markers

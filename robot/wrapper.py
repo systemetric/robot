@@ -258,7 +258,6 @@ class Robot(object):
 
         logger.info("Robot started!\n")
 
-    # noinspection PyUnresolvedReferences
     def see(self, res=(640, 480), save=True):
         if not hasattr(self, "vision"):
             raise NoCameraPresent()
