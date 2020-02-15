@@ -16,7 +16,7 @@ from robot.greengiant import GreenGiantInternal, GreenGiantGPIOPin, GreenGiantPW
 
 from . import vision
 
-logger = logging.getLogger("sr.robot")
+logger = logging.getLogger("robot")
 
 # path to file with status of USB program copy,
 # if this exists it is output in logs and then deleted

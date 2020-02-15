@@ -1,17 +1,14 @@
 #!/usr/bin/env python
-'''Python wrapper for C version of apriltags. This program creates two
+"""Python wrapper for C version of apriltags. This program creates two
 classes that are used to detect apriltags and extract information from
 them. Using this module, you can identify all apriltags visible in an
 image, and get information about the location and orientation of the
 tags.
 
+This module is both python 2 and 3 compatiable.
 
-Original author: Isaac Dulin, Spring 2016
-Updates: Matt Zucker, Fall 2016
-Apriltags 3 version: Aleksandar Petrov, Spring 2019
 Forked from: <https://github.com/duckietown/apriltags3-py>
-Adapted for variable tag sizes: Edwin Shepherd winter 2019
-'''
+"""
 from __future__ import division
 from __future__ import print_function
 
