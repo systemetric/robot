@@ -5,14 +5,15 @@ import abc #Abstract-base-class
 import functools
 import cv2
 import os
-import multiprocessing
+import threading
 import picamera
 import picamera.array
 # required see <https://picamera.readthedocs.io/en/latest/api_array.html>
-import logger
-import vision.apriltags3 as AT
+import logging
+import robot.apriltags3 as AT
 from datetime import datetime
 from collections import namedtuple
+import queue
 
 
 # Camera details [fx, fy, cx, cy]
@@ -35,6 +36,19 @@ LOGITECH_C270_FOCAL_LENGTHS = {  # fx, fy tuples
     (640, 480): (463, 463),
 }
 
+# Colours are in the format BGR
+PURPLE = (255,0,215) #Purple
+ORANGE = (0,128,255) #Orange
+YELLOW = (0,255,255) #Yellow
+GREEN = (0,255,0) #Green
+RED = (0,0,255) #Red
+BLUE = (255,0,0) #Blue
+WHITE = (255, 255, 255) #White
+
+#Image post processing
+BOUNDING_BOX_THICKNESS = 2
+DEFAULT_BOUNDING_BOX_COLOUR = WHITE
+
 MAKER_ARENA, MAKER_TOKEN = "arena", "token"
 
 marker_sizes = {
@@ -51,6 +65,17 @@ ImageCoord = namedtuple("ImageCoord", "x y")
 # are stored in whatever encoding RGB, BGR, YUV which they were captured in
 # it is upto the postprocessor to deal with this.
 Capture = namedtuple("Capture", "grey_frame colour_frame colour_type time")
+
+
+class Marker():
+    """A class to automatically pull the dis and rot_y out of the detection"""
+    def __init__(self, info, detection):
+        # Aliases
+        self.info = info
+        self.detection = detection
+        self.dist = detection.dist
+        self.rot_y = detection.rot_y
+
 
 class Camera(abc.ABC):
     """An abstract class which defines the methods the cameras must support"""
@@ -136,7 +161,7 @@ class RoboConUSBCamera(Camera):
         return result
 
 
-class PostProcessor(multiprocessing.Process):
+class PostProcessor(threading.Thread):
     """Once AprilTags returns its marker properties then there convince outputs
     todo e.g. send the image over to sheep. To make R.see() as quick as possible
     we do this asynchronously in another process to avoid the GIL.
@@ -153,17 +178,19 @@ class PostProcessor(multiprocessing.Process):
 
         super(PostProcessor, self).__init__()
 
-        self.owner = owner
-        self.bounding_box_enable = bounding_box_enable
-        self.bounding_box_thickness = bounding_box_thickness
+        self._owner = owner
+        self._bounding_box_enable = bounding_box_enable
+        self._bounding_box_thickness = bounding_box_thickness
 
         # TODO allow these to be controlled by the user
-        self.terminated = False
-        self.usb_stick = False
-        self.send_to_sheep = False
-        self.save = True
+        self._usb_stick = False
+        self._send_to_sheep = False
+        self._save = True
 
-        # Sqwan the new process
+        self._stop_event = threading.Event()
+        self._stop_event.clear()
+
+        # Spwan the new thread
         self.start()
 
     def stop(self):
@@ -175,13 +202,12 @@ class PostProcessor(multiprocessing.Process):
 
     def draw_bounding_box(self, frame, markers):
         """Takes a frame and a list of markers drawing bounding boxes
-        #TODO check if this is actually passed the frame object or if it is mutating it globally
         """
         for m in markers:
             try:
                 bounding_box_colour = m.info.bounding_box_colour
             except AttributeError:
-                bounding_box_colour = WHITE #TODO should be a "default colour"
+                bounding_box_colour = DEFAULT_BOUNDING_BOX_COLOUR
 
             # Shift and wrap the list by 1
             rotated_vetecies = m.vertecies.roll(1)
@@ -191,7 +217,7 @@ class PostProcessor(multiprocessing.Process):
                                 current_v,
                                 next_v,
                                 bounding_box_colour,
-                                self.bounding_box_thickness)
+                                self._bounding_box_thickness)
 
         return frame
 
@@ -199,20 +225,22 @@ class PostProcessor(multiprocessing.Process):
         """This method runs in a separate process, and awaits for there to be
         data in the queue, we need to wait for there to be frames to prcess. It
         times out once a second so that we can check weather we should have
-        stopped processing."""
-        while not self.terminated:
+        stopped processing.
+        #TODO do we need pass colour infomation?
+        """
+        while not self._stop_event.is_set():
             try:
-                frame, colour_type, markers = self.owner.frames_to_postprocess.get(timeout=1)
-            except Queue.Empty:
+                frame, _, markers = self._owner.frames_to_postprocess.get(timeout=1)
+            except queue.Empty:
                 pass
             else:
-                if self.bounding_box_enable:
+                if self._bounding_box_enable:
                     frame = self.draw_bounding_box(frame, markers)
-                if save:
+                if self._save:
                     cv2.imwrite("/tmp/colimage.jpg", frame)
-                if self.usb_stick:
+                if self._usb_stick:
                     pass
-                if self.send_to_sheep:
+                if self._send_to_sheep:
                     pass
 
 class Vision(object):
@@ -237,11 +265,11 @@ class Vision(object):
         if use_usb_cam:
             self.camera = RoboConUSBCamera()
         else:
-            self.camera = RoboconPiCamera()
+            self.camera = RoboConPiCamera()
 
         self._using_usb_cam = use_usb_cam
 
-        self.frames_to_postprocess = multiprocessing.Queue(max_queue_size)
+        self.frames_to_postprocess = queue.Queue(max_queue_size)
         self.post_processor = PostProcessor(self)
 
 
@@ -253,13 +281,13 @@ class Vision(object):
         """A function to return the marker objects properties in polar form"""
         markers = []
         for tag in tags:
-            if tag.id not in marker_luts[self.mode][self.arena][self.zone]:
+            if tag.id not in marker_size_lut[self.mode][self.arena][self.zone]:
                 # TODO should really be a call to the python logger
                 print("WARNING: tag not in marker lut")
                 continue
 
-            info = marker_size_lut[mode][arena][zone][int(tag.id)]
-            markers.append(Maker(info, tag))
+            info = marker_size_lut[self.mode][self.arena][self.zone][int(tag.id)]
+            markers.append(Marker(info, tag))
 
         return markers
 
@@ -276,8 +304,10 @@ class Vision(object):
                                         camera_params=camera_params,
                                         tag_size_lut=marker_size_lut)
 
-        robocon_markers = self._generate_marker_properties(detections)
+        markers = self._generate_marker_properties(detections)
 
-        frames_to_postprocess.put(capture.colour_frame, capture.colour_type, markers)
+        self.frames_to_postprocess.put(capture.colour_frame,
+                                       capture.colour_type,
+                                       markers)
 
-        return robocon_markers
+        return markers
