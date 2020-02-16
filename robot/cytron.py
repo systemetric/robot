@@ -1,6 +1,9 @@
+"""An interface to the cyctron motor board. A gpio pin is used for each motor
+to give direction and has a PWM signal at 100Hz giving infomation about voltage
+to apply
+"""
 import RPi.GPIO as GPIO
-from time import sleep
-from greengiant import clamp
+from robot.greengiant import clamp
 
 GPIO.setmode(GPIO.BCM)
 GPIO.setwarnings(False)
@@ -31,8 +34,10 @@ class CytronBoard(object):
         ]
 
     def __getitem__(self, index):
-        if not (1 <= index <= 2):
-            raise IndexError("motor index must be 1 or 2")
+        if index not in (1, 2):
+            raise IndexError(
+                "Expected motor index to be 1 or 2 but instead got {}".format(index))
+
         index -= 1
 
         value = self._pwm_value[index]
@@ -41,8 +46,10 @@ class CytronBoard(object):
         return value
 
     def __setitem__(self, index, percent):
-        if not (1 <= index <= 2):
-            raise IndexError("motor index must be 1 or 2")
+        if index not in (1, 2):
+            raise IndexError(
+                "Expected motor index to be 1 or 2 but instead got {}".format(index))
+
         index -= 1
 
         max_value = 100

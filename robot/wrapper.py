@@ -8,19 +8,15 @@ import json
 import sys
 import optparse
 import os
-import glob
 import logging
 import time
 import threading
-from datetime import datetime
-import pyudev
-
-from smbus2 import SMBus
-
-from robot.cytron import CytronBoard
-from robot.greengiant import GreenGiantInternal, GreenGiantGPIOPin, GreenGiantPWM
 
 from . import vision
+from datetime import datetime
+from smbus2 import SMBus
+from robot.cytron import CytronBoard
+from robot.greengiant import GreenGiantInternal, GreenGiantGPIOPin, GreenGiantPWM
 
 logger = logging.getLogger("robot")
 
@@ -36,13 +32,13 @@ def setup_logging():
 
     logger.setLevel(logging.INFO)
 
-    h = logging.StreamHandler(sys.stdout)
-    h.setLevel(logging.INFO)
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setLevel(logging.INFO)
 
     fmt = logging.Formatter("%(message)s")
-    h.setFormatter(fmt)
+    handler.setFormatter(fmt)
 
-    logger.addHandler(h)
+    logger.addHandler(handler)
 
 
 class NoCameraPresent(Exception):
@@ -122,7 +118,8 @@ class Robot(object):
         if wait_for_start:
             self.wait_start()
         else:
-            logger.warn("Robot initalized but user code running before wait_start")
+            logger.warn(
+                "Robot initalized but user code running before wait_start")
 
     def report_harware_status(self):
         """Print out a nice log message at the start of each robot init with
@@ -134,13 +131,15 @@ class Robot(object):
         if battery_voltage > 12.2:
             battery_str = "Battery Voltage:   > 12.2v"
         if battery_voltage < 11.5:
-            self._warnings.append("Battery voltage below 11.5v, consider changing for a charged battery")
+            self._warnings.append(
+                "Battery voltage below 11.5v, consider changing for a charged battery")
 
         self._adc_max = self._green_giant.get_fvr_reading()
 
         self._gg_version = self._green_giant.get_version()
         if self._gg_version != 2:
-            self._warnings.append("Green Giant version not 2 but instead {}".format(self._gg_version))
+            self._warnings.append(
+                "Green Giant version not 2 but instead {}".format(self._gg_version))
 
         if self.vision._using_usb_cam:
             vision_str = "Camera:            USB"
@@ -149,11 +148,12 @@ class Robot(object):
 
         # print report of hardware
         logger.info("------HARDWARE REPORT------")
-        logger.info("Time:   %s" % datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+        logger.info("Time:   %s",
+                    datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
         logger.info("Patch Version:     0")
         logger.info(battery_str)
-        logger.info("ADC Max:           %.2fv" % self._adc_max)
-        logger.info("Green Giant Board: Yes (v%d)" % self._gg_version)
+        logger.info("ADC Max:           %.2fv", self._adc_max)
+        logger.info("Green Giant Board: Yes (v%d)", self._gg_version)
         logger.info("Cytron Board:      Yes")
         logger.info(vision_str)
         logger.info("---------------------------")
@@ -195,7 +195,7 @@ class Robot(object):
 
     def off(self):
         """Turns motors off"""
-        #TODO is this obsolite code
+        # TODO is this obsolite code
         for motor in self.motors:
             motor.off()
 
@@ -207,13 +207,16 @@ class Robot(object):
                           help="The path of the (non-volatile) user USB key")
 
         parser.add_option("--startfifo", type="string", dest="startfifo",
-                          help="The path of the fifo which start information will be received through")
+                          help="""The path of the fifo which start information
+                                  will be received through""")
         (options, _) = parser.parse_args()
 
         self.usbkey = options.usbkey
         self.startfifo = options.startfifo
 
     def wait_start_blink(self):
+        """When the robot object has been initalized asynchronously flash the
+        status led"""
         v = False
         while not self._start_pressed:
             time.sleep(0.2)
@@ -228,7 +231,8 @@ class Robot(object):
         if self.startfifo is None:
             self._start_pressed = True
 
-            logger.info("\nNo startfifo so using defaults (Zone: 0, Mode: dev, Arena: A)\n")
+            logger.info(
+                "\nNo startfifo so using defaults (Zone: 0, Mode: dev, Arena: A)\n")
             return
 
         t = threading.Thread(target=self.wait_start_blink)
@@ -250,9 +254,11 @@ class Robot(object):
             setattr(self, prop, j[prop])
 
         if self.mode not in ["comp", "dev"]:
-            raise ValueError("mode of '%s' is not supported -- must be 'comp' or 'dev'" % self.mode)
+            raise ValueError(
+                "mode of '%s' is not supported -- must be 'comp' or 'dev'" % self.mode)
         if self.zone < 0 or self.zone > 3:
-            raise ValueError("zone must be in range 0-3 inclusive -- value of %i is invalid" % self.zone)
+            raise ValueError(
+                "zone must be in range 0-3 inclusive -- value of %i is invalid" % self.zone)
         if self.arena not in ["A", "B"]:
             raise ValueError("arena must be A or B")
 

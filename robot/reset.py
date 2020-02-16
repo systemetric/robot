@@ -1,12 +1,12 @@
 from smbus2 import SMBus
-import cytron as c
-import greengiant as gg
+import robot.cytron as c
+import robot.greengiant as gg
 
-"""
-Resets the robot components to their default state.
-Used by Shepherd when the Stop button is pressed.
-"""
 def reset():
+    """
+    Resets the robot components to their default state.
+    Used by Shepherd when the Stop button is pressed.
+    """
     bus = SMBus(1)
 
     c.CytronBoard().stop()

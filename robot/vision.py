@@ -1,7 +1,7 @@
 """
 A vision module for detecting April tags using the robocon kit
 """
-import abc #Abstract-base-class
+import abc  # Abstract-base-class
 import functools
 import cv2
 import os
@@ -15,7 +15,7 @@ from datetime import datetime
 from collections import namedtuple
 import queue
 
-
+# TODO computer cx, cy for the luts
 # Camera details [fx, fy, cx, cy]
 camera_params = [336.7755634193813, 336.02729840829176,
                  333.3575643300718, 212.77376312080065]
@@ -37,28 +37,29 @@ LOGITECH_C270_FOCAL_LENGTHS = {  # fx, fy tuples
 }
 
 # Colours are in the format BGR
-PURPLE = (255,0,215) #Purple
-ORANGE = (0,128,255) #Orange
-YELLOW = (0,255,255) #Yellow
-GREEN = (0,255,0) #Green
-RED = (0,0,255) #Red
-BLUE = (255,0,0) #Blue
-WHITE = (255, 255, 255) #White
+PURPLE = (255, 0, 215)  # Purple
+ORANGE = (0, 128, 255)  # Orange
+YELLOW = (0, 255, 255)  # Yellow
+GREEN = (0, 255, 0)  # Green
+RED = (0, 0, 255)  # Red
+BLUE = (255, 0, 0)  # Blue
+WHITE = (255, 255, 255)  # White
 
-#Image post processing
+# Image post processing
 BOUNDING_BOX_THICKNESS = 2
 DEFAULT_BOUNDING_BOX_COLOUR = WHITE
 
-MAKER_ARENA, MAKER_TOKEN = "arena", "token"
+MARKER_ARENA, MARKER_TOKEN = "arena", "token"
 
 marker_sizes = {
-    MAKER_ARENA: 0.25,
-    MAKER_TOKEN: 0.1,
+    MARKER_ARENA: 0.25,
+    MARKER_ARENA: 0.1,
 }
 
-marker_size_lut = dict([(i, marker_sizes["MARKER_TOKEN"]) for i in range(100)])
+marker_size_lut = dict([(i, marker_sizes[MARKER_TOKEN]) for i in range(100)])
 
-MarkerInfo = namedtuple("MarkerInfo", "code marker_type token_type offset size")
+MarkerInfo = namedtuple(
+    "MarkerInfo", "code marker_type token_type offset size")
 ImageCoord = namedtuple("ImageCoord", "x y")
 
 # Define a tuple for passing captured frames around, colour frames for speed
@@ -67,8 +68,9 @@ ImageCoord = namedtuple("ImageCoord", "x y")
 Capture = namedtuple("Capture", "grey_frame colour_frame colour_type time")
 
 
-class Marker():
+class Marker:
     """A class to automatically pull the dis and rot_y out of the detection"""
+
     def __init__(self, info, detection):
         # Aliases
         self.info = info
@@ -94,6 +96,7 @@ class Camera(abc.ABC):
 class RoboConPiCamera(Camera):
     """A wrapper for the PiCamera class providing the methods which are used by
     the robocon classes"""
+
     def __init__(self, start_res=(1296, 736)):
         self._camera = picamera.PiCamera(resolution=start_res)
 
@@ -105,11 +108,13 @@ class RoboConPiCamera(Camera):
         try:
             self._camera.resolution = res
         except Exception as e:
-            raise ValueError(f"Setting camera resolution failed with {type(e)}")
+            raise ValueError(
+                "Setting camera resolution failed with {}".format(type(e)))
 
         actual = self._camera.resolution
         if res != actual:
-            raise ValueError(f"Unsupported image resolution {res} (got: {actual})")
+            raise ValueError(
+                "Unsupported image resolution {} (got: {})".format(res, actual))
 
     def capture(self):
         # TODO Make this return the YUV capture
@@ -128,6 +133,7 @@ class RoboConPiCamera(Camera):
 
 class RoboConUSBCamera(Camera):
     """A wrapper class for the open CV methods for generic cameras"""
+
     def __init__(self, start_res=(1296, 736), lut=LOGITECH_C270_FOCAL_LENGTHS):
         self._camera = cv2.VideoCapture(0)
         self.res = start_res
@@ -143,7 +149,7 @@ class RoboConUSBCamera(Camera):
         """Capture from a USB camera. Not all usb cameras support native YUV
         capturing so to ensure that we have the best USB camera compatibility
         we take the performance hit and capture in RGB and covert to grey."""
-        #TODO I'm sure openCV has some faster capture methods from video
+        # TODO I'm sure openCV has some faster capture methods from video
         # streams like libkoki used to do.
 
         cam_running, colour_frame = self._camera.read()
@@ -169,10 +175,11 @@ class PostProcessor(threading.Thread):
     Note: because AprilTags can use all 4 cores that the pi has this still isn't
     free if we are processing frames back to backs.
     """
+
     def __init__(self,
-                    owner,
-                    bounding_box_enable=True,
-                    bounding_box_thickness=2):
+                 owner,
+                 bounding_box_enable=True,
+                 bounding_box_thickness=2):
 
         super(PostProcessor, self).__init__()
 
@@ -212,10 +219,10 @@ class PostProcessor(threading.Thread):
 
             for current_v, next_v in zip(m.vertecies, rotated_vetecies):
                 cv2.rectangle(frame,
-                                current_v,
-                                next_v,
-                                bounding_box_colour,
-                                self._bounding_box_thickness)
+                              current_v,
+                              next_v,
+                              bounding_box_colour,
+                              self._bounding_box_thickness)
 
         return frame
 
@@ -228,7 +235,8 @@ class PostProcessor(threading.Thread):
         """
         while not self._stop_event.is_set():
             try:
-                frame, _, markers = self._owner.frames_to_postprocess.get(timeout=1)
+                frame, _, markers = self._owner.frames_to_postprocess.get(
+                    timeout=1)
             except queue.Empty:
                 pass
             else:
@@ -241,24 +249,34 @@ class PostProcessor(threading.Thread):
                 if self._send_to_sheep:
                     pass
 
+
 class Vision(object):
     """A class to provide and interface and utilities for vision"""
-    def __init__(self, mode, arena, zone, at_path="/home/pi/apriltag", max_queue_size=4, use_usb_cam=False):
+
+    def __init__(self,
+                 mode,
+                 arena,
+                 zone,
+                 at_path="/home/pi/apriltag",
+                 max_queue_size=4,
+                 use_usb_cam=False):
         self.mode = mode
         self.arena = arena
         self.zone = zone
 
-        self.at_detector = AT.Detector(searchpath=[
-                                        f'{at_path}/lib',
-                                        f'{at_path}/lib64'
-                                    ],
-                                    families='tag36h11',
-                                    nthreads=4,
-                                    quad_decimate=1.0,
-                                    quad_sigma=0.0,
-                                    refine_edges=1,
-                                    decode_sharpening=0.25,
-                                    debug=0)
+        at_lib_path = [
+            "{}/lib".format(at_path),
+            "{}/lib64".format(at_path)
+        ]
+
+        self.at_detector = AT.Detector(searchpath=at_lib_path,
+                                       families="tag36h11",
+                                       nthreads=4,
+                                       quad_decimate=1.0,
+                                       quad_sigma=0.0,
+                                       refine_edges=1,
+                                       decode_sharpening=0.25,
+                                       debug=0)
 
         if use_usb_cam:
             self.camera = RoboConUSBCamera()
@@ -278,10 +296,12 @@ class Vision(object):
         markers = []
         for tag in tags:
             if tag.id not in marker_size_lut[self.mode][self.arena][self.zone]:
-                logging.warn("Detected tag with id {} but not found in lut".format(tag.id))
+                logging.warn(
+                    "Detected tag with id {} but not found in lut".format(tag.id))
                 continue
 
-            info = marker_size_lut[self.mode][self.arena][self.zone][int(tag.id)]
+            info = marker_size_lut[self.mode][self.arena][self.zone][int(
+                tag.id)]
             markers.append(Marker(info, tag))
 
         return markers
@@ -295,9 +315,9 @@ class Vision(object):
         capture = self.camera.capture()
 
         detections = self.at_detector.detect(capture.grey_frame,
-                                        estimate_tag_pose=True,
-                                        camera_params=camera_params,
-                                        tag_size_lut=marker_size_lut)
+                                             estimate_tag_pose=True,
+                                             camera_params=camera_params,
+                                             tag_size_lut=marker_size_lut)
 
         markers = self._generate_marker_properties(detections)
 

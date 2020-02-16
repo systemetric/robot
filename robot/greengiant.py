@@ -1,5 +1,9 @@
-def clamp(n, smallest, largest): return max(smallest, min(n, largest))
+"""
+A set of constants and interfaces for controlling the green giant over I2C
+"""
 
+def clamp(n, smallest, largest):
+    return max(smallest, min(n, largest))
 
 OUTPUT = 0b00
 INPUT = 0b01
