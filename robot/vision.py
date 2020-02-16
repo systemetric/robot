@@ -15,7 +15,7 @@ from datetime import datetime
 from collections import namedtuple
 import queue
 
-# TODO computer cx, cy for the luts
+# TODO compute cx, cy for the luts
 # Camera details [fx, fy, cx, cy]
 camera_params = [336.7755634193813, 336.02729840829176,
                  333.3575643300718, 212.77376312080065]
@@ -261,6 +261,7 @@ class Vision(object):
                  at_path="/home/pi/apriltag",
                  max_queue_size=4,
                  use_usb_cam=False):
+
         self.mode = mode
         self.arena = arena
         self.zone = zone
@@ -311,7 +312,8 @@ class Vision(object):
         """Returns the markers the robot can see:
             - Gets a frame
             - Finds the markers
-            - Posts the result to shepherd
+            - Appends robocon specific properties, e.g. token or arena
+            - Sends off for post processing
         """
         capture = self.camera.capture()
 
