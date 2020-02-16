@@ -251,7 +251,8 @@ class PostProcessor(threading.Thread):
 
 
 class Vision(object):
-    """A class to provide and interface and utilities for vision"""
+    """Class for setting camera hardware, capturing, assigning attributes
+        calling the post processor"""
 
     def __init__(self,
                  mode,
