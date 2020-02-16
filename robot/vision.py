@@ -87,7 +87,7 @@ class Camera(abc.ABC):
 
     @abc.abstractmethod
     def capture(self):
-        """This method should return a YUV numpy array with data from the sensor
+        """This method should return a Capture named tuple
         """
 
 
@@ -168,8 +168,6 @@ class PostProcessor(threading.Thread):
 
     Note: because AprilTags can use all 4 cores that the pi has this still isn't
     free if we are processing frames back to backs.
-
-    #TODO check if this is faster as another process
     """
     def __init__(self,
                     owner,
@@ -272,18 +270,15 @@ class Vision(object):
         self.frames_to_postprocess = queue.Queue(max_queue_size)
         self.post_processor = PostProcessor(self)
 
-
     def __del__(self):
         self.post_processor.stop()
-
 
     def _generate_marker_properties(self, tags):
         """A function to return the marker objects properties in polar form"""
         markers = []
         for tag in tags:
             if tag.id not in marker_size_lut[self.mode][self.arena][self.zone]:
-                # TODO should really be a call to the python logger
-                print("WARNING: tag not in marker lut")
+                logging.warn("Detected tag with id {} but not found in lut".format(tag.id))
                 continue
 
             info = marker_size_lut[self.mode][self.arena][self.zone][int(tag.id)]

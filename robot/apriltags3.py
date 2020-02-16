@@ -8,6 +8,7 @@ tags.
 This module is both python 2 and 3 compatiable.
 
 Forked from: <https://github.com/duckietown/apriltags3-py>
+Added support for polar cords and variable sized markers
 """
 from __future__ import division
 from __future__ import print_function
@@ -342,7 +343,9 @@ class Detector(object):
     def detect(self, img, estimate_tag_pose=False, camera_params=None, tag_size_lut=None):
 
         '''Run detectons on the provided image. The image must be a grayscale
-           image of type numpy.uint8.'''
+           image of type numpy.uint8.
+        #TODO get rid of the magic numbers
+        '''
 
         assert len(img.shape) == 2
         assert img.dtype == numpy.uint8
