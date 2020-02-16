@@ -427,12 +427,13 @@ class Detector(object):
             detection.corners = corners
 
             if estimate_tag_pose:
+                # TODO better to ask for forgiveness than permision
                 if camera_params is None:
                     raise ValueError(
-                        'camera_params must be provided to detect if estimate_tag_pose is set to True')
+                        "camera_params must be provided to detect if estimate_tag_pose is set to True")
                 if tag_size_lut is None:
                     raise ValueError(
-                        'tag_size_lut must be provided to detect if estimate_tag_pose is set to True')
+                        "tag_size_lut must be provided to detect if estimate_tag_pose is set to True")
 
                 tag_size = tag_size_lut[tag.id]
 
@@ -458,23 +459,30 @@ class Detector(object):
                 detection.dist = numpy.sqrt(
                     detection.pose_T.dot(detection.pose_T))
 
-                detection.bearing_x = numpy.arctan2(detection.pose_T[1],
-                                                    detection.pose_T[2])
+                #TODO faster to do dot product then acos then atan2?
+                detection.bearing_x = numpy.degrees(
+                                      numpy.arctan2(detection.pose_T[1],
+                                                    detection.pose_T[2]))
 
-                detection.bearing_y = numpy.arctan2(detection.pose_T[2],
-                                                    detection.pose_T[0])
+                detection.bearing_y = numpy.degrees(
+                                      numpy.arctan2(detection.pose_T[2],
+                                                    detection.pose_T[0]))
 
-                detection.bearing_z = numpy.arctan2(detection.pose_T[0],
-                                                    detection.pose_T[1])
+                detection.bearing_z = numpy.degrees(
+                                      numpy.arctan2(detection.pose_T[0],
+                                                    detection.pose_T[1]))
 
-                detection.rot_x = numpy.arctan2(detection.pose_R[1],
-                                                detection.pose_R[2])
+                detection.rot_x = numpy.degrees(
+                                  numpy.arctan2(detection.pose_R[1],
+                                                detection.pose_R[2]))
 
-                detection.rot_x = numpy.arctan2(detection.pose_R[2],
-                                                detection.pose_R[0])
+                detection.rot_y = numpy.degrees(
+                                  numpy.arctan2(detection.pose_R[2],
+                                                detection.pose_R[0]))
 
-                detection.rot_x = numpy.arctan2(detection.pose_R[0],
-                                                detection.pose_R[1])
+                detection.rot_z = numpy.degrees(
+                                  numpy.arctan2(detection.pose_R[0],
+                                                detection.pose_R[1]))
 
             # Append this dict to the tag data array
             return_info.append(detection)
