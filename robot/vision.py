@@ -36,6 +36,7 @@ LOGITECH_C270_FOCAL_LENGTHS = {  # fx, fy tuples
     (640, 480): (463, 463),
 }
 
+
 # Colours are in the format BGR
 PURPLE = (255, 0, 215)  # Purple
 ORANGE = (0, 128, 255)  # Orange
@@ -45,9 +46,91 @@ RED = (0, 0, 255)  # Red
 BLUE = (255, 0, 0)  # Blue
 WHITE = (255, 255, 255)  # White
 
-# Image post processing
-BOUNDING_BOX_THICKNESS = 2
-DEFAULT_BOUNDING_BOX_COLOUR = WHITE
+"""
+NOTE Key constants:
+    MARKER_: Marker Data Types
+    MARKER_TYPE_: Marker Types
+    MODE_: Round Mode Types
+"""
+MARKER_TYPE, MARKER_OFFSET, MARKER_COUNT, MARKER_SIZE, MARKER_COLOUR = 'type', 'offset', 'count', 'size', 'colour' 
+MARKER_TYPE_ARENA, MARKER_TYPE_TOKEN, MARKER_TYPE_BUCKET_SIDE, MARKER_TYPE_BUCKET_END = 'arena', 'token', 'bucket-side', 'bucket-end'
+MODE_DEV, MODE_COMP = 'dev', 'comp'
+
+"""
+NOTE Data about each marker
+    MARKER_TYPE: Name of marker type
+    MARKER_OFFSET: Offset
+    MARKER_COUNT: Number of markers of type that exist
+    MARKER_SIZE: Real life size of marker
+        # The numbers here (e.g. `0.25`) are in metres -- the 10/12 is a scaling factor
+        # so that libkoki gets the size of the 10x10 black/white portion (not including
+        # the white border), but so that humans can measure sizes including the border.
+    MARKER_COLOUR: Bounding box colour
+"""
+marker_data = {
+    MARKER_TYPE_ARENA: {
+        MARKER_TYPE: MARKER_TYPE_ARENA,
+        MARKER_OFFSET: 0,
+        MARKER_COUNT: {
+            MODE_DEV: 24,
+            MODE_COMP: 4
+        },
+        MARKER_SIZE: 0.25 * (10.0 / 12),
+        MARKER_COLOUR: RED
+    },
+    MARKER_TYPE_TOKEN: {
+        MARKER_TYPE: MARKER_TYPE_TOKEN,
+        MARKER_OFFSET: 32,
+        MARKER_COUNT: {
+            MODE_DEV: 40,
+            MODE_COMP: 0
+        },
+        MARKER_SIZE: 0.1 * (10.0 / 12),
+        MARKER_COLOUR: YELLOW
+    },
+    MARKER_TYPE_BUCKET_SIDE: {
+        MARKER_TYPE: MARKER_TYPE_BUCKET_SIDE,
+        MARKER_OFFSET: 72,
+        MARKER_COUNT: {
+            MODE_DEV: 4,
+            MODE_COMP: 0
+        },
+        MARKER_SIZE: 0.1 * (10.0 / 12),
+        MARKER_COLOUR: ORANGE
+    },
+    MARKER_TYPE_BUCKET_END: {
+        MARKER_TYPE: MARKER_TYPE_BUCKET_END,
+        MARKER_OFFSET: 76,
+        MARKER_COUNT: {
+            MODE_DEV: 4,
+            MODE_COMP: 2
+        },
+        MARKER_SIZE: 0.1 * (10.0 / 12),
+        MARKER_COLOUR: GREEN
+    }
+}
+
+
+def create_marker_lut(mode):
+    """Create a look up table based on the the arena mode"""
+    lut = {}
+    for _, marker in marker_data.items():
+        for n in range(0, marker[MARKER_COUNT][mode]):
+            code = marker[MARKER_OFFSET] + n
+            m = MarkerInfo(code=code,
+                           marker_type=marker[MARKER_TYPE],
+                           offset=n,
+                           size=marker[MARKER_SIZE],
+                           bounding_box_colour=marker[MARKER_COLOUR])
+            lut[code] = m
+
+    return lut
+
+marker_luts = {
+    MODE_DEV: create_marker_lut(MODE_DEV),
+    MODE_COMP: create_marker_lut(MODE_COMP)
+}
+
 
 MARKER_ARENA, MARKER_TOKEN = "arena", "token"
 
@@ -56,12 +139,12 @@ marker_sizes = {
     MARKER_ARENA: 0.1,
 }
 
-marker_size_lut = dict([(i, marker_sizes[MARKER_TOKEN]) for i in range(100)])
-
-MarkerInfo = namedtuple(
-    "MarkerInfo", "code marker_type token_type offset size")
+MarkerInfo = namedtuple("MarkerInfo", "code marker_type token_type offset size")
 ImageCoord = namedtuple("ImageCoord", "x y")
 
+# Image post processing constants
+BOUNDING_BOX_THICKNESS = 2
+DEFAULT_BOUNDING_BOX_COLOUR = WHITE
 # Define a tuple for passing captured frames around, colour frames for speed
 # are stored in whatever encoding RGB, BGR, YUV which they were captured in
 # it is upto the postprocessor to deal with this.
@@ -266,6 +349,8 @@ class Vision(object):
         self.arena = arena
         self.zone = zone
 
+        self.marker_size_lut = marker_luts[self.mode][self.arena][self.zone]
+
         at_lib_path = [
             "{}/lib".format(at_path),
             "{}/lib64".format(at_path)
@@ -290,6 +375,7 @@ class Vision(object):
         self.frames_to_postprocess = queue.Queue(max_queue_size)
         self.post_processor = PostProcessor(self)
 
+
     def __del__(self):
         self.post_processor.stop()
 
@@ -297,13 +383,12 @@ class Vision(object):
         """A function to return the marker objects properties in polar form"""
         markers = []
         for tag in tags:
-            if tag.id not in marker_size_lut[self.mode][self.arena][self.zone]:
+            if tag.id not in self.marker_size_lut:
                 logging.warn(
                     "Detected tag with id {} but not found in lut".format(tag.id))
                 continue
 
-            info = marker_size_lut[self.mode][self.arena][self.zone][int(
-                tag.id)]
+            info = self.marker_size_lut[int(tag.id)]
             markers.append(Marker(info, tag))
 
         return markers
@@ -320,7 +405,7 @@ class Vision(object):
         detections = self.at_detector.detect(capture.grey_frame,
                                              estimate_tag_pose=True,
                                              camera_params=camera_params,
-                                             tag_size_lut=marker_size_lut)
+                                             tag_size_lut=self.marker_size_lut)
 
         markers = self._generate_marker_properties(detections)
 
