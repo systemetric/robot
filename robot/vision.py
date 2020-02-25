@@ -136,7 +136,7 @@ MARKER_ARENA, MARKER_TOKEN = "arena", "token"
 
 marker_sizes = {
     MARKER_ARENA: 0.25,
-    MARKER_ARENA: 0.1,
+    MARKER_TOKEN: 0.1,
 }
 
 MarkerInfo = namedtuple("MarkerInfo", "code marker_type token_type offset size")
@@ -203,7 +203,7 @@ class RoboConPiCamera(Camera):
         # TODO Make this return the YUV capture
         with picamera.array.PiRGBArray(self._camera) as stream:
             self._camera.capture(stream, format="bgr", use_video_port=True)
-            capture_time = datetime.time()
+            capture_time = datetime.now()
             colour_frame = stream.array
             grey_frame = cv2.cvtColor(stream.array, cv2.COLOR_BGR2GRAY)
 
@@ -409,8 +409,8 @@ class Vision(object):
 
         markers = self._generate_marker_properties(detections)
 
-        self.frames_to_postprocess.put(capture.colour_frame,
+        self.frames_to_postprocess.put((capture.colour_frame,
                                        capture.colour_type,
-                                       markers)
+                                       markers))
 
         return markers

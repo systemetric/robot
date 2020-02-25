@@ -456,9 +456,8 @@ class Detector(object):
                 detection.pose_T = _matd_get_array(pose.t).copy()
                 detection.pose_err = err
 
-                detection.dist = numpy.sqrt(
-                    detection.pose_T.dot(detection.pose_T))
-
+                #TODO faster to use a vector, dot product then use NEON to sqrt
+                detection.dist = numpy.linalg.norm(detection.pose_T)
                 #TODO faster to do dot product then acos then atan2?
                 detection.bearing_x = numpy.degrees(
                                       numpy.arctan2(detection.pose_T[1],

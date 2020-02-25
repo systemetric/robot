@@ -133,10 +133,7 @@ class Robot(object):
         if battery_voltage < 11.5:
             self._warnings.append(
                 "Battery voltage below 11.5v, consider changing for a charged battery")
-
-        self._adc_max = self._green_giant.get_fvr_reading()
-
-        self._gg_version = self._green_giant.get_version()
+        
         if self._gg_version != 2:
             self._warnings.append(
                 "Green Giant version not 2 but instead {}".format(self._gg_version))
@@ -182,6 +179,9 @@ class Robot(object):
         self._green_giant = GreenGiantInternal(self.bus)
         self._green_giant.set_12v(True)
         self.servos = GreenGiantPWM(self.bus)
+
+        self._adc_max = self._green_giant.get_fvr_reading()
+        self._gg_version = self._green_giant.get_version()
 
         self.gpio = [None]
         for i in range(4):
