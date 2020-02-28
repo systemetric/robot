@@ -349,7 +349,10 @@ class Vision(object):
         self.arena = arena
         self.zone = zone
 
-        self.marker_size_lut = marker_luts[self.mode]
+        self.marker_info_lut = marker_luts[self.mode]
+        self.marker_size_lut = {}
+        for code, properties in marker_luts[self.mode].items():
+            self.marker_size_lut[code] = properties.size
 
         at_lib_path = [
             "{}/lib".format(at_path),
@@ -383,12 +386,11 @@ class Vision(object):
         """A function to return the marker objects properties in polar form"""
         markers = []
         for tag in tags:
-            if tag.id not in self.marker_size_lut:
-                logging.warn(
-                    "Detected tag with id {} but not found in lut".format(tag.id))
+            if tag.id not in self.marker_info_lut:
+                logging.warn("Detected tag with id {} but not found in lut".format(tag.id))
                 continue
 
-            info = self.marker_size_lut[int(tag.id)]
+            info = self.marker_info_lut[int(tag.id)]
             markers.append(Marker(info, tag))
 
         return markers
