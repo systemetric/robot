@@ -419,7 +419,7 @@ class Detector(object):
 
             detection = Detection()
             detection.tag_family = ctypes.string_at(tag.family.contents.name)
-            detection.tag_id = tag.id
+            detection.id = tag.id
             detection.hamming = tag.hamming
             detection.decision_margin = tag.decision_margin
             detection.homography = homography
