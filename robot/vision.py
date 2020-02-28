@@ -46,67 +46,34 @@ RED = (0, 0, 255)  # Red
 BLUE = (255, 0, 0)  # Blue
 WHITE = (255, 255, 255)  # White
 
-"""
-NOTE Key constants:
-    MARKER_: Marker Data Types
-    MARKER_TYPE_: Marker Types
-    MODE_: Round Mode Types
-"""
-MARKER_TYPE, MARKER_OFFSET, MARKER_COUNT, MARKER_SIZE, MARKER_COLOUR = 'type', 'offset', 'count', 'size', 'colour' 
-MARKER_TYPE_ARENA, MARKER_TYPE_TOKEN, MARKER_TYPE_BUCKET_SIDE, MARKER_TYPE_BUCKET_END = 'arena', 'token', 'bucket-side', 'bucket-end'
-MODE_DEV, MODE_COMP = 'dev', 'comp'
 
-"""
-NOTE Data about each marker
-    MARKER_TYPE: Name of marker type
-    MARKER_OFFSET: Offset
-    MARKER_COUNT: Number of markers of type that exist
-    MARKER_SIZE: Real life size of marker
-        # The numbers here (e.g. `0.25`) are in metres -- the 10/12 is a scaling factor
-        # so that libkoki gets the size of the 10x10 black/white portion (not including
-        # the white border), but so that humans can measure sizes including the border.
-    MARKER_COLOUR: Bounding box colour
-"""
+# MARKER_: Marker Data Types
+# MARKER_TYPE_: Marker Types
+MARKER_TYPE, MARKER_OFFSET, MARKER_COUNT, MARKER_SIZE, MARKER_COLOUR = 'type', 'offset', 'count', 'size', 'colour'
+MARKER_ARENA, MARKER_TOKEN = "arena", "token"
+
+
+# NOTE Data about each marker
+#     MARKER_OFFSET: Offset
+#     MARKER_COUNT: Number of markers of type that exist
+#     MARKER_SIZE: Real life size of marker
+#         The numbers here (e.g. `0.25`) are in metres -- the 10/12 is a scaling factor
+#         so that april_tags gets the size of the 10x10 black/white portion (not including
+#         the white border), but so that humans can measure sizes including the border.
+#     MARKER_COLOUR: Bounding box colour
+
 marker_data = {
-    MARKER_TYPE_ARENA: {
-        MARKER_TYPE: MARKER_TYPE_ARENA,
+    MARKER_ARENA: {
         MARKER_OFFSET: 0,
-        MARKER_COUNT: {
-            MODE_DEV: 24,
-            MODE_COMP: 4
-        },
+        MARKER_COUNT: 32,
         MARKER_SIZE: 0.25 * (10.0 / 12),
         MARKER_COLOUR: RED
     },
-    MARKER_TYPE_TOKEN: {
-        MARKER_TYPE: MARKER_TYPE_TOKEN,
+    MARKER_TOKEN: {
         MARKER_OFFSET: 32,
-        MARKER_COUNT: {
-            MODE_DEV: 40,
-            MODE_COMP: 0
-        },
+        MARKER_COUNT: 8,
         MARKER_SIZE: 0.1 * (10.0 / 12),
         MARKER_COLOUR: YELLOW
-    },
-    MARKER_TYPE_BUCKET_SIDE: {
-        MARKER_TYPE: MARKER_TYPE_BUCKET_SIDE,
-        MARKER_OFFSET: 72,
-        MARKER_COUNT: {
-            MODE_DEV: 4,
-            MODE_COMP: 0
-        },
-        MARKER_SIZE: 0.1 * (10.0 / 12),
-        MARKER_COLOUR: ORANGE
-    },
-    MARKER_TYPE_BUCKET_END: {
-        MARKER_TYPE: MARKER_TYPE_BUCKET_END,
-        MARKER_OFFSET: 76,
-        MARKER_COUNT: {
-            MODE_DEV: 4,
-            MODE_COMP: 2
-        },
-        MARKER_SIZE: 0.1 * (10.0 / 12),
-        MARKER_COLOUR: GREEN
     }
 }
 
@@ -114,33 +81,18 @@ marker_data = {
 MarkerInfo = namedtuple("MarkerInfo", "code marker_type offset size bounding_box_colour")
 ImageCoord = namedtuple("ImageCoord", "x y")
 
-def create_marker_lut(mode):
-    """Create a look up table based on the the arena mode"""
-    lut = {}
-    for _, marker in marker_data.items():
-        for n in range(0, marker[MARKER_COUNT][mode]):
-            code = marker[MARKER_OFFSET] + n
-            m = MarkerInfo(code=code,
-                           marker_type=marker[MARKER_TYPE],
-                           offset=n,
-                           size=marker[MARKER_SIZE],
-                           bounding_box_colour=marker[MARKER_COLOUR])
-            lut[code] = m
 
-    return lut
+marker_luts = {}
+for maker_type, properties in marker_data.items():
+    for n in range(properties[MARKER_COUNT]):
+        code = properties[MARKER_OFFSET] + n
+        m = MarkerInfo(code=code,
+                        marker_type=maker_type,
+                        offset=n,
+                        size=properties[MARKER_SIZE],
+                        bounding_box_colour=properties[MARKER_COLOUR])
+        marker_luts[code] = m
 
-marker_luts = {
-    MODE_DEV: create_marker_lut(MODE_DEV),
-    MODE_COMP: create_marker_lut(MODE_COMP)
-}
-
-
-MARKER_ARENA, MARKER_TOKEN = "arena", "token"
-
-marker_sizes = {
-    MARKER_ARENA: 0.25,
-    MARKER_TOKEN: 0.1,
-}
 
 # Image post processing constants
 BOUNDING_BOX_THICKNESS = 2
@@ -288,7 +240,7 @@ class PostProcessor(threading.Thread):
     def stopped(self):
         return self._stop_event.is_set()
 
-    def draw_bounding_box(self, frame, markers):
+    def draw_bounding_box(self, frame, markers, detections):
         """Takes a frame and a list of markers drawing bounding boxes
         """
         for m in markers:
@@ -296,6 +248,8 @@ class PostProcessor(threading.Thread):
                 bounding_box_colour = m.info.bounding_box_colour
             except AttributeError:
                 bounding_box_colour = DEFAULT_BOUNDING_BOX_COLOUR
+
+            vertices = detections
 
             # Shift and wrap the list by 1
             rotated_vetecies = m.vertecies.roll(1)
@@ -318,13 +272,13 @@ class PostProcessor(threading.Thread):
         """
         while not self._stop_event.is_set():
             try:
-                frame, _, markers = self._owner.frames_to_postprocess.get(
+                frame, _, markers, detections = self._owner.frames_to_postprocess.get(
                     timeout=1)
             except queue.Empty:
                 pass
             else:
                 if self._bounding_box_enable:
-                    frame = self.draw_bounding_box(frame, markers)
+                    frame = self.draw_bounding_box(frame, markers, detections)
                 if self._save:
                     cv2.imwrite("/tmp/colimage.jpg", frame)
                 if self._usb_stick:
@@ -338,20 +292,17 @@ class Vision(object):
         calling the post processor"""
 
     def __init__(self,
-                 mode,
-                 arena,
                  zone,
                  at_path="/home/pi/apriltag",
                  max_queue_size=4,
                  use_usb_cam=False):
 
-        self.mode = mode
         self.arena = arena
         self.zone = zone
 
-        self.marker_info_lut = marker_luts[self.mode]
+        self.marker_info_lut = marker_luts
         self.marker_size_lut = {}
-        for code, properties in marker_luts[self.mode].items():
+        for code, properties in marker_luts.items():
             self.marker_size_lut[code] = properties.size
 
         at_lib_path = [
@@ -415,6 +366,7 @@ class Vision(object):
 
         self.frames_to_postprocess.put((capture.colour_frame,
                                        capture.colour_type,
-                                       markers))
+                                       markers,
+                                       detections))
 
         return markers

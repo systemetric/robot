@@ -90,8 +90,6 @@ class Robot(object):
             setup_logging()
 
         self.zone = 0
-        self.mode = "dev"
-        self.arena = "A"
 
         self._initialised = False
         self._start_pressed = False
@@ -133,7 +131,7 @@ class Robot(object):
         if battery_voltage < 11.5:
             self._warnings.append(
                 "Battery voltage below 11.5v, consider changing for a charged battery")
-        
+
         if self._gg_version != 2:
             self._warnings.append(
                 "Green Giant version not 2 but instead {}".format(self._gg_version))
@@ -189,7 +187,7 @@ class Robot(object):
 
         self.motors = CytronBoard()
 
-        self.vision = vision.Vision(self.mode, self.arena, self.zone)
+        self.vision = vision.Vision(self.zone)
 
         self._initialised = True
 
@@ -231,8 +229,7 @@ class Robot(object):
         if self.startfifo is None:
             self._start_pressed = True
 
-            logger.info(
-                "\nNo startfifo so using defaults (Zone: 0, Mode: dev, Arena: A)\n")
+            logger.info(f"\nNo startfifo so using defaults (Zone: {self.zone})\n")
             return
 
         t = threading.Thread(target=self.wait_start_blink)
@@ -248,19 +245,14 @@ class Robot(object):
 
         j = json.loads(d)
 
-        for prop in ["zone", "mode", "arena"]:
+        for prop in ("zone"):
             if prop not in j:
                 raise ValueError("'{}' must be in startup info".format(prop))
             setattr(self, prop, j[prop])
 
-        if self.mode not in ["comp", "dev"]:
-            raise ValueError(
-                "mode of '%s' is not supported -- must be 'comp' or 'dev'" % self.mode)
         if self.zone < 0 or self.zone > 3:
             raise ValueError(
                 "zone must be in range 0-3 inclusive -- value of %i is invalid" % self.zone)
-        if self.arena not in ["A", "B"]:
-            raise ValueError("arena must be A or B")
 
         logger.info("Robot started!\n")
 
