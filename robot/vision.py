@@ -111,6 +111,9 @@ marker_data = {
 }
 
 
+MarkerInfo = namedtuple("MarkerInfo", "code marker_type offset size bounding_box_colour")
+ImageCoord = namedtuple("ImageCoord", "x y")
+
 def create_marker_lut(mode):
     """Create a look up table based on the the arena mode"""
     lut = {}
@@ -138,9 +141,6 @@ marker_sizes = {
     MARKER_ARENA: 0.25,
     MARKER_TOKEN: 0.1,
 }
-
-MarkerInfo = namedtuple("MarkerInfo", "code marker_type token_type offset size")
-ImageCoord = namedtuple("ImageCoord", "x y")
 
 # Image post processing constants
 BOUNDING_BOX_THICKNESS = 2
@@ -349,7 +349,7 @@ class Vision(object):
         self.arena = arena
         self.zone = zone
 
-        self.marker_size_lut = marker_luts[self.mode][self.arena][self.zone]
+        self.marker_size_lut = marker_luts[self.mode]
 
         at_lib_path = [
             "{}/lib".format(at_path),
@@ -374,7 +374,7 @@ class Vision(object):
 
         self.frames_to_postprocess = queue.Queue(max_queue_size)
         self.post_processor = PostProcessor(self)
-
+        print("created post processor")
 
     def __del__(self):
         self.post_processor.stop()
@@ -401,6 +401,8 @@ class Vision(object):
             - Sends off for post processing
         """
         capture = self.camera.capture()
+
+        print(self.marker_size_lut)
 
         detections = self.at_detector.detect(capture.grey_frame,
                                              estimate_tag_pose=True,
