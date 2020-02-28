@@ -82,7 +82,7 @@ MarkerInfo = namedtuple("MarkerInfo", "code marker_type offset size bounding_box
 ImageCoord = namedtuple("ImageCoord", "x y")
 
 
-marker_luts = {}
+marker_lut = {}
 for maker_type, properties in marker_data.items():
     for n in range(properties[MARKER_COUNT]):
         code = properties[MARKER_OFFSET] + n
@@ -91,7 +91,7 @@ for maker_type, properties in marker_data.items():
                         offset=n,
                         size=properties[MARKER_SIZE],
                         bounding_box_colour=properties[MARKER_COLOUR])
-        marker_luts[code] = m
+        marker_lut[code] = m
 
 
 # Image post processing constants
@@ -240,25 +240,24 @@ class PostProcessor(threading.Thread):
     def stopped(self):
         return self._stop_event.is_set()
 
-    def draw_bounding_box(self, frame, markers, detections):
+    def draw_bounding_box(self, frame, detections):
         """Takes a frame and a list of markers drawing bounding boxes
         """
-        for m in markers:
+        for detection in detections:
             try:
-                bounding_box_colour = m.info.bounding_box_colour
+                colour = marker_lut[detection.id].bounding_box_colour
             except AttributeError:
-                bounding_box_colour = DEFAULT_BOUNDING_BOX_COLOUR
-
-            vertices = detections
+                # TODO don't think this is the correct error to catch
+                colour = DEFAULT_BOUNDING_BOX_COLOUR
 
             # Shift and wrap the list by 1
-            rotated_vetecies = m.vertecies.roll(1)
+            rotated_vetecies = detection.vertecies.roll(1)
 
-            for current_v, next_v in zip(m.vertecies, rotated_vetecies):
+            for current_v, next_v in zip(detection.vertecies, rotated_vetecies):
                 cv2.rectangle(frame,
                               current_v,
                               next_v,
-                              bounding_box_colour,
+                              colour,
                               self._bounding_box_thickness)
 
         return frame
@@ -272,13 +271,13 @@ class PostProcessor(threading.Thread):
         """
         while not self._stop_event.is_set():
             try:
-                frame, _, markers, detections = self._owner.frames_to_postprocess.get(
+                frame, _, detections = self._owner.frames_to_postprocess.get(
                     timeout=1)
             except queue.Empty:
                 pass
             else:
                 if self._bounding_box_enable:
-                    frame = self.draw_bounding_box(frame, markers, detections)
+                    frame = self.draw_bounding_box(frame, detections)
                 if self._save:
                     cv2.imwrite("/tmp/colimage.jpg", frame)
                 if self._usb_stick:
@@ -299,15 +298,15 @@ class Vision(object):
 
         self.zone = zone
 
-        self.marker_info_lut = marker_luts
+        self.marker_info_lut = marker_lut
         self.marker_size_lut = {}
-        for code, properties in marker_luts.items():
+        for code, properties in marker_lut.items():
             self.marker_size_lut[code] = properties.size
 
-        at_lib_path = [
+        at_lib_path = (
             "{}/lib".format(at_path),
             "{}/lib64".format(at_path)
-        ]
+        )
 
         self.at_detector = AT.Detector(searchpath=at_lib_path,
                                        families="tag36h11",
@@ -327,7 +326,6 @@ class Vision(object):
 
         self.frames_to_postprocess = queue.Queue(max_queue_size)
         self.post_processor = PostProcessor(self)
-        print("created post processor")
 
     def __del__(self):
         self.post_processor.stop()
@@ -336,11 +334,11 @@ class Vision(object):
         """A function to return the marker objects properties in polar form"""
         markers = []
         for tag in tags:
-            if tag.id not in self.marker_info_lut:
+            if tag.id not in marker_lut:
                 logging.warn("Detected tag with id {} but not found in lut".format(tag.id))
                 continue
 
-            info = self.marker_info_lut[int(tag.id)]
+            info = marker_lut[int(tag.id)]
             markers.append(Marker(info, tag))
 
         return markers
@@ -354,18 +352,15 @@ class Vision(object):
         """
         capture = self.camera.capture()
 
-        print(self.marker_size_lut)
-
         detections = self.at_detector.detect(capture.grey_frame,
                                              estimate_tag_pose=True,
                                              camera_params=camera_params,
                                              tag_size_lut=self.marker_size_lut)
 
-        markers = self._generate_marker_properties(detections)
-
         self.frames_to_postprocess.put((capture.colour_frame,
                                        capture.colour_type,
-                                       markers,
                                        detections))
+
+        markers = self._generate_marker_properties(detections)
 
         return markers
