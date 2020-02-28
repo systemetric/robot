@@ -297,7 +297,6 @@ class Vision(object):
                  max_queue_size=4,
                  use_usb_cam=False):
 
-        self.arena = arena
         self.zone = zone
 
         self.marker_info_lut = marker_luts
