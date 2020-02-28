@@ -14,6 +14,7 @@ import robot.apriltags3 as AT
 from datetime import datetime
 from collections import namedtuple
 import queue
+import numpy as np
 
 # TODO compute cx, cy for the luts
 # Camera details [fx, fy, cx, cy]
@@ -251,12 +252,17 @@ class PostProcessor(threading.Thread):
                 colour = DEFAULT_BOUNDING_BOX_COLOUR
 
             # Shift and wrap the list by 1
-            rotated_vetecies = detection.vertecies.roll(1)
+            rotated_corners = np.roll(detection.corners, 1) #.roll(1)
 
-            for current_v, next_v in zip(detection.vertecies, rotated_vetecies):
+            for current, next_ in zip(detection.corners, rotated_corners):
+                x, y = current
+                current = (int(x), int(y))
+                x, y = next_
+                next_ = (int(x), int(y))
+
                 cv2.rectangle(frame,
-                              current_v,
-                              next_v,
+                              current,
+                              next_,
                               colour,
                               self._bounding_box_thickness)
 
