@@ -16,6 +16,7 @@ from __future__ import print_function
 import ctypes
 import os
 import numpy
+import scipy.spatial.transform as transform
 
 ######################################################################
 
@@ -456,32 +457,26 @@ class Detector(object):
                 detection.pose_T = _matd_get_array(pose.t).copy()
                 detection.pose_err = err
 
-                #TODO faster to use a vector, dot product then use NEON to sqrt
                 detection.dist = numpy.linalg.norm(detection.pose_T)
-                #TODO faster to do dot product then acos then atan2?
-                detection.bearing_x = numpy.degrees(
-                                      numpy.arctan2(detection.pose_T[1],
-                                                    detection.pose_T[2]))
 
-                detection.bearing_y = numpy.degrees(
-                                      numpy.arctan2(detection.pose_T[2],
-                                                    detection.pose_T[0]))
+                rotations = transform.Rotation.from_matrix(detection.pose_R)
+                rotations = rotations.as_euler("xyz", degrees=True)
+                detection.rot_x = rotations[0]
+                detection.rot_y = rotations[1]
+                detection.rot_z = rotations[2]
 
-                detection.bearing_z = numpy.degrees(
-                                      numpy.arctan2(detection.pose_T[0],
-                                                    detection.pose_T[1]))
+                
+                detection.bear_x = numpy.degrees(
+                                   numpy.arctan2(detection.pose_T[1],
+                                                 detection.pose_T[2]))
 
-                detection.rot_x = numpy.degrees(
-                                  numpy.arctan2(detection.pose_R[1],
-                                                detection.pose_R[2]))
+                detection.bear_y = numpy.degrees(
+                                   numpy.arctan2(detection.pose_T[2],
+                                                 detection.pose_T[0]))
 
-                detection.rot_y = numpy.degrees(
-                                  numpy.arctan2(detection.pose_R[2],
-                                                detection.pose_R[0]))
-
-                detection.rot_z = numpy.degrees(
-                                  numpy.arctan2(detection.pose_R[0],
-                                                detection.pose_R[1]))
+                detection.bear_z = numpy.degrees(
+                                   numpy.arctan2(detection.pose_T[0],
+                                                 detection.pose_T[1]))
 
             # Append this dict to the tag data array
             return_info.append(detection)

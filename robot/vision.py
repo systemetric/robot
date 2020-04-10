@@ -106,14 +106,14 @@ Capture = namedtuple("Capture", "grey_frame colour_frame colour_type time")
 
 
 class Marker:
-    """A class to automatically pull the dis and rot_y out of the detection"""
+    """A class to automatically pull the dis and bear_y out of the detection"""
 
     def __init__(self, info, detection):
         # Aliases
         self.info = info
         self.detection = detection
         self.dist = detection.dist
-        self.rot_y = detection.rot_y
+        self.bear_y = detection.bear_y
 
     def __str__(self):
         """A reduced set of the attributes and discription text"""
