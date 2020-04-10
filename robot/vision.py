@@ -1,6 +1,7 @@
 """
 A vision module for detecting April tags using the robocon kit
 """
+import cProfile
 import abc  # Abstract-base-class
 import functools
 import cv2
@@ -15,6 +16,7 @@ from datetime import datetime
 from collections import namedtuple
 import queue
 import numpy as np
+import pprint
 
 # TODO compute cx, cy for the luts
 # Camera details [fx, fy, cx, cy]
@@ -82,7 +84,6 @@ marker_data = {
 MarkerInfo = namedtuple("MarkerInfo", "code marker_type offset size bounding_box_colour")
 ImageCoord = namedtuple("ImageCoord", "x y")
 
-
 marker_lut = {}
 for maker_type, properties in marker_data.items():
     for n in range(properties[MARKER_COUNT]):
@@ -113,6 +114,14 @@ class Marker:
         self.detection = detection
         self.dist = detection.dist
         self.rot_y = detection.rot_y
+
+    def __str__(self):
+        """A reduced set of the attributes and discription text"""
+        title_text = "The Contents of the {} object".format(self.__class__.__name__)
+        reduced_attributes = self.__dict__.copy()
+        del reduced_attributes["detection"]
+        readable_contents = pprint.pformat(reduced_attributes)
+        return "{}\n{}".format(title_text, readable_contents) 
 
 
 class Camera(abc.ABC):
@@ -358,11 +367,13 @@ class Vision(object):
         """
         capture = self.camera.capture()
 
+        msl = self.marker_size_lut
+        at = self.at_detector
+
         detections = self.at_detector.detect(capture.grey_frame,
                                              estimate_tag_pose=True,
                                              camera_params=camera_params,
                                              tag_size_lut=self.marker_size_lut)
-
         self.frames_to_postprocess.put((capture.colour_frame,
                                        capture.colour_type,
                                        detections))
