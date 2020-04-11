@@ -15,8 +15,16 @@ from __future__ import print_function
 
 import ctypes
 import os
-import numpy
+import numpy as np
 import scipy.spatial.transform as transform
+import itertools
+from collections import namedtuple
+
+
+######################################################################
+# Types
+
+Coords = namedtuple("Coords", ("x", "y", "z"))
 
 ######################################################################
 
@@ -118,7 +126,7 @@ class _ApriltagPose(ctypes.Structure):
 def _ptr_to_array2d(datatype, ptr, rows, cols):
     array_type = (datatype*cols)*rows
     array_buf = array_type.from_address(ctypes.addressof(ptr))
-    return numpy.ctypeslib.as_array(array_buf, shape=(rows, cols))
+    return np.ctypeslib.as_array(array_buf, shape=(rows, cols))
 
 
 def _image_u8_get_array(img_ptr):
@@ -388,12 +396,12 @@ class Detector(object):
 
     def detect(self, img, estimate_tag_pose=False, camera_params=None, tag_size_lut=None):
         """Run detectons on the provided image. The image must be a grayscale
-           image of type numpy.uint8.
+           image of type np.uint8.
         #TODO get rid of the magic numbers
         """
 
         assert len(img.shape) == 2
-        assert img.dtype == numpy.uint8
+        assert img.dtype == np.uint8
 
         c_img = self._convert_image(img)
 
@@ -413,10 +421,10 @@ class Detector(object):
 
             tag = apriltag.contents
 
-            # numpy.zeros((3,3))  # Don't ask questions, move on with your life
+            # np.zeros((3,3))  # Don't ask questions, move on with your life
             homography = _matd_get_array(tag.H).copy()
-            center = numpy.ctypeslib.as_array(tag.c, shape=(2,)).copy()
-            corners = numpy.ctypeslib.as_array(tag.p, shape=(4, 2)).copy()
+            center = np.ctypeslib.as_array(tag.c, shape=(2,)).copy()
+            corners = np.ctypeslib.as_array(tag.p, shape=(4, 2)).copy()
 
             detection = Detection()
             detection.tag_family = ctypes.string_at(tag.family.contents.name)
@@ -457,26 +465,17 @@ class Detector(object):
                 detection.pose_T = _matd_get_array(pose.t).copy()
                 detection.pose_err = err
 
-                detection.dist = numpy.linalg.norm(detection.pose_T)
+                detection.dist = np.linalg.norm(detection.pose_T)
 
                 rotations = transform.Rotation.from_matrix(detection.pose_R)
                 rotations = rotations.as_euler("xyz", degrees=True)
-                detection.rot_x = rotations[0]
-                detection.rot_y = rotations[1]
-                detection.rot_z = rotations[2]
+                detection.rot = Coords(*rotations)
 
-                
-                detection.bear_x = numpy.degrees(
-                                   numpy.arctan2(detection.pose_T[1],
-                                                 detection.pose_T[2]))
-
-                detection.bear_y = numpy.degrees(
-                                   numpy.arctan2(detection.pose_T[2],
-                                                 detection.pose_T[0]))
-
-                detection.bear_z = numpy.degrees(
-                                   numpy.arctan2(detection.pose_T[0],
-                                                 detection.pose_T[1]))
+                # Find the rotation about an axis by using the arctan2 of the
+                # two other vectors perpendicular to that axis
+                bearings = (float(np.degrees(np.arctan2(u, v)))
+                            for u, v in itertools.combinations(detection.pose_T, 2))
+                detection.bear = Coords(*bearings)
 
             # Append this dict to the tag data array
             return_info.append(detection)

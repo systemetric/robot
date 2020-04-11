@@ -18,17 +18,13 @@ import queue
 import numpy as np
 import pprint
 
-# TODO compute cx, cy for the luts
-# Camera details [fx, fy, cx, cy]
-camera_params = [336.7755634193813, 336.02729840829176,
-                 333.3575643300718, 212.77376312080065]
 
 PI_CAMERA_FOCAL_LENGTHS = {  # fx, fy tuples
     (1920, 1440): (1393, 1395),
     (1920, 1088): (2431, 2431),
     (1296, 976): (955, 955),
-    (1296, 736): (962, 962),
-    (640, 480): (463, 463),
+    (1296, 736): (690, 690),
+    (640, 480): (500, 500),
 }
 
 LOGITECH_C270_FOCAL_LENGTHS = {  # fx, fy tuples
@@ -109,11 +105,11 @@ class Marker:
     """A class to automatically pull the dis and bear_y out of the detection"""
 
     def __init__(self, info, detection):
-        # Aliases
         self.info = info
         self.detection = detection
         self.dist = detection.dist
-        self.bear_y = detection.bear_y
+        self.bear = detection.bear
+        self.rot = detection.rot
 
     def __str__(self):
         """A reduced set of the attributes and discription text"""
@@ -121,11 +117,11 @@ class Marker:
         reduced_attributes = self.__dict__.copy()
         del reduced_attributes["detection"]
         readable_contents = pprint.pformat(reduced_attributes)
-        return "{}\n{}".format(title_text, readable_contents) 
+        return "{}\n{}".format(title_text, readable_contents)
 
 
 class Camera(abc.ABC):
-    """An abstract class which defines the methods the cameras must support"""
+    """Define the interface for what a camera should support"""
 
     @abc.abstractmethod
     def set_res(self, res):
@@ -136,6 +132,10 @@ class Camera(abc.ABC):
     def capture(self):
         """This method should return a Capture named tuple
         """
+
+    @abc.abstractproperty
+    def params(self):
+        """Returns a fx, fy, cx, cy tuple for the current settings"""
 
 
 class RoboConPiCamera(Camera):
@@ -175,20 +175,27 @@ class RoboConPiCamera(Camera):
                          time=capture_time)
         return result
 
+    @property
+    def params(self):
+        #TODO remove duplicated code
+        focal_lengths = PI_CAMERA_FOCAL_LENGTHS[self._camera.resolution]
+        center = [i/2 for i in self._camera.resolution]
+        return (*focal_lengths, *center)
+
 
 class RoboConUSBCamera(Camera):
     """A wrapper class for the open CV methods for generic cameras"""
 
     def __init__(self, start_res=(1296, 736), lut=LOGITECH_C270_FOCAL_LENGTHS):
         self._camera = cv2.VideoCapture(0)
-        self.res = start_res
+        self.resolution = start_res
 
     def set_res(self, new_res):
-        if self.res != new_res:
+        if self.resolution != new_res:
             self._camera.set(cv2.CV_CAP_PROP_FRAME_WIDTH, new_res[0])
             self._camera.set(cv2.CV_CAP_PROP_FRAME_WIDTH, new_res[1])
 
-        self.res = new_res
+        self.resolution = new_res
 
     def capture(self):
         """Capture from a USB camera. Not all usb cameras support native YUV
@@ -210,6 +217,12 @@ class RoboConUSBCamera(Camera):
                          colour_type="RGB",
                          time=capture_time)
         return result
+
+    @property
+    def params(self):
+        focal_lengths = PI_CAMERA_FOCAL_LENGTHS[self._camera.resolution]
+        center = [i/2 for i in self._camera.resolution]
+        return (*focal_lengths, *center)
 
 
 class PostProcessor(threading.Thread):
@@ -367,13 +380,11 @@ class Vision(object):
         """
         capture = self.camera.capture()
 
-        msl = self.marker_size_lut
-        at = self.at_detector
-
         detections = self.at_detector.detect(capture.grey_frame,
                                              estimate_tag_pose=True,
-                                             camera_params=camera_params,
+                                             camera_params=self.camera.params,
                                              tag_size_lut=self.marker_size_lut)
+
         self.frames_to_postprocess.put((capture.colour_frame,
                                        capture.colour_type,
                                        detections))
