@@ -397,7 +397,7 @@ class Detector(object):
     def detect(self, img, estimate_tag_pose=False, camera_params=None, tag_size_lut=None):
         """Run detectons on the provided image. The image must be a grayscale
            image of type np.uint8.
-        #TODO get rid of the magic numbers
+        # TODO get rid of the magic numbers
         """
 
         assert len(img.shape) == 2

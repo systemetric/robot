@@ -1,7 +1,7 @@
 """
 A vision module for detecting April tags using the robocon kit
 """
-#TODO pylint
+# TODO pylint
 import abc  # Abstract-base-class
 import functools
 import cv2
@@ -12,7 +12,7 @@ import picamera.array
 # required see <https://picamera.readthedocs.io/en/latest/api_array.html>
 import logging
 import robot.apriltags3 as AT
-#TODO create a wraper or a PR for changes and move to dt-apriltags3
+# TODO create a wraper or a PR for changes and move to dt-apriltags3
 from datetime import datetime
 from collections import namedtuple
 import queue
@@ -265,7 +265,7 @@ class PostProcessor(threading.Thread):
         self._owner = owner
         self._bounding_box_thickness = bounding_box_thickness
 
-        #TODO This is unreadable and ugly
+        # TODO This is unreadable
         # Add each of the kwargs to the object as threading.Events set if the
         # kwarg is True
         for event_name, starting_value in kwargs.items():
@@ -316,7 +316,7 @@ class PostProcessor(threading.Thread):
         data in the queue, we need to wait for there to be frames to prcess. It
         times out once a second so that we can check weather we should have
         stopped processing.
-        #TODO do we need pass colour infomation?
+        # TODO do we need pass colour infomation?
         """
         while not self._stop_event.is_set():
             try:
