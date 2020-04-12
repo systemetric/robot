@@ -24,7 +24,6 @@ logger = logging.getLogger("robot")
 # if this exists it is output in logs and then deleted
 COPY_STAT_FILE = "/root/COPYSTAT"
 
-
 def setup_logging():
     """Apply default settings for logging"""
     # (We do this by default so that our users
@@ -260,4 +259,6 @@ class Robot(object):
         if not hasattr(self, "vision"):
             raise NoCameraPresent()
 
-        return self.vision.see(res, save)
+        self.vision.camera.set_res(res)
+
+        return self.vision.detect_markers()

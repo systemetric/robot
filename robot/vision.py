@@ -18,6 +18,7 @@ import queue
 import numpy as np
 import pprint
 
+_AT_PATH = "/home/pi/apriltag"
 
 PI_CAMERA_FOCAL_LENGTHS = {  # fx, fy tuples
     (1920, 1440): (1393, 1395),
@@ -113,7 +114,7 @@ class Marker:
 
     def __str__(self):
         """A reduced set of the attributes and discription text"""
-        title_text = "The Contents of the {} object".format(self.__class__.__name__)
+        title_text = "The contents of the {} object".format(self.__class__.__name__)
         reduced_attributes = self.__dict__.copy()
         del reduced_attributes["detection"]
         readable_contents = pprint.pformat(reduced_attributes)
@@ -263,9 +264,10 @@ class PostProcessor(threading.Thread):
     def stopped(self):
         return self._stop_event.is_set()
 
-    def draw_bounding_box(self, frame, detections):
+    def _draw_bounding_box(self, frame, detections):
         """Takes a frame and a list of markers drawing bounding boxes
         """
+        polygon_is_closed = True
         for detection in detections:
             try:
                 colour = marker_lut[detection.id].bounding_box_colour
@@ -273,20 +275,14 @@ class PostProcessor(threading.Thread):
                 # TODO don't think this is the correct error to catch
                 colour = DEFAULT_BOUNDING_BOX_COLOUR
 
-            # Shift and wrap the list by 1
-            rotated_corners = np.roll(detection.corners, 1) #.roll(1)
-
-            for current, next_ in zip(detection.corners, rotated_corners):
-                x, y = current
-                current = (int(x), int(y))
-                x, y = next_
-                next_ = (int(x), int(y))
-
-                cv2.rectangle(frame,
-                              current,
-                              next_,
-                              colour,
-                              self._bounding_box_thickness)
+            # need to have this EXACT integer_corners syntax due to opencv bug
+            # https://stackoverflow.com/questions/17241830/opencv-polylines-function-in-python-throws-exception
+            integer_corners = detection.corners.astype(np.int32)
+            cv2.polylines(frame,
+                          [integer_corners],
+                          polygon_is_closed,
+                          colour,
+                          thickness=self._bounding_box_thickness)
 
         return frame
 
@@ -305,7 +301,7 @@ class PostProcessor(threading.Thread):
                 pass
             else:
                 if self._bounding_box_enable:
-                    frame = self.draw_bounding_box(frame, detections)
+                    frame = self._draw_bounding_box(frame, detections)
                 if self._save:
                     cv2.imwrite("/tmp/colimage.jpg", frame)
                 if self._usb_stick:
@@ -320,7 +316,7 @@ class Vision(object):
 
     def __init__(self,
                  zone,
-                 at_path="/home/pi/apriltag",
+                 at_path=_AT_PATH,
                  max_queue_size=4,
                  use_usb_cam=False):
 
@@ -371,7 +367,7 @@ class Vision(object):
 
         return markers
 
-    def see(self, res, save):
+    def detect_markers(self):
         """Returns the markers the robot can see:
             - Gets a frame
             - Finds the markers
