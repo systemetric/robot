@@ -1,6 +1,7 @@
 """
 A vision module for detecting April tags using the robocon kit
 """
+#TODO pylint
 import abc  # Abstract-base-class
 import functools
 import cv2
@@ -11,11 +12,13 @@ import picamera.array
 # required see <https://picamera.readthedocs.io/en/latest/api_array.html>
 import logging
 import robot.apriltags3 as AT
+#TODO create a wraper or a PR for changes and move to dt-apriltags3
 from datetime import datetime
 from collections import namedtuple
 import queue
 import numpy as np
 import pprint
+import inspect
 
 _AT_PATH = "/home/pi/apriltag"
 
@@ -255,21 +258,23 @@ class PostProcessor(threading.Thread):
     free if we are processing frames back to backs.
     """
 
-    def __init__(self,
-                 owner,
-                 bounding_box_enable=True,
-                 bounding_box_thickness=2):
+    def __init__(self, owner, bounding_box_thickness=2, **kwargs):
 
         super(PostProcessor, self).__init__()
 
         self._owner = owner
-        self._bounding_box_enable = bounding_box_enable
         self._bounding_box_thickness = bounding_box_thickness
 
-        # TODO allow these to be controlled by the user
-        self._usb_stick = False
-        self._send_to_sheep = False
-        self._save = True
+        #TODO This is unreadable and ugly
+        # Add each of the kwargs to the object as threading.Events set if the
+        # kwarg is True
+        for event_name, starting_value in kwargs.items():
+            attr_name = "_" + event_name
+            setattr(self, attr_name, threading.Event())
+            if starting_value is True:
+                getattr(self, attr_name).set()
+            else:
+                getattr(self, attr_name).clear()
 
         self._stop_event = threading.Event()
         self._stop_event.clear()
@@ -292,7 +297,7 @@ class PostProcessor(threading.Thread):
             try:
                 colour = marker_lut[detection.id].bounding_box_colour
             except AttributeError:
-                # TODO don't think this is the correct error to catch
+                # TODO check if this is the correct error to catch?
                 colour = DEFAULT_BOUNDING_BOX_COLOUR
 
             # need to have this EXACT integer_corners syntax due to opencv bug
@@ -315,18 +320,18 @@ class PostProcessor(threading.Thread):
         """
         while not self._stop_event.is_set():
             try:
-                frame, _, detections = self._owner.frames_to_postprocess.get(
-                    timeout=1)
+                (frame, colour_type, detections) = (
+                    self._owner.frames_to_postprocess.get(timeout=1))
             except queue.Empty:
                 pass
             else:
-                if self._bounding_box_enable:
+                if self._bounding_box_enable.is_set():
                     frame = self._draw_bounding_box(frame, detections)
-                if self._save:
+                if self._save.is_set():
                     cv2.imwrite("/tmp/colimage.jpg", frame)
-                if self._usb_stick:
+                if self._usb_stick.is_set():
                     pass
-                if self._send_to_sheep:
+                if self._send_to_sheep.is_set():
                     pass
 
 
@@ -369,7 +374,11 @@ class Vision(object):
         self._using_usb_cam = use_usb_cam
 
         self.frames_to_postprocess = queue.Queue(max_queue_size)
-        self.post_processor = PostProcessor(self)
+        self.post_processor = PostProcessor(self,
+                                            bounding_box_enable=True,
+                                            usb_stick=False,
+                                            send_to_sheep=False,
+                                            save=True)
 
     def __del__(self):
         self.post_processor.stop()
@@ -379,7 +388,8 @@ class Vision(object):
         markers = []
         for tag in tags:
             if tag.id not in marker_lut:
-                logging.warn("Detected tag with id {} but not found in lut".format(tag.id))
+                logging.warn("Detected tag with id %i but not found in lut",
+                             tag.id)
                 continue
 
             info = marker_lut[int(tag.id)]
