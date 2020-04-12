@@ -1,7 +1,6 @@
 """
 A vision module for detecting April tags using the robocon kit
 """
-import cProfile
 import abc  # Abstract-base-class
 import functools
 import cv2
@@ -49,7 +48,8 @@ WHITE = (255, 255, 255)  # White
 
 # MARKER_: Marker Data Types
 # MARKER_TYPE_: Marker Types
-MARKER_TYPE, MARKER_OFFSET, MARKER_COUNT, MARKER_SIZE, MARKER_COLOUR = 'type', 'offset', 'count', 'size', 'colour'
+MARKER_TYPE, MARKER_OFFSET, MARKER_COUNT, MARKER_SIZE, MARKER_COLOUR = (
+    'type', 'offset', 'count', 'size', 'colour')
 MARKER_ARENA, MARKER_TOKEN = "arena", "token"
 
 
@@ -57,28 +57,30 @@ MARKER_ARENA, MARKER_TOKEN = "arena", "token"
 #     MARKER_OFFSET: Offset
 #     MARKER_COUNT: Number of markers of type that exist
 #     MARKER_SIZE: Real life size of marker
-#         The numbers here (e.g. `0.25`) are in metres -- the 10/12 is a scaling factor
-#         so that april_tags gets the size of the 10x10 black/white portion (not including
-#         the white border), but so that humans can measure sizes including the border.
+#         The numbers here (e.g. `0.25`) are in metres -- the 10/12 is a scaling
+#         factor so that april_tags gets the size of the 10x10 black/white
+#         portion (not including the white border), but so that humans can
+#         measure sizes including the border.
 #     MARKER_COLOUR: Bounding box colour
 
 marker_data = {
     MARKER_ARENA: {
         MARKER_OFFSET: 0,
         MARKER_COUNT: 32,
-        MARKER_SIZE: 0.25 * (10.0 / 12),
+        MARKER_SIZE: 0.14 * (10.0 / 12),
         MARKER_COLOUR: RED
     },
     MARKER_TOKEN: {
         MARKER_OFFSET: 32,
         MARKER_COUNT: 8,
-        MARKER_SIZE: 0.1 * (10.0 / 12),
+        MARKER_SIZE: 0.14 * (10.0 / 12),
         MARKER_COLOUR: YELLOW
     }
 }
 
 
-MarkerInfo = namedtuple("MarkerInfo", "code marker_type offset size bounding_box_colour")
+MarkerInfo = namedtuple("MarkerInfo",
+                        "code marker_type offset size bounding_box_colour")
 ImageCoord = namedtuple("ImageCoord", "x y")
 
 marker_lut = {}
@@ -102,7 +104,7 @@ DEFAULT_BOUNDING_BOX_COLOUR = WHITE
 Capture = namedtuple("Capture", "grey_frame colour_frame colour_type time")
 
 
-class Marker:
+class Marker(object):
     """A class to automatically pull the dis and bear_y out of the detection"""
 
     def __init__(self, info, detection):
@@ -114,18 +116,28 @@ class Marker:
 
     def __str__(self):
         """A reduced set of the attributes and discription text"""
-        title_text = "The contents of the {} object".format(self.__class__.__name__)
+        title_text = "The contents of the %s object" % self.__class__.__name__
         reduced_attributes = self.__dict__.copy()
         del reduced_attributes["detection"]
         readable_contents = pprint.pformat(reduced_attributes)
         return "{}\n{}".format(title_text, readable_contents)
 
 
-class Camera(abc.ABC):
+class Camera(object):
     """Define the interface for what a camera should support"""
 
-    @abc.abstractmethod
-    def set_res(self, res):
+    def __init__(self, focal_lengths):
+        self.params = None
+        self.focal_lengths = focal_lengths
+        self._update_camera_params()
+
+    @abc.abstractproperty
+    def res(self):
+        """Return a tuple for the current res (w, h)"""
+
+    @abc.abstractproperty
+    @res.setter
+    def res(self, res):
         """This method sets the resolution of the camera it should raise an
            error if the camera failed to set the requested resolution"""
 
@@ -134,38 +146,51 @@ class Camera(abc.ABC):
         """This method should return a Capture named tuple
         """
 
-    @abc.abstractproperty
-    def params(self):
-        """Returns a fx, fy, cx, cy tuple for the current settings"""
+    def _update_camera_params(self):
+        """Returns a `fx, fy, cx, cy`"""
+        focal_length = self.focal_lengths[self.res]
+        center = [i/2 for i in self.res]
+        self.params = (*focal_length, *center)
 
 
 class RoboConPiCamera(Camera):
     """A wrapper for the PiCamera class providing the methods which are used by
     the robocon classes"""
 
-    def __init__(self, start_res=(1296, 736)):
-        self._camera = picamera.PiCamera(resolution=start_res)
+    def __init__(self,
+                 start_res=(1296, 736),
+                 focal_lengths=PI_CAMERA_FOCAL_LENGTHS):
+        self._pi_camera = picamera.PiCamera(resolution=start_res)
+        super().__init__(focal_lengths)
 
-    def set_res(self, res):
-        if res == self._camera.resolution:
-            # Resolution already the requested one
-            return
+    @property
+    def res(self):
+        return self._pi_camera.resolution
+
+    @res.setter
+    def res(self, res):
+        assert res in self.focal_lengths
+
+        if res == self._pi_camera.resolution:
+            return True
 
         try:
-            self._camera.resolution = res
+            self._pi_camera.resolution = res
         except Exception as e:
             raise ValueError(
                 "Setting camera resolution failed with {}".format(type(e)))
 
-        actual = self._camera.resolution
+        actual = self._pi_camera.resolution
         if res != actual:
             raise ValueError(
                 "Unsupported image resolution {} (got: {})".format(res, actual))
 
+        self._update_camera_params()
+
     def capture(self):
         # TODO Make this return the YUV capture
-        with picamera.array.PiRGBArray(self._camera) as stream:
-            self._camera.capture(stream, format="bgr", use_video_port=True)
+        with picamera.array.PiRGBArray(self._pi_camera) as stream:
+            self._pi_camera.capture(stream, format="bgr", use_video_port=True)
             capture_time = datetime.now()
             colour_frame = stream.array
             grey_frame = cv2.cvtColor(stream.array, cv2.COLOR_BGR2GRAY)
@@ -176,36 +201,37 @@ class RoboConPiCamera(Camera):
                          time=capture_time)
         return result
 
-    @property
-    def params(self):
-        #TODO remove duplicated code
-        focal_lengths = PI_CAMERA_FOCAL_LENGTHS[self._camera.resolution]
-        center = [i/2 for i in self._camera.resolution]
-        return (*focal_lengths, *center)
-
 
 class RoboConUSBCamera(Camera):
     """A wrapper class for the open CV methods for generic cameras"""
 
-    def __init__(self, start_res=(1296, 736), lut=LOGITECH_C270_FOCAL_LENGTHS):
-        self._camera = cv2.VideoCapture(0)
-        self.resolution = start_res
+    def __init__(self,
+                 start_res=(1296, 736),
+                 focal_lengths=LOGITECH_C270_FOCAL_LENGTHS):
+        self._cv_camera = cv2.VideoCapture(0)
+        self._res = start_res
+        super().__init__(focal_lengths)
 
-    def set_res(self, new_res):
-        if self.resolution != new_res:
-            self._camera.set(cv2.CV_CAP_PROP_FRAME_WIDTH, new_res[0])
-            self._camera.set(cv2.CV_CAP_PROP_FRAME_WIDTH, new_res[1])
+    @property
+    def res(self):
+        return self._res
 
-        self.resolution = new_res
+    @res.setter
+    def res(self, new_res):
+        self._cv_camera.set(cv2.CV_CAP_PROP_FRAME_WIDTH, new_res[0])
+        self._cv_camera.set(cv2.CV_CAP_PROP_FRAME_WIDTH, new_res[1])
+
+        self._res = new_res
+        self._update_camera_params()
 
     def capture(self):
         """Capture from a USB camera. Not all usb cameras support native YUV
         capturing so to ensure that we have the best USB camera compatibility
         we take the performance hit and capture in RGB and covert to grey."""
         # TODO I'm sure openCV has some faster capture methods from video
-        # streams like libkoki used to do.
+        # streams like libkoki used to do with V4L.
 
-        cam_running, colour_frame = self._camera.read()
+        cam_running, colour_frame = self._cv_camera.read()
         capture_time = datetime.now()
 
         if not cam_running:
@@ -218,12 +244,6 @@ class RoboConUSBCamera(Camera):
                          colour_type="RGB",
                          time=capture_time)
         return result
-
-    @property
-    def params(self):
-        focal_lengths = PI_CAMERA_FOCAL_LENGTHS[self._camera.resolution]
-        center = [i/2 for i in self._camera.resolution]
-        return (*focal_lengths, *center)
 
 
 class PostProcessor(threading.Thread):
@@ -355,7 +375,7 @@ class Vision(object):
         self.post_processor.stop()
 
     def _generate_marker_properties(self, tags):
-        """A function to return the marker objects properties in polar form"""
+        """Return the marker objects properties in polar form"""
         markers = []
         for tag in tags:
             if tag.id not in marker_lut:
@@ -367,7 +387,7 @@ class Vision(object):
 
         return markers
 
-    def detect_markers(self):
+    def detect_markers(self, camera_focal_lengths=None):
         """Returns the markers the robot can see:
             - Gets a frame
             - Finds the markers

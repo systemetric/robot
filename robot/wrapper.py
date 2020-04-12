@@ -251,7 +251,8 @@ class Robot(object):
 
         if self.zone < 0 or self.zone > 3:
             raise ValueError(
-                "zone must be in range 0-3 inclusive -- value of %i is invalid" % self.zone)
+                "zone must be in range 0-3 inclusive -- value of %i is invalid"
+                % self.zone)
 
         logger.info("Robot started!\n")
 
@@ -259,6 +260,6 @@ class Robot(object):
         if not hasattr(self, "vision"):
             raise NoCameraPresent()
 
-        self.vision.camera.set_res(res)
+        self.vision.camera.res = res
 
         return self.vision.detect_markers()
