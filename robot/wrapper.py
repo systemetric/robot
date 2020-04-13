@@ -105,7 +105,6 @@ class Robot(object):
         except IOError:
             pass
 
-        # register components
         self.subsystem_init()
 
         self.report_harware_status()
@@ -158,13 +157,7 @@ class Robot(object):
         if not self._warnings:
             logger.info("Hardware looks good")
 
-    def stop(self):
-        """
-        Stops the robot and cuts power to the motors
-        """
-        self._green_giant.set_12v(False)
-        self.motors.stop()
-
+    @pre_init
     def subsystem_init(self):
         """
         Allows for the user to initalize the subsystems after the robot object
@@ -187,12 +180,19 @@ class Robot(object):
         self.motors = CytronBoard()
 
         self.vision = vision.Vision(self.zone)
+        self.camera = self.vision.camera
 
         self._initialised = True
 
+    def stop(self):
+        """Stops the robot and cuts power to the motors"""
+        self._green_giant.set_12v(False)
+        self.motors.stop()
+
     def off(self):
         """Turns motors off"""
-        # TODO is this obsolite code
+        # TODO is this documented as a public method? should we also have on?
+        # TODO the difference between this and Robot.stop is confusing
         for motor in self.motors:
             motor.off()
 
@@ -228,7 +228,8 @@ class Robot(object):
         if self.startfifo is None:
             self._start_pressed = True
 
-            logger.info(f"\nNo startfifo so using defaults (Zone: {self.zone})\n")
+            logger.info("\nNo startfifo so using defaults (Zone: {})\n".format(
+                        self.zone))
             return
 
         t = threading.Thread(target=self.wait_start_blink)
@@ -256,10 +257,8 @@ class Robot(object):
 
         logger.info("Robot started!\n")
 
-    def see(self, res=(640, 480), save=True):
+    def see(self):
         if not hasattr(self, "vision"):
             raise NoCameraPresent()
-
-        self.vision.camera.res = res
 
         return self.vision.detect_markers()

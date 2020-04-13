@@ -86,7 +86,7 @@ MarkerInfo = namedtuple("MarkerInfo",
                         "code marker_type offset size bounding_box_colour")
 ImageCoord = namedtuple("ImageCoord", "x y")
 
-marker_lut = {}
+MARKER_LUT = {}
 for maker_type, properties in marker_data.items():
     for n in range(properties[MARKER_COUNT]):
         code = properties[MARKER_OFFSET] + n
@@ -95,7 +95,7 @@ for maker_type, properties in marker_data.items():
                         offset=n,
                         size=properties[MARKER_SIZE],
                         bounding_box_colour=properties[MARKER_COLOUR])
-        marker_lut[code] = m
+        MARKER_LUT[code] = m
 
 
 # Image post processing constants
@@ -304,7 +304,7 @@ class PostProcessor(threading.Thread):
         polygon_is_closed = True
         for detection in detections:
             try:
-                colour = marker_lut[detection.id].bounding_box_colour
+                colour = MARKER_LUT[detection.id].bounding_box_colour
             except AttributeError:
                 # TODO check if this is the correct error to catch?
                 colour = DEFAULT_BOUNDING_BOX_COLOUR
@@ -325,10 +325,11 @@ class PostProcessor(threading.Thread):
         data in the queue, we need to wait for there to be frames to prcess. It
         times out once a second so that we can check weather we should have
         stopped processing.
-        # TODO do we need pass colour infomation?
         """
         while not self._stop_event.is_set():
             try:
+                # TODO do we need pass colour infomation?
+                # pylint: disable=unused-variable
                 (frame, colour_type, detections) = (
                     self._owner.frames_to_postprocess.get(timeout=1))
                 pass
@@ -343,6 +344,7 @@ class PostProcessor(threading.Thread):
                 if bounding_box:
                     frame = self._draw_bounding_box(frame, detections)
                 if save:
+                    print("saving")
                     cv2.imwrite("/tmp/colimage.jpg", frame)
                 if usb_stick:
                     pass
@@ -362,9 +364,9 @@ class Vision(object):
 
         self.zone = zone
 
-        self.marker_info_lut = marker_lut
+        self.marker_info_lut = MARKER_LUT
         self.marker_size_lut = {}
-        for code, properties in marker_lut.items():
+        for code, properties in MARKER_LUT.items():
             self.marker_size_lut[code] = properties.size
 
         at_lib_path = (
@@ -394,16 +396,71 @@ class Vision(object):
     def __del__(self):
         self.post_processor.stop()
 
+    def _assign_signal(self, signal, value):
+        assert isinstance(value, bool)
+        if value:
+            signal.set()
+        else:
+            signal.clear()
+
+    # TODO Document on website
+    # TODO maybe this is the nice way to deal with signal init in the
+    # preprocessor init?
+    # TODO there is alot of repition here
+    @property
+    def bounding_box(self):
+        """Weather we draw boxes around detected markers"""
+        return self.post_processor.signals["bounding_box"].is_set()
+
+    @bounding_box.setter
+    def bounding_box(self, value):
+        """Weather we draw boxes around detected markers"""
+        signal = self.post_processor.signals["bounding_box"]
+        self._assign_signal(signal, value)
+
+    @property
+    def usb_stick(self):
+        """Weather we save images to a usb stick"""
+        return self.post_processor.signals["usb_stick"].is_set()
+
+    @usb_stick.setter
+    def usb_stick(self, value):
+        """Weather we save images to a usb stick"""
+        signal = self.post_processor.signals["usb_stick"]
+        self._assign_signal(signal, value)
+
+    @property
+    def send_to_sheep(self):
+        """Weather we send images to sheep"""
+        return self.post_processor.signals["send_to_sheep"].is_set()
+
+    @send_to_sheep.setter
+    def send_to_sheep(self, value):
+        """Weather we send images to sheep"""
+        signal = self.post_processor.signals["send_to_sheep"]
+        self._assign_signal(signal, value)
+
+    @property
+    def save(self):
+        """Weather we save images to `\\tmp\\col_image.jpg`"""
+        return self.post_processor.signals["save"].is_set()
+
+    @save.setter
+    def save(self, value):
+        """Weather we save images to `\\tmp\\col_image.jpg`"""
+        signal = self.post_processor.signals["save"]
+        self._assign_signal(signal, value)
+
     def _generate_marker_properties(self, tags):
         """Adds `MarkerInfo` to detections"""
         markers = []
         for tag in tags:
-            if tag.id not in marker_lut:
+            if tag.id not in MARKER_LUT:
                 logging.warn("Detected tag with id %i but not found in lut",
                              tag.id)
                 continue
 
-            info = marker_lut[int(tag.id)]
+            info = MARKER_LUT[int(tag.id)]
             markers.append(Marker(info, tag))
 
         return markers
