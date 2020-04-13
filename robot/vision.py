@@ -205,6 +205,7 @@ class RoboConPiCamera(Camera):
         return result
 
 
+# TODO actually test this works
 class RoboConUSBCamera(Camera):
     """A wrapper class for the open CV methods for generic cameras"""
 
@@ -258,23 +259,31 @@ class PostProcessor(threading.Thread):
     free if we are processing frames back to backs.
     """
 
-    def __init__(self, owner, bounding_box_thickness=2, **kwargs):
+    def __init__(self,
+                 owner,
+                 bounding_box_thickness=2,
+                 bounding_box=True,
+                 usb_stick=False,
+                 send_to_sheep=False,
+                 save=True):
 
         super(PostProcessor, self).__init__()
 
         self._owner = owner
         self._bounding_box_thickness = bounding_box_thickness
 
-        # TODO This is unreadable
-        # Add each of the kwargs to the object as threading.Events set if the
-        # kwarg is True
-        for event_name, starting_value in kwargs.items():
-            attr_name = "_" + event_name
-            setattr(self, attr_name, threading.Event())
-            if starting_value is True:
-                getattr(self, attr_name).set()
+        self.signals = {
+            "bounding_box": threading.Event(),
+            "usb_stick": threading.Event(),
+            "send_to_sheep": threading.Event(),
+            "save": threading.Event(),
+        }
+
+        for signal_name, signal in self.signals.items():
+            if locals()[signal_name] is True:
+                signal.set()
             else:
-                getattr(self, attr_name).clear()
+                signal.clear()
 
         self._stop_event = threading.Event()
         self._stop_event.clear()
@@ -322,16 +331,22 @@ class PostProcessor(threading.Thread):
             try:
                 (frame, colour_type, detections) = (
                     self._owner.frames_to_postprocess.get(timeout=1))
+                pass
             except queue.Empty:
                 pass
             else:
-                if self._bounding_box_enable.is_set():
+                bounding_box = self.signals["bounding_box"].is_set()
+                save = self.signals["save"].is_set()
+                usb_stick = self.signals["usb_stick"].is_set()
+                send_to_sheep = self.signals["send_to_sheep"].is_set()
+
+                if bounding_box:
                     frame = self._draw_bounding_box(frame, detections)
-                if self._save.is_set():
+                if save:
                     cv2.imwrite("/tmp/colimage.jpg", frame)
-                if self._usb_stick.is_set():
+                if usb_stick:
                     pass
-                if self._send_to_sheep.is_set():
+                if send_to_sheep:
                     pass
 
 
@@ -374,17 +389,13 @@ class Vision(object):
         self._using_usb_cam = use_usb_cam
 
         self.frames_to_postprocess = queue.Queue(max_queue_size)
-        self.post_processor = PostProcessor(self,
-                                            bounding_box_enable=True,
-                                            usb_stick=False,
-                                            send_to_sheep=False,
-                                            save=True)
+        self.post_processor = PostProcessor(self)
 
     def __del__(self):
         self.post_processor.stop()
 
     def _generate_marker_properties(self, tags):
-        """Return the marker objects properties in polar form"""
+        """Adds `MarkerInfo` to detections"""
         markers = []
         for tag in tags:
             if tag.id not in marker_lut:
@@ -397,7 +408,15 @@ class Vision(object):
 
         return markers
 
-    def detect_markers(self, camera_focal_lengths=None):
+    def _send_to_post_process(self, colour_frame, colour_type, detections):
+        """Places data on the post processor queue with error handeling"""
+        try:
+            capture = (colour_frame, colour_type, detections)
+            self.frames_to_postprocess.put(capture, timeout=1)
+        except queue.Full:
+            logging.warn("Skipping postprocessing as queue is full")
+
+    def detect_markers(self):
         """Returns the markers the robot can see:
             - Gets a frame
             - Finds the markers
@@ -411,9 +430,9 @@ class Vision(object):
                                              camera_params=self.camera.params,
                                              tag_size_lut=self.marker_size_lut)
 
-        self.frames_to_postprocess.put((capture.colour_frame,
-                                       capture.colour_type,
-                                       detections))
+        self._send_to_post_process(capture.colour_frame,
+                                   capture.colour_type,
+                                   detections)
 
         markers = self._generate_marker_properties(detections)
 

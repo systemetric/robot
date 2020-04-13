@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 """The robot module, provides an python interface to the RoboCon hardware and
 April tags a marker recognition system. Also performs convience functions to
 allow logging to sheep our in-browser editor"""
