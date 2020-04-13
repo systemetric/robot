@@ -22,20 +22,20 @@ import inspect
 
 _AT_PATH = "/home/pi/apriltag"
 
-PI_CAMERA_FOCAL_LENGTHS = {  # fx, fy tuples
-    (1920, 1440): (1393, 1395),
-    (1920, 1088): (2431, 2431),
-    (1296, 976): (955, 955),
-    (1296, 736): (690, 690),
-    (640, 480): (500, 500),
+PI_CAMERA_FOCAL_LENGTHS = {
+    (640, 480): (607.6669874845361, 607.6669874845361),
+    (1296, 736): (1243.0561163806915, 1243.0561163806915),
+    (1296, 976): (1232.4906991188611, 1232.4906991188611),
+    (1920, 1088): (3142.634753484673, 3142.634753484673),
+    (1920, 1440): (1816.5165227051677, 1816.5165227051677)
 }
 
 LOGITECH_C270_FOCAL_LENGTHS = {  # fx, fy tuples
-    (1920, 1440): (1393, 1395),
-    (1920, 1088): (2431, 2431),
-    (1296, 976): (955, 955),
-    (1296, 736): (962, 962),
-    (640, 480): (463, 463),
+    (640, 480): (607.6669874845361, 607.6669874845361),
+    (1296, 736): (1243.0561163806915, 1243.0561163806915),
+    (1296, 976): (1232.4906991188611, 1232.4906991188611),
+    (1920, 1088): (3142.634753484673, 3142.634753484673),
+    (1920, 1440): (1816.5165227051677, 1816.5165227051677)
 }
 
 
@@ -91,10 +91,10 @@ for maker_type, properties in marker_data.items():
     for n in range(properties[MARKER_COUNT]):
         code = properties[MARKER_OFFSET] + n
         m = MarkerInfo(code=code,
-                        marker_type=maker_type,
-                        offset=n,
-                        size=properties[MARKER_SIZE],
-                        bounding_box_colour=properties[MARKER_COLOUR])
+                       marker_type=maker_type,
+                       offset=n,
+                       size=properties[MARKER_SIZE],
+                       bounding_box_colour=properties[MARKER_COLOUR])
         MARKER_LUT[code] = m
 
 
@@ -126,7 +126,7 @@ class Marker(object):
         return "{}\n{}".format(title_text, readable_contents)
 
 
-class Camera(object):
+class Camera(abc.ABC):
     """Define the interface for what a camera should support"""
 
     def __init__(self, focal_lengths):
@@ -207,7 +207,7 @@ class RoboConPiCamera(Camera):
 
 # TODO actually test this works
 class RoboConUSBCamera(Camera):
-    """A wrapper class for the open CV methods for generic cameras"""
+    """A wrapper class for the open CV methods"""
 
     def __init__(self,
                  start_res=(1296, 736),
@@ -344,7 +344,6 @@ class PostProcessor(threading.Thread):
                 if bounding_box:
                     frame = self._draw_bounding_box(frame, detections)
                 if save:
-                    print("saving")
                     cv2.imwrite("/tmp/colimage.jpg", frame)
                 if usb_stick:
                     pass
