@@ -54,25 +54,6 @@ class AlreadyInitialised(Exception):
         return "Robot object can only be initialised once."
 
 
-class UnavailableAfterInit(Exception):
-    """The called function is unavailable after init()"""
-
-    def __str__(self):
-        return "The called function is unavailable after init()"
-
-
-def pre_init(f):
-    """Decorator for functions that may only be called before init()"""
-
-    def g(self, *args, **kw):
-        if self._initialised:
-            raise UnavailableAfterInit()
-
-        return f(self, *args, **kw)
-
-    return g
-
-
 class Robot(object):
     """Class for initialising and accessing robot hardware"""
 
@@ -157,7 +138,6 @@ class Robot(object):
         if not self._warnings:
             logger.info("Hardware looks good")
 
-    @pre_init
     def subsystem_init(self):
         """
         Allows for the user to initalize the subsystems after the robot object
