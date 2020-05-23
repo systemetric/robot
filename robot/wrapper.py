@@ -25,9 +25,9 @@ logger = logging.getLogger("robot")
 COPY_STAT_FILE = "/root/COPYSTAT"
 
 def setup_logging():
-    """Apply default settings for logging"""
-    # (We do this by default so that our users
-    # don't have to worry about logging normally)
+    """Display the just the message when logging events
+    Sets the logging level to INFO
+    """
 
     logger.setLevel(logging.INFO)
 
@@ -139,8 +139,8 @@ class Robot(object):
             logger.info("Hardware looks good")
 
     def subsystem_init(self):
-        """
-        Allows for the user to initalize the subsystems after the robot object
+        """Allows for initalisation of subsystems after instansating `Robot()`
+        Can only be called once
         """
         if self._initialised:
             raise AlreadyInitialised()
@@ -169,7 +169,7 @@ class Robot(object):
         self._green_giant.set_12v(False)
         self.motors.stop()
 
-    def off(self):
+    def motors_off(self):
         """Turns motors off"""
         # TODO is this documented as a public method? should we also have on?
         # TODO the difference between this and Robot.stop is confusing
@@ -191,7 +191,7 @@ class Robot(object):
         self.usbkey = options.usbkey
         self.startfifo = options.startfifo
 
-    def wait_start_blink(self):
+    def _wait_start_blink(self):
         """When the robot object has been initalized asynchronously flash the
         status led"""
         v = False
@@ -211,7 +211,7 @@ class Robot(object):
                         self.zone))
             return
 
-        t = threading.Thread(target=self.wait_start_blink)
+        t = threading.Thread(target=self._wait_start_blink)
         t.start()
 
         logger.info("\nWaiting for start signal...")
