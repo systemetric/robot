@@ -1,7 +1,7 @@
 """
-A vision module for detecting April tags using the robocon kit
+Gets frames from a camera, processes them with AprilTags and performs
+postprocessing on the data to make it accessible to the user
 """
-# TODO pylint
 import abc  # Abstract-base-class
 import functools
 import cv2
@@ -11,17 +11,93 @@ import picamera
 import picamera.array
 # required see <https://picamera.readthedocs.io/en/latest/api_array.html>
 import logging
-import robot.apriltags3 as AT
-# TODO create a wraper or a PR for changes and move to dt-apriltags3
-from datetime import datetime
-from collections import namedtuple
 import queue
 import numpy as np
 import pprint
-import inspect
+import time
+
+from typing import NamedTuple, Any
+from datetime import datetime
+
+import robot.apriltags3 as AT
+
+
+class MarkerInfo(NamedTuple):
+    """Marker Info which is independent of a robot
+    """
+    code: int
+    marker_type: str
+    size: float
+    bounding_box_colour: tuple
+
+
+class Capture(NamedTuple):
+    """Allows for passing captures around particularly to the postprocessor"""
+    grey_frame: Any
+    colour_frame: Any
+    colour_type: Any
+    time: Any
+
 
 _AT_PATH = "/home/pi/apriltag"
+_USB_IMAGES_PATH = "/media/RobotUSB/collect_images.txt"
+_USB_LOGS_PATH = "/media/RobotUSB/log_markers.txt"
 
+# Colours are in the format BGR
+PURPLE = (255, 0, 215)  # Purple
+ORANGE = (0, 128, 255)  # Orange
+YELLOW = (0, 255, 255)  # Yellow
+GREEN = (0, 255, 0)  # Green
+RED = (0, 0, 255)  # Red
+BLUE = (255, 0, 0)  # Blue
+WHITE = (255, 255, 255)  # White
+
+# MARKER_: Marker Data Types
+# MARKER_TYPE_: Marker Types
+MARKER_TYPE, MARKER_OFFSET, MARKER_COUNT, MARKER_SIZE, MARKER_COLOUR = (
+    'type', 'offset', 'count', 'size', 'colour')
+MARKER_ARENA, MARKER_TOKEN = "arena", "token"
+
+# NOTE Data about each marker
+#     MARKER_OFFSET: Offset
+#     MARKER_COUNT: Number of markers of type that exist
+#     MARKER_SIZE: Real life size of marker
+#         The numbers here (e.g. `0.25`) are in metres -- the 10/12 is a scaling
+#         factor so that april_tags gets the size of the 10x10 black/white
+#         portion (not including the white border), but so that humans can
+#         measure sizes including the border.
+#     MARKER_COLOUR: Bounding box colour
+marker_types = {
+    MARKER_ARENA: {
+        MARKER_OFFSET: 0,
+        MARKER_COUNT: 32,
+        MARKER_SIZE: 0.14 * (10.0 / 12),
+        MARKER_COLOUR: RED
+    },
+    MARKER_TOKEN: {
+        MARKER_OFFSET: 32,
+        MARKER_COUNT: 8,
+        MARKER_SIZE: 0.14 * (10.0 / 12),
+        MARKER_COLOUR: YELLOW
+    }
+}
+
+# Creates a lookup table with all of the markers in the game
+MARKER_LUT = {}
+for maker_type, properties in marker_types.items():
+    for n in range(properties[MARKER_COUNT]):
+        code = properties[MARKER_OFFSET] + n
+        m = MarkerInfo(code=code,
+                       marker_type=maker_type,
+                       size=properties[MARKER_SIZE],
+                       bounding_box_colour=properties[MARKER_COLOUR])
+        MARKER_LUT[code] = m
+
+# Image post processing constants
+BOUNDING_BOX_THICKNESS = 2
+DEFAULT_BOUNDING_BOX_COLOUR = WHITE
+
+# Magic number's which lets AT calculate distance different for every camera
 PI_CAMERA_FOCAL_LENGTHS = {
     (640, 480): (607.6669874845361, 607.6669874845361),
     (1296, 736): (1243.0561163806915, 1243.0561163806915),
@@ -37,74 +113,6 @@ LOGITECH_C270_FOCAL_LENGTHS = {  # fx, fy tuples
     (1920, 1088): (3142.634753484673, 3142.634753484673),
     (1920, 1440): (1816.5165227051677, 1816.5165227051677)
 }
-
-
-# Colours are in the format BGR
-PURPLE = (255, 0, 215)  # Purple
-ORANGE = (0, 128, 255)  # Orange
-YELLOW = (0, 255, 255)  # Yellow
-GREEN = (0, 255, 0)  # Green
-RED = (0, 0, 255)  # Red
-BLUE = (255, 0, 0)  # Blue
-WHITE = (255, 255, 255)  # White
-
-
-# MARKER_: Marker Data Types
-# MARKER_TYPE_: Marker Types
-MARKER_TYPE, MARKER_OFFSET, MARKER_COUNT, MARKER_SIZE, MARKER_COLOUR = (
-    'type', 'offset', 'count', 'size', 'colour')
-MARKER_ARENA, MARKER_TOKEN = "arena", "token"
-
-
-# NOTE Data about each marker
-#     MARKER_OFFSET: Offset
-#     MARKER_COUNT: Number of markers of type that exist
-#     MARKER_SIZE: Real life size of marker
-#         The numbers here (e.g. `0.25`) are in metres -- the 10/12 is a scaling
-#         factor so that april_tags gets the size of the 10x10 black/white
-#         portion (not including the white border), but so that humans can
-#         measure sizes including the border.
-#     MARKER_COLOUR: Bounding box colour
-
-marker_data = {
-    MARKER_ARENA: {
-        MARKER_OFFSET: 0,
-        MARKER_COUNT: 32,
-        MARKER_SIZE: 0.14 * (10.0 / 12),
-        MARKER_COLOUR: RED
-    },
-    MARKER_TOKEN: {
-        MARKER_OFFSET: 32,
-        MARKER_COUNT: 8,
-        MARKER_SIZE: 0.14 * (10.0 / 12),
-        MARKER_COLOUR: YELLOW
-    }
-}
-
-
-MarkerInfo = namedtuple("MarkerInfo",
-                        "code marker_type offset size bounding_box_colour")
-ImageCoord = namedtuple("ImageCoord", "x y")
-
-MARKER_LUT = {}
-for maker_type, properties in marker_data.items():
-    for n in range(properties[MARKER_COUNT]):
-        code = properties[MARKER_OFFSET] + n
-        m = MarkerInfo(code=code,
-                       marker_type=maker_type,
-                       offset=n,
-                       size=properties[MARKER_SIZE],
-                       bounding_box_colour=properties[MARKER_COLOUR])
-        MARKER_LUT[code] = m
-
-
-# Image post processing constants
-BOUNDING_BOX_THICKNESS = 2
-DEFAULT_BOUNDING_BOX_COLOUR = WHITE
-# Define a tuple for passing captured frames around, colour frames for speed
-# are stored in whatever encoding RGB, BGR, YUV which they were captured in
-# it is upto the postprocessor to deal with this.
-Capture = namedtuple("Capture", "grey_frame colour_frame colour_type time")
 
 
 class Marker(object):
@@ -250,6 +258,13 @@ class RoboConUSBCamera(Camera):
         return result
 
 
+class PostProcessingSetting(threading.Event):
+    """A wrapper for `threading.Event` which has an initial value"""
+    def __init__(self, initial):
+        super().__init__()
+        self.set() if initial else self.clear()
+
+
 class PostProcessor(threading.Thread):
     """Once AprilTags returns its marker properties then there convince outputs
     todo e.g. send the image over to sheep. To make R.see() as quick as possible
@@ -272,23 +287,21 @@ class PostProcessor(threading.Thread):
         self._owner = owner
         self._bounding_box_thickness = bounding_box_thickness
 
-        self.signals = {
-            "bounding_box": threading.Event(),
-            "usb_stick": threading.Event(),
-            "send_to_sheep": threading.Event(),
-            "save": threading.Event(),
+        PostProcessingSettings = namedtuple(PostProcessingSettings, )
+        self.settings = {
+            name: PostProcessingSetting(initial)
+            for (name, initial) in (
+                ("bounding_box", bounding_box),
+                ("usb_stick", usb_stick),
+                ("send_to_sheep", send_to_sheep),
+                ("save", save),
+            )
         }
-
-        for signal_name, signal in self.signals.items():
-            if locals()[signal_name] is True:
-                signal.set()
-            else:
-                signal.clear()
 
         self._stop_event = threading.Event()
         self._stop_event.clear()
 
-        # Spwan the new thread
+        # This calls our overridden `run` method
         self.start()
 
     def stop(self):
@@ -320,6 +333,19 @@ class PostProcessor(threading.Thread):
 
         return frame
 
+    def _write_to_usb(self, capture, detections):
+        """If certain files exist on the RobotUSB writes data"""
+        capture_time = str(int(capture.time))
+
+        if os.path.exists(_USB_IMAGES_PATH):
+            filename = "/media/RobotUSB/" + capture_time + ".jpg"
+            cv2.imwrite(filename, capture.colour_frame)
+
+        if os.path.exists(_USB_LOGS_PATH):
+            with open(_USB_LOGS_PATH, 'a') as usb_logs:
+                log_message = f"---{capture_time}---\n{detections}\n\n"
+                usb_logs.write(log_message)
+
     def run(self):
         """This method runs in a separate process, and awaits for there to be
         data in the queue, we need to wait for there to be frames to prcess. It
@@ -330,7 +356,7 @@ class PostProcessor(threading.Thread):
             try:
                 # TODO do we need pass colour infomation?
                 # pylint: disable=unused-variable
-                (frame, colour_type, detections) = (
+                (capture, detections) = (
                     self._owner.frames_to_postprocess.get(timeout=1))
                 pass
             except queue.Empty:
@@ -342,11 +368,12 @@ class PostProcessor(threading.Thread):
                 send_to_sheep = self.signals["send_to_sheep"].is_set()
 
                 if bounding_box:
-                    frame = self._draw_bounding_box(frame, detections)
+                    frame = self._draw_bounding_box(capture.colour_frame,
+                                                    detections)
                 if save:
-                    cv2.imwrite("/tmp/colimage.jpg", frame)
+                    cv2.imwrite("/tmp/colimage.jpg", capture.colour_frame)
                 if usb_stick:
-                    pass
+                    self._write_to_usb(capture, detections)
                 if send_to_sheep:
                     pass
 
@@ -395,60 +422,12 @@ class Vision(object):
     def __del__(self):
         self.post_processor.stop()
 
-    def _assign_signal(self, signal, value):
+    def assign_signal(self, signal, value):
         assert isinstance(value, bool)
         if value:
             signal.set()
         else:
             signal.clear()
-
-    # TODO Document on website
-    # TODO maybe this is the nice way to deal with signal init in the
-    # preprocessor init?
-    # TODO there is alot of repition here
-    @property
-    def bounding_box(self):
-        """Weather we draw boxes around detected markers"""
-        return self.post_processor.signals["bounding_box"].is_set()
-
-    @bounding_box.setter
-    def bounding_box(self, value):
-        """Weather we draw boxes around detected markers"""
-        signal = self.post_processor.signals["bounding_box"]
-        self._assign_signal(signal, value)
-
-    @property
-    def usb_stick(self):
-        """Weather we save images to a usb stick"""
-        return self.post_processor.signals["usb_stick"].is_set()
-
-    @usb_stick.setter
-    def usb_stick(self, value):
-        """Weather we save images to a usb stick"""
-        signal = self.post_processor.signals["usb_stick"]
-        self._assign_signal(signal, value)
-
-    @property
-    def send_to_sheep(self):
-        """Weather we send images to sheep"""
-        return self.post_processor.signals["send_to_sheep"].is_set()
-
-    @send_to_sheep.setter
-    def send_to_sheep(self, value):
-        """Weather we send images to sheep"""
-        signal = self.post_processor.signals["send_to_sheep"]
-        self._assign_signal(signal, value)
-
-    @property
-    def save(self):
-        """Weather we save images to `\\tmp\\col_image.jpg`"""
-        return self.post_processor.signals["save"].is_set()
-
-    @save.setter
-    def save(self, value):
-        """Weather we save images to `\\tmp\\col_image.jpg`"""
-        signal = self.post_processor.signals["save"]
-        self._assign_signal(signal, value)
 
     def _generate_marker_properties(self, tags):
         """Adds `MarkerInfo` to detections"""
@@ -464,11 +443,11 @@ class Vision(object):
 
         return markers
 
-    def _send_to_post_process(self, colour_frame, colour_type, detections):
+    def _send_to_post_process(self, capture, detections):
         """Places data on the post processor queue with error handeling"""
         try:
-            capture = (colour_frame, colour_type, detections)
-            self.frames_to_postprocess.put(capture, timeout=1)
+            robot_picture = (capture, detections)
+            self.frames_to_postprocess.put(robot_picture, timeout=1)
         except queue.Full:
             logging.warn("Skipping postprocessing as queue is full")
 
@@ -476,7 +455,7 @@ class Vision(object):
         """Returns the markers the robot can see:
             - Gets a frame
             - Finds the markers
-            - Appends robocon specific properties, e.g. token or arena
+            - Appends RoboCon specific properties, e.g. token or arena
             - Sends off for post processing
         """
         capture = self.camera.capture()
@@ -486,9 +465,7 @@ class Vision(object):
                                              camera_params=self.camera.params,
                                              tag_size_lut=self.marker_size_lut)
 
-        self._send_to_post_process(capture.colour_frame,
-                                   capture.colour_type,
-                                   detections)
+        self._send_to_post_process(capture, detections)
 
         markers = self._generate_marker_properties(detections)
 
