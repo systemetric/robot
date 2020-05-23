@@ -403,13 +403,6 @@ class Vision(object):
     def __del__(self):
         self.post_processor.stop()
 
-    def assign_signal(self, signal, value):
-        assert isinstance(value, bool)
-        if value:
-            signal.set()
-        else:
-            signal.clear()
-
     def _generate_marker_properties(self, tags):
         """Adds `MarkerInfo` to detections"""
         markers = []
