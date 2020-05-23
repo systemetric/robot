@@ -256,54 +256,6 @@ class Robot(object):
 
         logger.info("Robot started!\n")
 
-    # TODO Document on website
-    # TODO maybe this is the nice way to deal with signal init in the
-    # preprocessor init?
-    # TODO there is alot of repition here
-    @property
-    def bounding_box(self):
-        """Weather we draw boxes around detected markers"""
-        return self.vision.post_processor.settings["bounding_box"].is_set()
-
-    @bounding_box.setter
-    def bounding_box(self, value):
-        """Weather we draw boxes around detected markers"""
-        signal = self.vision.post_processor.settings["bounding_box"]
-        self.vision.assign_signal(signal, value)
-
-    @property
-    def usb_stick(self):
-        """Weather we save images to a usb stick"""
-        return self.vision.post_processor.settings["usb_stick"].is_set()
-
-    @usb_stick.setter
-    def usb_stick(self, value):
-        """Weather we save images to a usb stick"""
-        signal = self.vision.post_processor.settings["usb_stick"]
-        self.vision.assign_signal(signal, value)
-
-    @property
-    def send_to_sheep(self):
-        """Weather we send images to sheep"""
-        return self.vision.post_processor.settings["send_to_sheep"].is_set()
-
-    @send_to_sheep.setter
-    def send_to_sheep(self, value):
-        """Weather we send images to sheep"""
-        signal = self.vision.post_processor.settings["send_to_sheep"]
-        self.vision.assign_signal(signal, value)
-
-    @property
-    def save(self):
-        """Weather we save images to `\\tmp\\col_image.jpg`"""
-        return self.vision.post_processor.settings["save"].is_set()
-
-    @save.setter
-    def save(self, value):
-        """Weather we save images to `\\tmp\\col_image.jpg`"""
-        signal = self.vision.post_processor.settings["save"]
-        self.vision.assign_signal(signal, value)
-
     def see(self):
         if not hasattr(self, "vision"):
             raise NoCameraPresent()

@@ -258,13 +258,6 @@ class RoboConUSBCamera(Camera):
         return result
 
 
-class PostProcessingSetting(threading.Event):
-    """A wrapper for `threading.Event` which has an initial value"""
-    def __init__(self, initial):
-        super().__init__()
-        self.set() if initial else self.clear()
-
-
 class PostProcessor(threading.Thread):
     """Once AprilTags returns its marker properties then there convince outputs
     todo e.g. send the image over to sheep. To make R.see() as quick as possible
@@ -286,17 +279,10 @@ class PostProcessor(threading.Thread):
 
         self._owner = owner
         self._bounding_box_thickness = bounding_box_thickness
-
-        PostProcessingSettings = namedtuple(PostProcessingSettings, )
-        self.settings = {
-            name: PostProcessingSetting(initial)
-            for (name, initial) in (
-                ("bounding_box", bounding_box),
-                ("usb_stick", usb_stick),
-                ("send_to_sheep", send_to_sheep),
-                ("save", save),
-            )
-        }
+        self._bounding_box = bounding_box
+        self._usb_stick = usb_stick
+        self._send_to_sheep = send_to_sheep
+        self._save = save
 
         self._stop_event = threading.Event()
         self._stop_event.clear()
@@ -323,7 +309,7 @@ class PostProcessor(threading.Thread):
                 colour = DEFAULT_BOUNDING_BOX_COLOUR
 
             # need to have this EXACT integer_corners syntax due to opencv bug
-            # https://stackoverflow.com/questions/17241830/opencv-polylines-function-in-python-throws-exception
+            # https://stackoverflow.com/questions/17241830/
             integer_corners = detection.corners.astype(np.int32)
             cv2.polylines(frame,
                           [integer_corners],
@@ -362,19 +348,14 @@ class PostProcessor(threading.Thread):
             except queue.Empty:
                 pass
             else:
-                bounding_box = self.signals["bounding_box"].is_set()
-                save = self.signals["save"].is_set()
-                usb_stick = self.signals["usb_stick"].is_set()
-                send_to_sheep = self.signals["send_to_sheep"].is_set()
-
-                if bounding_box:
-                    frame = self._draw_bounding_box(capture.colour_frame,
-                                                    detections)
-                if save:
-                    cv2.imwrite("/tmp/colimage.jpg", capture.colour_frame)
-                if usb_stick:
+                frame = capture.colour_frame
+                if self._bounding_box:
+                    frame = self._draw_bounding_box(frame, detections)
+                if self._save:
+                    cv2.imwrite("/tmp/colimage.jpg", frame)
+                if self._usb_stick:
                     self._write_to_usb(capture, detections)
-                if send_to_sheep:
+                if self._send_to_sheep:
                     pass
 
 
