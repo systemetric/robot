@@ -1,8 +1,7 @@
-"""
-A set of constants and interfaces for controlling the green giant over I2C
-"""
+"""A set of constants and interfaces for controlling the green giant over I2C"""
 
 def clamp(n, smallest, largest):
+    """Returns N if in bounds else returns the exceeded bound"""
     return max(smallest, min(n, largest))
 
 OUTPUT = 0b00
@@ -73,9 +72,10 @@ _GG_FVR_L = 31
 _GG_VERSION = 32
 
 
-def read_high_low_data(bus, high, low):
-    high_value = bus.read_byte_data(_GG_I2C_ADDR, high)
-    low_value = bus.read_byte_data(_GG_I2C_ADDR, low)
+def read_high_low_data(bus, high_addr, low_addr):
+    """Fetches and combines data stored across two bytes"""
+    high_value = bus.read_byte_data(_GG_I2C_ADDR, high_addr)
+    low_value = bus.read_byte_data(_GG_I2C_ADDR, low_addr)
 
     return low_value + (high_value << 8)
 
@@ -97,7 +97,7 @@ class GreenGiantInternal(object):
         return 804519.936 / read_high_low_data(self._bus, _GG_BATTERY_V_H, _GG_BATTERY_V_L)
 
     def get_fvr_reading(self):
-        """# TODO work out what does fvr stand for? and doc string"""
+        """Get the fixed voltage reading"""
         return 268173.312 / read_high_low_data(self._bus, _GG_FVR_H, _GG_FVR_L)
 
 
@@ -119,24 +119,36 @@ class GreenGiantGPIOPin(object):
 
     @property
     def digital(self):
-        if self._mode != INPUT and self._mode != INPUT_PULLUP:
-            raise ValueError("digital read attempted on non INPUT/INPUT_PULLUP pin")
+        if self._mode not in (INPUT, INPUT_PULLUP):
+            raise IOError(f"Digital read attempted on pin {self._index} "
+                          f"requiring pin_mode in INPUT, INPUT_PULLUP but "
+                          f"instead pin_mode is {self._mode}")
         return bool(self._bus.read_byte_data(_GG_I2C_ADDR, _GG_DIGITAL_START + self._index))
 
     @digital.setter
     def digital(self, value):
         if self._mode != OUTPUT:
-            raise ValueError("digital write attempted on none OUTPUT pin")
+            raise IOError(f"Digital write attempted on pin {self._index} "
+                          f"requiring pin_mode OUTPUT but instead pin_mode is "
+                          f"{self._mode}")
+
         self._bus.write_byte_data(_GG_I2C_ADDR, _GG_DIGITAL_START + self._index, int(value))
 
     @property
     def analog(self):
-        if self._mode != INPUT_ANALOG and self._mode != INPUT_PULLUP:
-            raise ValueError("analog read attempted on non INPUT_ANALOG/INPUT_PULLUP pin")
+        """Reads an analog value from the ADC and converts it to a voltage"""
+        if self._mode not in (INPUT_ANALOG, INPUT_PULLUP):
+            raise IOError(f"Analog read attempted on pin {self._index} "
+                          f"requiring pin_mode in INPUT_ANALOG, INPUT_PULLUP "
+                          f"but instead pin_mode is {self._mode}")
 
-        command = _GG_ANALOG_START + (self._index * 2)
+        # We have a 10 bit ADC this is the maximum value we could read from it
+        raw_adc_max = 0xFFC0
 
-        return read_high_low_data(self._bus, command, command + 1) / float(0xFFC0) * self._adc_max
+        analog_addr = _GG_ANALOG_START + (self._index * 2)
+        raw_adc_value = read_high_low_data(self._bus, analog_addr, analog_addr + 1)
+
+        return  (raw_adc_value / raw_adc_max) * self._adc_max
 
 
 class GreenGiantPWM(object):

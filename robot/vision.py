@@ -2,22 +2,21 @@
 Gets frames from a camera, processes them with AprilTags and performs
 postprocessing on the data to make it accessible to the user
 """
-import abc  # Abstract-base-class
-import functools
-import cv2
+import abc
+import logging
 import os
 import threading
+import queue
+
+from datetime import datetime
+from typing import NamedTuple, Any
+
+import cv2
+import numpy as np
 import picamera
 import picamera.array
-# required see <https://picamera.readthedocs.io/en/latest/api_array.html>
-import logging
-import queue
-import numpy as np
-import pprint
-import time
-
-from typing import NamedTuple, Any
-from datetime import datetime
+# seperate import of picamera.array required:
+# <https://picamera.readthedocs.io/en/latest/api_array.html>
 
 import robot.apriltags3 as AT
 
@@ -29,6 +28,27 @@ class MarkerInfo(NamedTuple):
     marker_type: str
     size: float
     bounding_box_colour: tuple
+
+
+class Marker():
+    """A class to automatically pull the dis and bear_y out of the detection"""
+    def __init__(self, info, detection):
+        self.info = info
+        self.detection = detection
+        self.dist = detection.dist
+        self.bear = detection.bear
+        self.rot = detection.rot
+
+    def __str__(self):
+        """A reduced set of the attributes and description text"""
+        title_text = "The contents of the %s object" % self.__class__.__name__
+        reduced_attributes = self.__dict__.copy()
+        del reduced_attributes["detection"]
+        return "{}\n{}".format(title_text, reduced_attributes)
+
+    def __repr__(self):
+        """A full string representation"""
+        return str(self.__dict__)
 
 
 class Capture(NamedTuple):
@@ -115,51 +135,29 @@ LOGITECH_C270_FOCAL_LENGTHS = {  # fx, fy tuples
 }
 
 
-class Marker(object):
-    """A class to automatically pull the dis and bear_y out of the detection"""
-
-    def __init__(self, info, detection):
-        self.info = info
-        self.detection = detection
-        self.dist = detection.dist
-        self.bear = detection.bear
-        self.rot = detection.rot
-
-    def __str__(self):
-        """A reduced set of the attributes and discription text"""
-        title_text = "The contents of the %s object" % self.__class__.__name__
-        reduced_attributes = self.__dict__.copy()
-        del reduced_attributes["detection"]
-        readable_contents = pprint.pformat(reduced_attributes)
-        return "{}\n{}".format(title_text, readable_contents)
-
-
 class Camera(abc.ABC):
     """Define the interface for what a camera should support"""
-
-    def __init__(self, focal_lengths):
-        self.params = None
-        self.focal_lengths = focal_lengths
-        self._update_camera_params()
+    params = None # (fx, fy, cx, cy) tuples
 
     @abc.abstractproperty
-    def res(self):
+    def res(self) -> tuple:
         """Return a tuple for the current res (w, h)"""
 
-    @abc.abstractproperty
     @res.setter
-    def res(self, res):
+    def res(self, res: tuple) -> None:
         """This method sets the resolution of the camera it should raise an
            error if the camera failed to set the requested resolution"""
 
     @abc.abstractmethod
-    def capture(self):
-        """This method should return a Capture named tuple
-        """
+    def capture(self) -> Capture:
+        """Get a frame from the camera"""
 
-    def _update_camera_params(self):
-        """Returns a `fx, fy, cx, cy`"""
-        focal_length = self.focal_lengths[self.res]
+    def _update_camera_params(self, focal_lengths):
+        """Calculates and sets `self.params` to the correct `fx, fy, cx, cy`
+        fx: focal_length_x
+        cx: focal_length_x
+        """
+        focal_length = focal_lengths[self.res]
         center = [i/2 for i in self.res]
         self.params = (*focal_length, *center)
 
@@ -168,35 +166,28 @@ class RoboConPiCamera(Camera):
     """A wrapper for the PiCamera class providing the methods which are used by
     the robocon classes"""
 
-    def __init__(self,
-                 start_res=(1296, 736),
-                 focal_lengths=PI_CAMERA_FOCAL_LENGTHS):
+    def __init__(self, start_res=(1296, 736), focal_lengths=None):
         self._pi_camera = picamera.PiCamera(resolution=start_res)
-        super().__init__(focal_lengths)
+        self.focal_lengths = (PI_CAMERA_FOCAL_LENGTHS
+                              if focal_lengths is None
+                              else focal_lengths)
+        self._update_camera_params(self.focal_lengths)
 
     @property
     def res(self):
         return self._pi_camera.resolution
 
     @res.setter
-    def res(self, res):
-        assert res in self.focal_lengths
+    def res(self, new_res: tuple):
+        if new_res is not self._pi_camera.resolution:
+            self._pi_camera.resolution = new_res
+            actual = self._pi_camera.resolution
 
-        if res == self._pi_camera.resolution:
-            return True
+            assert actual == new_res, (
+                f"Failed to set PiCam res, expected {new_res} but got {actual}")
 
-        try:
-            self._pi_camera.resolution = res
-        except Exception as e:
-            raise ValueError(
-                "Setting camera resolution failed with {}".format(type(e)))
+            self._update_camera_params(self.focal_lengths)
 
-        actual = self._pi_camera.resolution
-        if res != actual:
-            raise ValueError(
-                "Unsupported image resolution {} (got: {})".format(res, actual))
-
-        self._update_camera_params()
 
     def capture(self):
         # TODO Make this return the YUV capture
@@ -213,16 +204,17 @@ class RoboConPiCamera(Camera):
         return result
 
 
-# TODO actually test this works
 class RoboConUSBCamera(Camera):
     """A wrapper class for the open CV methods"""
-
     def __init__(self,
                  start_res=(1296, 736),
-                 focal_lengths=LOGITECH_C270_FOCAL_LENGTHS):
-        self._cv_camera = cv2.VideoCapture(0)
+                 focal_lengths=None):
+        self._cv_capture = cv2.VideoCapture(0)
         self._res = start_res
-        super().__init__(focal_lengths)
+        self.focal_lengths = (LOGITECH_C270_FOCAL_LENGTHS
+                              if focal_lengths is None
+                              else focal_lengths)
+        self._update_camera_params(self.focal_lengths)
 
     @property
     def res(self):
@@ -230,11 +222,18 @@ class RoboConUSBCamera(Camera):
 
     @res.setter
     def res(self, new_res):
-        self._cv_camera.set(cv2.CV_CAP_PROP_FRAME_WIDTH, new_res[0])
-        self._cv_camera.set(cv2.CV_CAP_PROP_FRAME_WIDTH, new_res[1])
+        if new_res is not self._res:
+            cv_property_ids = (cv2.CV_CAP_PROP_FRAME_WIDTH,
+                               cv2.CV_CAP_PROP_FRAME_HEIGHT)
 
-        self._res = new_res
-        self._update_camera_params()
+            for new, property_id in zip(new_res, cv_property_ids):
+                self._cv_capture.set(property_id, new)
+                actual = self._cv_capture.get(property_id, new)
+                assert actual == new, (f"Failed to set USB res, expected {new} "
+                                       f"but got {actual}")
+
+            self._res = new_res
+            self._update_camera_params(self.focal_lengths)
 
     def capture(self):
         """Capture from a USB camera. Not all usb cameras support native YUV
@@ -243,7 +242,7 @@ class RoboConUSBCamera(Camera):
         # TODO I'm sure openCV has some faster capture methods from video
         # streams like libkoki used to do with V4L.
 
-        cam_running, colour_frame = self._cv_camera.read()
+        cam_running, colour_frame = self._cv_capture.read()
         capture_time = datetime.now()
 
         if not cam_running:
@@ -291,10 +290,12 @@ class PostProcessor(threading.Thread):
         self.start()
 
     def stop(self):
+        """Finnish current work then join main thread"""
         self._stop_event.set()
         self.join()
 
     def stopped(self):
+        """public alias for _stop_event"""
         return self._stop_event.is_set()
 
     def _draw_bounding_box(self, frame, detections):
@@ -302,11 +303,10 @@ class PostProcessor(threading.Thread):
         """
         polygon_is_closed = True
         for detection in detections:
-            try:
-                colour = MARKER_LUT[detection.id].bounding_box_colour
-            except AttributeError:
-                # TODO check if this is the correct error to catch?
-                colour = DEFAULT_BOUNDING_BOX_COLOUR
+            marker_info_colour = MARKER_LUT[detection.id].bounding_box_colour
+            colour = (marker_info_colour
+                      if marker_info_colour is not None
+                      else DEFAULT_BOUNDING_BOX_COLOUR)
 
             # need to have this EXACT integer_corners syntax due to opencv bug
             # https://stackoverflow.com/questions/17241830/
@@ -319,7 +319,8 @@ class PostProcessor(threading.Thread):
 
         return frame
 
-    def _write_to_usb(self, capture, detections):
+    @staticmethod
+    def _write_to_usb(capture, detections):
         """If certain files exist on the RobotUSB writes data"""
         capture_time = str(int(capture.time))
 
@@ -344,7 +345,6 @@ class PostProcessor(threading.Thread):
                 # pylint: disable=unused-variable
                 (capture, detections) = (
                     self._owner.frames_to_postprocess.get(timeout=1))
-                pass
             except queue.Empty:
                 pass
             else:
@@ -359,7 +359,7 @@ class PostProcessor(threading.Thread):
                     pass
 
 
-class Vision(object):
+class Vision():
     """Class for setting camera hardware, capturing, assigning attributes
         calling the post processor"""
 
@@ -403,13 +403,14 @@ class Vision(object):
     def __del__(self):
         self.post_processor.stop()
 
-    def _generate_marker_properties(self, tags):
+    @staticmethod
+    def _generate_marker_properties(tags):
         """Adds `MarkerInfo` to detections"""
         markers = []
         for tag in tags:
             if tag.id not in MARKER_LUT:
-                logging.warn("Detected tag with id %i but not found in lut",
-                             tag.id)
+                logging.warning("Detected tag with id %i but not found in lut",
+                                tag.id)
                 continue
 
             info = MARKER_LUT[int(tag.id)]
@@ -423,7 +424,7 @@ class Vision(object):
             robot_picture = (capture, detections)
             self.frames_to_postprocess.put(robot_picture, timeout=1)
         except queue.Full:
-            logging.warn("Skipping postprocessing as queue is full")
+            logging.warning("Skipping postprocessing as queue is full")
 
     def detect_markers(self):
         """Returns the markers the robot can see:
