@@ -1,9 +1,9 @@
-"""Test the robot module"""
+# """Test the robot module"""
 
-import unittest
-import mock
-import robot
+# import unittest
+# import mock
+# import robot
 
-class VisionTestCase(unittest.TestCase):
+# class VisionTestCase(unittest.TestCase):
 
-    @mock.patch()
+#     @mock.patch()

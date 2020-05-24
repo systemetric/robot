@@ -12,9 +12,10 @@ import logging
 import time
 import threading
 
-from . import vision
 from datetime import datetime
 from smbus2 import SMBus
+
+from robot import vision
 from robot.cytron import CytronBoard
 from robot.greengiant import GreenGiantInternal, GreenGiantGPIOPin, GreenGiantPWM
 
@@ -25,10 +26,8 @@ logger = logging.getLogger("robot")
 COPY_STAT_FILE = "/root/COPYSTAT"
 
 def setup_logging():
-    """Apply default settings for logging"""
-    # (We do this by default so that our users
-    # don't have to worry about logging normally)
-
+    """Display the just the message when logging events
+    Sets the logging level to INFO"""
     logger.setLevel(logging.INFO)
 
     handler = logging.StreamHandler(sys.stdout)
@@ -42,48 +41,26 @@ def setup_logging():
 
 class NoCameraPresent(Exception):
     """Camera not connected."""
-
     def __str__(self):
         return "No camera found."
 
 
 class AlreadyInitialised(Exception):
     """The robot has been initialised twice"""
-
     def __str__(self):
         return "Robot object can only be initialised once."
 
 
-class UnavailableAfterInit(Exception):
-    """The called function is unavailable after init()"""
-
-    def __str__(self):
-        return "The called function is unavailable after init()"
-
-
-def pre_init(f):
-    """Decorator for functions that may only be called before init()"""
-
-    def g(self, *args, **kw):
-        if self._initialised:
-            raise UnavailableAfterInit()
-
-        return f(self, *args, **kw)
-
-    return g
-
-
-class Robot(object):
+class Robot():
     """Class for initialising and accessing robot hardware"""
-
     def __init__(self,
                  quiet=False,
                  wait_for_start=True,
                  config_logging=True,
                  use_usb_camera=False):
 
-        self._use_usb_camera = use_usb_camera
         self._quiet = quiet
+        self._use_usb_camera = use_usb_camera
 
         if config_logging:
             setup_logging()
@@ -100,7 +77,7 @@ class Robot(object):
         # What is this for?
         try:
             with open(COPY_STAT_FILE, "r") as f:
-                logger.info("Copied %s from USB\n" % f.read().strip())
+                logger.info("Copied %s from USB\n", f.read().strip())
             os.remove(COPY_STAT_FILE)
         except IOError:
             pass
@@ -109,13 +86,37 @@ class Robot(object):
 
         self.report_harware_status()
 
-        # Allows for the robot object to be set up and muated before being
+        # Allows for the robot object to be set up and mutated before being
         # started
         if wait_for_start:
             self.wait_start()
         else:
-            logger.warn(
-                "Robot initalized but user code running before wait_start")
+            logger.warning("Robot initalized but usercode running before"
+                           "`wait_start` you must start robot with ")
+
+    def subsystem_init(self):
+        """Allows for initalisation of subsystems after instansating `Robot()`
+        Can only be called once"""
+        if self._initialised:
+            raise AlreadyInitialised()
+
+        self.bus = SMBus(1)
+        self._green_giant = GreenGiantInternal(self.bus)
+        self._green_giant.set_12v(True)
+        self.servos = GreenGiantPWM(self.bus)
+
+        self._adc_max = self._green_giant.get_fvr_reading()
+        self._gg_version = self._green_giant.get_version()
+
+        self.gpio = [GreenGiantGPIOPin(self.bus, i, self._adc_max)
+                     for i in range(4)]
+
+        self.motors = CytronBoard()
+
+        self.vision = vision.Vision(self.zone)
+        self.camera = self.vision.camera
+
+        self._initialised = True
 
     def report_harware_status(self):
         """Print out a nice log message at the start of each robot init with
@@ -152,47 +153,20 @@ class Robot(object):
         logger.info("---------------------------")
 
         for warning in self._warnings:
-            logger.warn("WARNING: %s" % warning)
+            logger.warn("WARNING: %s", warning)
 
         if not self._warnings:
             logger.info("Hardware looks good")
-
-    @pre_init
-    def subsystem_init(self):
-        """
-        Allows for the user to initalize the subsystems after the robot object
-        """
-        if self._initialised:
-            raise AlreadyInitialised()
-
-        self.bus = SMBus(1)
-        self._green_giant = GreenGiantInternal(self.bus)
-        self._green_giant.set_12v(True)
-        self.servos = GreenGiantPWM(self.bus)
-
-        self._adc_max = self._green_giant.get_fvr_reading()
-        self._gg_version = self._green_giant.get_version()
-
-        self.gpio = [None]
-        for i in range(4):
-            self.gpio.append(GreenGiantGPIOPin(self.bus, i, self._adc_max))
-
-        self.motors = CytronBoard()
-
-        self.vision = vision.Vision(self.zone)
-        self.camera = self.vision.camera
-
-        self._initialised = True
 
     def stop(self):
         """Stops the robot and cuts power to the motors"""
         self._green_giant.set_12v(False)
         self.motors.stop()
 
-    def off(self):
+    def motors_off(self):
         """Turns motors off"""
         # TODO is this documented as a public method? should we also have on?
-        # TODO the difference between this and Robot.stop is confusing
+        # the difference between this and Robot.stop is confusing
         for motor in self.motors:
             motor.off()
 
@@ -211,7 +185,7 @@ class Robot(object):
         self.usbkey = options.usbkey
         self.startfifo = options.startfifo
 
-    def wait_start_blink(self):
+    def _wait_start_blink(self):
         """When the robot object has been initalized asynchronously flash the
         status led"""
         v = False
@@ -221,19 +195,16 @@ class Robot(object):
             v = not v
         self._green_giant.set_status_led(True)
 
-    # noinspection PyUnresolvedReferences
     def wait_start(self):
         """Wait for the start signal to happen"""
 
         if self.startfifo is None:
             self._start_pressed = True
-
-            logger.info("\nNo startfifo so using defaults (Zone: {})\n".format(
-                        self.zone))
+            logger.info(f"No startfifo so using defaults (Zone: {self.zone})")
             return
 
-        t = threading.Thread(target=self.wait_start_blink)
-        t.start()
+        blink_thread = threading.Thread(target=self._wait_start_blink)
+        blink_thread.start()
 
         logger.info("\nWaiting for start signal...")
 
@@ -245,12 +216,12 @@ class Robot(object):
 
         j = json.loads(d)
 
-        for prop in ("zone"):
+        for prop in "zone":
             if prop not in j:
                 raise ValueError("'{}' must be in startup info".format(prop))
             setattr(self, prop, j[prop])
 
-        if self.zone < 0 or self.zone > 3:
+        if self.zone not in range(3):
             raise ValueError(
                 "zone must be in range 0-3 inclusive -- value of %i is invalid"
                 % self.zone)
@@ -258,6 +229,8 @@ class Robot(object):
         logger.info("Robot started!\n")
 
     def see(self):
+        """Take a photo, detect markers in sene, attach RoboCon specific
+        properties"""
         if not hasattr(self, "vision"):
             raise NoCameraPresent()
 
