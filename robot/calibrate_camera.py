@@ -1,3 +1,9 @@
+"""A script for getting the focal length luts for a camera
+It losely follows the ideas of a PD controller combinded with a NM gradient
+descent algo.
+Usage:
+import robot.calibrate_camera
+"""
 import robot
 import math
 import pprint
@@ -8,14 +14,14 @@ KP = 100
 KD = 5
 K_READING_COUNTS = 0.5
 
-def get_reading():
+def _get_reading():
     while True:
         try:
             return R.see()[0].dist
         except IndexError:
             print("saw nothing")
 
-def get_reading_number(error):
+def _get_reading_number(error):
     result = int(K_READING_COUNTS / error)
     result = abs(result)
     if result is 0:

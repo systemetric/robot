@@ -11,4 +11,7 @@ smbus2 = "*"
 numpy = "*"
 
 [requires]
-python_version = "3.6"
+python_version = "3.7"
+
+[scripts]
+tests = "python3 -m unittest test/test_robot.py"

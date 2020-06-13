@@ -171,12 +171,6 @@ class Detection(object):
         self.pose_R = None
         self.pose_T = None
         self.pose_err = None
-        self.rot_x = None
-        self.rot_y = None
-        self.rot_z = None
-        self.bearing_x = None
-        self.bearing_y = None
-        self.bearing_z = None
         self.dist = None
 
     def __str__(self):
@@ -191,12 +185,6 @@ class Detection(object):
                '\npose_R = ' + str(self.pose_R) +
                '\npose_T = ' + str(self.pose_T) +
                '\npose_err = ' + str(self.pose_err) +
-               '\nself.rot_x = ' + str(self.rot_x) +
-               '\nself.rot_y = ' + str(self.rot_y) +
-               '\nself.rot_z = ' + str(self.rot_z) +
-               '\nself.bearing_x = ' + str(self.bearing_x) +
-               '\nself.bearing_y = ' + str(self.bearing_y) +
-               '\nself.bearing_z = ' + str(self.bearing_z) +
                '\nself.dist = ' + str(self.dist)+'\n')
 
     def __repr__(self):
@@ -473,6 +461,7 @@ class Detector(object):
 
                 # Find the rotation about an axis by using the arctan2 of the
                 # two other vectors perpendicular to that axis
+                # TODO make clearer and only compute x, y
                 bearings = (float(np.degrees(np.arctan2(u, v)))
                             for u, v in itertools.combinations(detection.pose_T, 2))
                 detection.bear = Coords(*bearings)

@@ -57,21 +57,21 @@ class Robot():
                  quiet=False,
                  wait_for_start=True,
                  config_logging=True,
-                 use_usb_camera=False):
+                 camera=None,
+                 max_motor_voltage=3):
 
-        self._quiet = quiet
-        self._use_usb_camera = use_usb_camera
-
-        if config_logging:
-            setup_logging()
-
-        self.zone = 0
+        self.zone = 0 # TODO make work with shepherd
+        self._max_motor_voltage = max_motor_voltage
 
         self._initialised = False
         self._start_pressed = False
         self._warnings = []
 
         self._parse_cmdline()
+
+        self._quiet = quiet
+        if config_logging:
+            setup_logging()
 
         # check if copy stat file exists and read it if it does then delete it
         # What is this for?
@@ -82,19 +82,19 @@ class Robot():
         except IOError:
             pass
 
-        self.subsystem_init()
+        self.subsystem_init(camera)
 
         self.report_harware_status()
 
         # Allows for the robot object to be set up and mutated before being
         # started
-        if wait_for_start:
+        if wait_for_start is True:
             self.wait_start()
         else:
             logger.warning("Robot initalized but usercode running before"
                            "`wait_start` you must start robot with ")
 
-    def subsystem_init(self):
+    def subsystem_init(self, camera):
         """Allows for initalisation of subsystems after instansating `Robot()`
         Can only be called once"""
         if self._initialised:
@@ -111,10 +111,14 @@ class Robot():
         self.gpio = [GreenGiantGPIOPin(self.bus, i, self._adc_max)
                      for i in range(4)]
 
-        self.motors = CytronBoard()
+        self.motors = CytronBoard(self._max_motor_voltage)
 
-        self.vision = vision.Vision(self.zone)
-        self.camera = self.vision.camera
+        self.camera = vision.RoboConPiCamera() if camera is None else camera()
+        if not isinstance(self.camera, vision.Camera):
+            raise ValueError("camera must inherit from vision.Camera")
+        self.res = self.camera.res
+
+        self._vision = vision.Vision(self.zone, camera=self.camera)
 
         self._initialised = True
 
@@ -128,32 +132,28 @@ class Robot():
         if battery_voltage > 12.2:
             battery_str = "Battery Voltage:   > 12.2v"
         if battery_voltage < 11.5:
-            self._warnings.append(
-                "Battery voltage below 11.5v, consider changing for a charged battery")
+            self._warnings.append("Battery voltage below 11.5v, consider "
+                                  "changing for a charged battery")
 
         if self._gg_version != 2:
             self._warnings.append(
                 "Green Giant version not 2 but instead {}".format(self._gg_version))
 
-        if self.vision._using_usb_cam:
-            vision_str = "Camera:            USB"
-        else:
-            vision_str = "Camera:       PiCamera"
+        camera_type_str = f"Camera:            {self.camera.__class__.__name__}"
 
         # print report of hardware
         logger.info("------HARDWARE REPORT------")
-        logger.info("Time:   %s",
-                    datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+        logger.info("Time:   %s", datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
         logger.info("Patch Version:     0")
         logger.info(battery_str)
         logger.info("ADC Max:           %.2fv", self._adc_max)
         logger.info("Green Giant Board: Yes (v%d)", self._gg_version)
         logger.info("Cytron Board:      Yes")
-        logger.info(vision_str)
+        logger.info(camera_type_str)
         logger.info("---------------------------")
 
         for warning in self._warnings:
-            logger.warn("WARNING: %s", warning)
+            logger.warning("WARNING: %s", warning)
 
         if not self._warnings:
             logger.info("Hardware looks good")
@@ -231,7 +231,12 @@ class Robot():
     def see(self):
         """Take a photo, detect markers in sene, attach RoboCon specific
         properties"""
-        if not hasattr(self, "vision"):
-            raise NoCameraPresent()
+        return self._vision.detect_markers()
 
-        return self.vision.detect_markers()
+    def __del__(self):
+        """Frees hardware resources held by the vision object"""
+        logging.warning("Destroying robot object")
+        # If vision never was initialled this creates confusing errors
+        # so check that it is initialled first
+        if hasattr(self, "_vision"):
+            self._vision.stop()

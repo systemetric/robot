@@ -1,3 +1,6 @@
 [submodule "robot/vision/apriltags3-py"]
 	path = robot/vision/apriltags3-py
 	url = https://github.com/duckietown/apriltags3-py
+[submodule "test/apriltag-imgs"]
+	path = test/apriltag-imgs
+	url = https://github.com/AprilRobotics/apriltag-imgs.git

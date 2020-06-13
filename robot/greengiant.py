@@ -101,7 +101,7 @@ class GreenGiantInternal(object):
         return 268173.312 / read_high_low_data(self._bus, _GG_FVR_H, _GG_FVR_L)
 
 
-class GreenGiantGPIOPin(object):
+class GreenGiantGPIOPin():
     def __init__(self, bus, index, adc_max):
         self._bus = bus
         self._index = index
@@ -164,6 +164,7 @@ class GreenGiantPWM(object):
 
         high = self._bus.read_byte_data(_GG_I2C_ADDR, command)
         low = self._bus.read_byte_data(_GG_I2C_ADDR, command + 1)
+
         value = low + (high << 8)
 
         return (value - _GG_PWM_CENTER) * 100 / _GG_PWM_PERCENT_HALF_RANGE
@@ -177,6 +178,7 @@ class GreenGiantPWM(object):
 
         value = _GG_PWM_CENTER + (percent / 100 * _GG_PWM_PERCENT_HALF_RANGE)
         value = clamp(value, _GG_PWM_MIN, _GG_PWM_MAX)
+        value = int(value)
 
         low = value & 0xFF
         high = value >> 8
