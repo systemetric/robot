@@ -1,69 +1,106 @@
-import RPi.GPIO as GPIO
-from time import sleep
+"""
+Cytron.py -
+Provides a nice interface for controlling the cytron motor board
+Uses hardware PWM to ensure reliability. (Note update time to board of 2ms)
+"""
+import wiringpi as wp
 from greengiant import clamp
 
 DEFAULT_MOTOR_CLAMP = 25
 
-GPIO.setmode(GPIO.BCM)
-GPIO.setwarnings(False)
 
-_CYTRON_GPIO_DIR_1 = 26
-_CYTRON_GPIO_DIR_2 = 24
-_CYTRON_GPIO_PWM_1 = 12
-_CYTRON_GPIO_PWM_2 = 13
+_PWM_PIN_1 = 26
+_PWM_PIN_2 = 23
+_DIR_PIN_1 = 25
+_DIR_PIN_2 = 5
+
+_WP_OUT = 1
+_WP_PWM = 2
+
+# Wiring pi's PWM has range 0-1024 but we want to present a range of 0-100
+_WP_PWM_MAX = 1024
+_RC_PWM_MAX = 100
+
+
+def wp_to_rc_pwm(wp_pwm):
+    """Convert from wiring pi's numbering to percentages"""
+    return (wp_pwm * _RC_PWM_MAX)/_WP_PWM_MAX
+
+
+def rc_to_wp_pwm(rc_pwm):
+    """Convert from percenatges to wiring pi's numbering"""
+    return int((rc_pwm * _WP_PWM_MAX)/_RC_PWM_MAX)
+
+
+# Set up Wiring Pi following the wiring pi numbering scheme
+assert wp.wiringPiSetup() == 0
 
 
 class CytronBoard(object):
+    """An object overiding the array set and get methods to provide a nice
+    interface for setting and getting pwm values"""
     def __init__(self, max_value):
         self.max_value = max_value
 
-        GPIO.setup(_CYTRON_GPIO_DIR_1, GPIO.OUT)
-        GPIO.setup(_CYTRON_GPIO_DIR_2, GPIO.OUT)
-        GPIO.setup(_CYTRON_GPIO_PWM_1, GPIO.OUT)
-        GPIO.setup(_CYTRON_GPIO_PWM_2, GPIO.OUT)
+        wp.pinMode(_DIR_PIN_1, _WP_OUT)
+        wp.pinMode(_DIR_PIN_2, _WP_OUT)
+        wp.pinMode(_PWM_PIN_1, _WP_PWM)
+        wp.pinMode(_PWM_PIN_2, _WP_PWM)
 
-        self._dir_value = [GPIO.LOW, GPIO.LOW]
+
+        self._dir_value = [False, False]
         self._dir = [
-            _CYTRON_GPIO_DIR_1,
-            _CYTRON_GPIO_DIR_2
+            _DIR_PIN_1,
+            _DIR_PIN_2
         ]
 
         self._pwm_value = [0, 0]
-        self._pwm = [
-            GPIO.PWM(_CYTRON_GPIO_PWM_1, 100),
-            GPIO.PWM(_CYTRON_GPIO_PWM_2, 100)
+        self._pwm_pins = [
+            _PWM_PIN_1,
+            _PWM_PIN_2
         ]
 
+        wp.pwmSetClock(3000) # Set the clock to 100Hz????
+        [wp.pwmWrite(pin, 0) for pin in self._pwm_pins]
+
     def __getitem__(self, index):
-        if not (1 <= index <= 2):
+        """Returns the current PWM value in RC units. Adds a sign to represent
+        direction"""
+        if not 1 <= index <= 2:
             raise IndexError("motor index must be 1 or 2")
         index -= 1
 
-        value = self._pwm_value[index]
-        if self._dir_value[index] == GPIO.HIGH:
+        value = wp_to_rc_pwm(self._pwm_value[index])
+        if self._dir_value[index]:
             value = -value
         return value
 
     def __setitem__(self, index, percent):
-        if not (1 <= index <= 2):
+        """Clamps a value, converts from percentage to wiring pi format and
+        sets a PWM format"""
+        if not 1 <= index <= 2:
             raise IndexError("motor index must be 1 or 2")
         index -= 1
 
         abs_value = abs(percent)
         if abs_value == percent:
-            self._dir_value[index] = GPIO.LOW
+            self._dir_value[index] = False
         else:
-            self._dir_value[index] = GPIO.HIGH
+            self._dir_value[index] = True
 
-        GPIO.output(self._dir[index], self._dir_value[index])
+        wp.digitalWrite(self._dir[index], self._dir_value[index])
 
+        # Scale, clamp and then convert to wp units the pwm value
         value = abs_value * self.max_value / 100
         value = clamp(value, 0, self.max_value)
+        value = rc_to_wp_pwm(value)
 
         self._pwm_value[index] = value
-        self._pwm[index].start(self._pwm_value[index])
+        wp.pwmWrite(self._pwm_pins[index], self._pwm_value[index])
 
     def stop(self):
-        for i in range(len(self._pwm)):
-            self._pwm[i].start(0)
+        """Turns motors off"""
+        for i in range(len(self._pwm_pins)):
+            wp.pwmWrite(self._pwm_pins[i], 0)
             self._pwm_value[i] = 0
+

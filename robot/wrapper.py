@@ -113,19 +113,25 @@ class Robot(object):
         # print report of hardward
         logger.info("------HARDWARE REPORT------")
         logger.info("Time:   %s" % datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-        logger.info("Patch Version:     2 (USBCAM)")
+        logger.info("Patch Version:      2020-p2")
 
         # display battery voltage and warnings associated with it
         battery_voltage = self._internal.get_battery_voltage()
-        battery_str = "Battery Voltage:   %.2fv" % battery_voltage
+        battery_str = "Battery Voltage:     %.2fv" % battery_voltage
         # we cannot read voltages above 12.2v
         if battery_voltage > 12.2:
-            battery_str = "Battery Voltage:   > 12.2v"
+            battery_str = "Battery Voltage:    > 12.2v"
         if battery_voltage < 11.5:
             self._warnings.append("Battery voltage below 11.5v, consider changing for a charged battery")
         logger.info(battery_str)
         self._adc_max = self._internal.get_fvr_reading()
-        logger.info("ADC Max:           %.2fv" % self._adc_max)
+        logger.info("ADC Max:              %.2fv" % self._adc_max)
+
+        logger.info("Motor Power Cap:        %3d" % self.motor_max)
+
+        if servo_defaults is not None:
+           for servo, position in servo_defaults.iteritems():
+               logger.info ("Servo %1d Start position:%4d" % (servo, position))
 
         # gpio init
         self.gpio = [None]
@@ -140,10 +146,13 @@ class Robot(object):
                     logger.warn("WARNING: %s" % warning)
             else:
                 logger.info("Hardware looks good")
-
+                  
             if servo_defaults is not None:
                 for servo, position in servo_defaults.iteritems():
-                    self.servos[servo] = position
+                    if servo in range(1,5):
+                        # really this shouldn't be here as n-servos is a GreenGiant feature
+                        # but this code runs before the start button and can freeze brains
+                        self.servos[servo] = position
 
             self._start_pressed = False
             self.wait_start()
@@ -200,19 +209,19 @@ class Robot(object):
         if self._gg_version != 3:
             self._warnings.append("Green Giant version not 3")
         logger.info("Green Giant Board: Yes (v%d)" % self._gg_version)
-        logger.info("Cytron Board:      Yes")
+        logger.info("Cytron Board:           Yes")
 
     def _dump_webcam(self):
         """Write information about the webcam to stdout"""
 
         if not hasattr(self, "vision"):
-            logger.info("Pi Camera:         No")
+            logger.info("Pi Camera:               No")
             self._warnings.append("No Pi Camera detected")
             # No webcam
             return
 
         # For now, just display the fact we have a webcam
-        logger.info("Pi Camera:         Yes")
+        logger.info("Pi Camera:              Yes")
 
     @staticmethod
     def _dump_usbdev_dict(devdict, name):
@@ -377,15 +386,22 @@ class Robot(object):
         self.vision = v
 
     # noinspection PyUnresolvedReferences
-    def see(self, res=(640, 480), stats=False, save=True,
+    def see(self, res=(1296, 736), stats=False, save=True,
      bounding_box=True):
         if not hasattr(self, "vision"):
             raise NoCameraPresent()
 
-        return self.vision.see(res=res,
+        self._internal.set_status_led(False)
+
+        markers = self.vision.see(res=res,
                                mode=self.mode,
                                arena=self.arena,
                                stats=stats,
                                save=save,
                                zone=self.zone,
                                bounding_box_enable = bounding_box)
+
+        self._internal.set_status_led(True)
+
+        return markers 
+
