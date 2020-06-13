@@ -1,95 +1,82 @@
-# Copyright Robert Spanton 2014
+"""
+The module containing the `Robot` class
+
+Mainly provides init routine for the brain and binds attributes of the `Robot`
+class to their respecitve classes
+"""
 import json
 import sys
 import optparse
 import os
-import glob
 import logging
 import time
 import threading
+<<<<<<< HEAD
 from datetime import datetime
+=======
+>>>>>>> origin/april_tags
 
+from datetime import datetime
 from smbus2 import SMBus
 
+<<<<<<< HEAD
 from robot.cytron import CytronBoard, DEFAULT_MOTOR_CLAMP
+=======
+from robot import vision
+from robot.cytron import CytronBoard
+>>>>>>> origin/april_tags
 from robot.greengiant import GreenGiantInternal, GreenGiantGPIOPin, GreenGiantPWM
 
-from . import vision
-
-logger = logging.getLogger("sr.robot")
+logger = logging.getLogger("robot")
 
 # path to file with status of USB program copy,
 # if this exists it is output in logs and then deleted
 COPY_STAT_FILE = "/root/COPYSTAT"
 
 def setup_logging():
-    """Apply default settings for logging"""
-    # (We do this by default so that our users
-    # don't have to worry about logging normally)
-
+    """Display the just the message when logging events
+    Sets the logging level to INFO"""
     logger.setLevel(logging.INFO)
 
-    h = logging.StreamHandler(sys.stdout)
-    h.setLevel(logging.INFO)
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setLevel(logging.INFO)
 
     fmt = logging.Formatter("%(message)s")
-    h.setFormatter(fmt)
+    handler.setFormatter(fmt)
 
-    logger.addHandler(h)
+    logger.addHandler(handler)
 
 
 class NoCameraPresent(Exception):
     """Camera not connected."""
-
     def __str__(self):
         return "No camera found."
 
 
 class AlreadyInitialised(Exception):
     """The robot has been initialised twice"""
-
     def __str__(self):
         return "Robot object can only be initialised once."
 
 
-class UnavailableAfterInit(Exception):
-    """The called function is unavailable after init()"""
-
-    def __str__(self):
-        return "The called function is unavailable after init()"
-
-
-def pre_init(f):
-    """Decorator for functions that may only be called before init()"""
-
-    def g(self, *args, **kw):
-        if self._initialised:
-            raise UnavailableAfterInit()
-
-        return f(self, *args, **kw)
-
-    return g
-
-
-class Robot(object):
+class Robot():
     """Class for initialising and accessing robot hardware"""
-
     def __init__(self,
                  quiet=False,
-                 init=True,
+                 wait_for_start=True,
                  config_logging=True,
-                 use_usb_camera=False,
-                 motor_max=DEFAULT_MOTOR_CLAMP,
-                 servo_defaults=None):
+                 use_usb_camera=False):
+
+        self._quiet = quiet
+        self._use_usb_camera = use_usb_camera
 
         if config_logging:
             setup_logging()
 
-        self._use_usb_camera = use_usb_camera
+        self.zone = 0
 
         self._initialised = False
-        self._quiet = quiet
-
+        self._start_pressed = False
         self._warnings = []
 
         self._parse_cmdline()
@@ -97,147 +84,103 @@ class Robot(object):
         self.motor_max = motor_max
 
         # check if copy stat file exists and read it if it does then delete it
+        # What is this for?
         try:
             with open(COPY_STAT_FILE, "r") as f:
-                logger.info("Copied %s from USB\n" % f.read().strip())
+                logger.info("Copied %s from USB\n", f.read().strip())
             os.remove(COPY_STAT_FILE)
         except IOError:
             pass
 
-        # register components
-        bus = SMBus(1)
-        self._internal = GreenGiantInternal(bus)
-        self._internal.set_12v(True)
-        self._gg_version = self._internal.get_version()
+        self.subsystem_init()
 
-        # print report of hardward
-        logger.info("------HARDWARE REPORT------")
-        logger.info("Time:   %s" % datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-        logger.info("Patch Version:      2020-p2")
+        self.report_harware_status()
 
-        # display battery voltage and warnings associated with it
-        battery_voltage = self._internal.get_battery_voltage()
-        battery_str = "Battery Voltage:     %.2fv" % battery_voltage
-        # we cannot read voltages above 12.2v
-        if battery_voltage > 12.2:
-            battery_str = "Battery Voltage:    > 12.2v"
-        if battery_voltage < 11.5:
-            self._warnings.append("Battery voltage below 11.5v, consider changing for a charged battery")
-        logger.info(battery_str)
-        self._adc_max = self._internal.get_fvr_reading()
-        logger.info("ADC Max:              %.2fv" % self._adc_max)
-
-        logger.info("Motor Power Cap:        %3d" % self.motor_max)
-
-        if servo_defaults is not None:
-           for servo, position in servo_defaults.iteritems():
-               logger.info ("Servo %1d Start position:%4d" % (servo, position))
-
-        # gpio init
-        self.gpio = [None]
-        for i in range(4):
-            self.gpio.append(GreenGiantGPIOPin(bus, i, self._adc_max))
-
-        if init:
-            self.init(bus)
-            logger.info("---------------------------")
-            if len(self._warnings) > 0:
-                for warning in self._warnings:
-                    logger.warn("WARNING: %s" % warning)
-            else:
-                logger.info("Hardware looks good")
-                  
-            if servo_defaults is not None:
-                for servo, position in servo_defaults.iteritems():
-                    if servo in range(1,5):
-                        # really this shouldn't be here as n-servos is a GreenGiant feature
-                        # but this code runs before the start button and can freeze brains
-                        self.servos[servo] = position
-
-            self._start_pressed = False
+        # Allows for the robot object to be set up and mutated before being
+        # started
+        if wait_for_start:
             self.wait_start()
+        else:
+            logger.warning("Robot initalized but usercode running before"
+                           "`wait_start` you must start robot with ")
 
-    """
-    Stops the robot and cuts power to the motors
-    """
-    def stop(self):
-        self.motors.stop()
-        self._internal.set_12v(False)
-
-    @classmethod
-    def setup(cls, quiet=False, config_logging=True, use_usb_camera=False):
-        if config_logging:
-            setup_logging()
-
-        logger.debug("Robot.setup( quiet = %s )", str(quiet))
-        return cls(init=False,
-                   quiet=quiet,
-                   # Logging is already configured
-                    config_logging=False,
-                   use_usb_camera=use_usb_camera)
-
-    """
-    Initialises motors, pi cam and pwm
-    """
-    def init(self, bus):
-        # Find and initialise hardware
+    def subsystem_init(self):
+        """Allows for initalisation of subsystems after instansating `Robot()`
+        Can only be called once"""
         if self._initialised:
             raise AlreadyInitialised()
 
-        logger.debug("Initialising hardware.")
-        self._init_devs(bus)
-        self._init_vision()
+        self.bus = SMBus(1)
+        self._green_giant = GreenGiantInternal(self.bus)
+        self._green_giant.set_12v(True)
+        self.servos = GreenGiantPWM(self.bus)
 
-        if not self._quiet:
-            self._dump_devs()
+        self._adc_max = self._green_giant.get_fvr_reading()
+        self._gg_version = self._green_giant.get_version()
+
+        self.gpio = [GreenGiantGPIOPin(self.bus, i, self._adc_max)
+                     for i in range(4)]
+
+        self.motors = CytronBoard()
+
+        self.vision = vision.Vision(self.zone)
+        self.camera = self.vision.camera
 
         self._initialised = True
 
-    """
-    Turns motors off
-    """
-    def off(self):
-        for motor in self.motors:
-            motor.off()
-
-    def _dump_devs(self):
-        """Write a list of relevant devices out to the log"""
-        # logger.info("Found the following devices:")
-
-        self._dump_webcam()
-
-        if self._gg_version != 3:
-            self._warnings.append("Green Giant version not 3")
         logger.info("Green Giant Board: Yes (v%d)" % self._gg_version)
         logger.info("Cytron Board:           Yes")
 
-    def _dump_webcam(self):
-        """Write information about the webcam to stdout"""
+    def report_harware_status(self):
+        """Print out a nice log message at the start of each robot init with
+        the hardware status"""
 
-        if not hasattr(self, "vision"):
-            logger.info("Pi Camera:               No")
-            self._warnings.append("No Pi Camera detected")
-            # No webcam
-            return
+        battery_voltage = self._green_giant.get_battery_voltage()
+        battery_str = "Battery Voltage:   %.2fv" % battery_voltage
+        # we cannot read voltages above 12.2v
+        if battery_voltage > 12.2:
+            battery_str = "Battery Voltage:   > 12.2v"
+        if battery_voltage < 11.5:
+            self._warnings.append(
+                "Battery voltage below 11.5v, consider changing for a charged battery")
 
-        # For now, just display the fact we have a webcam
-        logger.info("Pi Camera:              Yes")
+        if self._gg_version != 3:
+            self._warnings.append("Green Giant version not 3")
 
-    @staticmethod
-    def _dump_usbdev_dict(devdict, name):
-        """Write the contents of a device dict to stdout"""
+        if self.vision._using_usb_cam:
+            vision_str = "Camera:            USB"
+        else:
+            vision_str = "Camera:       PiCamera"
 
-        if len(devdict) == 0:
-            return
+        # print report of hardware
+        logger.info("------HARDWARE REPORT------")
+        logger.info("Time:   %s",
+                    datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+        logger.info("Patch Version:     0")
+        logger.info(battery_str)
+        logger.info("ADC Max:           %.2fv", self._adc_max)
+        logger.info("Green Giant Board: Yes (v%d)", self._gg_version)
+        logger.info("Cytron Board:      Yes")
+        logger.info(vision_str)
+        logger.info("---------------------------")
 
-        logger.info(" - %s:", name)
+        for warning in self._warnings:
+            logger.warn("WARNING: %s", warning)
 
-        for key, motor in devdict.iteritems():
-            if not isinstance(key, int):
-                continue
+        if not self._warnings:
+            logger.info("Hardware looks good")
 
-            logger.info("    %(index)s: %(motor)s",
-                        {"index": key, "motor": motor})
+    def stop(self):
+        """Stops the robot and cuts power to the motors"""
+        self._green_giant.set_12v(False)
+        self.motors.stop()
+
+    def motors_off(self):
+        """Turns motors off"""
+        # TODO is this documented as a public method? should we also have on?
+        # the difference between this and Robot.stop is confusing
+        for motor in self.motors:
+            motor.off()
 
     def _parse_cmdline(self):
         """Parse the command line arguments"""
@@ -247,35 +190,33 @@ class Robot(object):
                           help="The path of the (non-volatile) user USB key")
 
         parser.add_option("--startfifo", type="string", dest="startfifo",
-                          help="The path of the fifo which start information will be received through")
-        (options, args) = parser.parse_args()
+                          help="""The path of the fifo which start information
+                                  will be received through""")
+        (options, _) = parser.parse_args()
 
         self.usbkey = options.usbkey
         self.startfifo = options.startfifo
 
-    def wait_start_blink(self):
+    def _wait_start_blink(self):
+        """When the robot object has been initalized asynchronously flash the
+        status led"""
         v = False
         while not self._start_pressed:
             time.sleep(0.2)
-            self._internal.set_status_led(v)
+            self._green_giant.set_status_led(v)
             v = not v
-        self._internal.set_status_led(True)
+        self._green_giant.set_status_led(True)
 
-    # noinspection PyUnresolvedReferences
     def wait_start(self):
         """Wait for the start signal to happen"""
 
         if self.startfifo is None:
             self._start_pressed = True
-
-            logger.info("\nNo startfifo so using defaults (Zone: 0, Mode: dev, Arena: A)\n")
-            setattr(self, "zone", 0)
-            setattr(self, "mode", "dev")
-            setattr(self, "arena", "A")
+            logger.info(f"No startfifo so using defaults (Zone: {self.zone})")
             return
 
-        t = threading.Thread(target=self.wait_start_blink)
-        t.start()
+        blink_thread = threading.Thread(target=self._wait_start_blink)
+        blink_thread.start()
 
         logger.info("\nWaiting for start signal...")
 
@@ -287,121 +228,22 @@ class Robot(object):
 
         j = json.loads(d)
 
-        for prop in ["zone", "mode", "arena"]:
+        for prop in "zone":
             if prop not in j:
-                raise Exception("'{}' must be in startup info".format(prop))
+                raise ValueError("'{}' must be in startup info".format(prop))
             setattr(self, prop, j[prop])
 
-        if self.mode not in ["comp", "dev"]:
-            raise Exception("mode of '%s' is not supported -- must be 'comp' or 'dev'" % self.mode)
-        if self.zone < 0 or self.zone > 3:
-            raise Exception("zone must be in range 0-3 inclusive -- value of %i is invalid" % self.zone)
-        if self.arena not in ["A", "B"]:
-            raise Exception("arena must be A or B")
+        if self.zone not in range(3):
+            raise ValueError(
+                "zone must be in range 0-3 inclusive -- value of %i is invalid"
+                % self.zone)
 
         logger.info("Robot started!\n")
 
-    def _init_devs(self, bus):
-        """Initialise the attributes for accessing devices"""
-
-        # Motor boards
-        self._init_motors()
-        # Servo boards
-        self._init_pwm(bus)
-
-    def _init_motors(self):
-        self.motors = CytronBoard(self.motor_max)
-
-    def _init_pwm(self, bus):
-        self.servos = GreenGiantPWM(bus)
-
-    def _list_usb_devices(self, model, subsystem=None):
-        """Create a sorted list of USB devices of the given type"""
-        udev = pyudev.Context()
-        devs = list(udev.list_devices(ID_MODEL=model, subsystem=subsystem))
-        # Sort by serial number
-        devs.sort(key=lambda x: x["ID_SERIAL_SHORT"])
-        return devs
-
-    def _init_usb_devices(self, model, ctor, subsystem=None):
-        devs = self._list_usb_devices(model, subsystem)
-
-        # Devices stored in a dictionary
-        # Each device appears twice in this dictionary:
-        #  1. Under its serial number
-        #  2. Under an integer key.  Integers assigned by ordering
-        #     boards by serial number.
-        srdevs = {}
-
-        n = 0
-        for dev in devs:
-            serialnum = dev["ID_SERIAL_SHORT"]
-
-            if "BUSNUM" in dev:
-                srdev = ctor(dev.device_node,
-                             busnum=int(dev["BUSNUM"]),
-                             devnum=int(dev["DEVNUM"]),
-                             serialnum=serialnum)
-            else:
-                srdev = ctor(dev.device_node,
-                             busnum=None,
-                             devnum=None,
-                             serialnum=serialnum)
-
-            srdevs[n] = srdev
-            srdevs[serialnum] = srdev
-            n += 1
-
-        return srdevs
-
-    def _init_vision(self):
-        if self._use_usb_camera:
-            udev = pyudev.Context()
-            cams = list(udev.list_devices(
-                subsystem="video4linux",
-                ID_USB_DRIVER="uvcvideo",
-            ))
-
-            if not cams:
-                return
-
-            camera = cams[0].device_node
-        else:
-            camera = None
-
-        # Find libkoki.so:
-        libpath = None
-        if "LD_LIBRARY_PATH" in os.environ:
-            for d in os.environ["LD_LIBRARY_PATH"].split(":"):
-                l = glob.glob("%s/libkoki.so*" % os.path.abspath(d))
-
-                if len(l):
-                    libpath = os.path.abspath(d)
-                    break
-        if libpath is None:
-            v = vision.Vision(camera, "/home/pi/libkoki/lib")  # /root/libkoki/lib
-        else:
-            v = vision.Vision(camera, libpath)
-
-        self.vision = v
-
-    # noinspection PyUnresolvedReferences
-    def see(self, res=(1296, 736), stats=False, save=True,
-     bounding_box=True):
+    def see(self):
+        """Take a photo, detect markers in sene, attach RoboCon specific
+        properties"""
         if not hasattr(self, "vision"):
             raise NoCameraPresent()
 
-        self._internal.set_status_led(False)
-
-        markers = self.vision.see(res=res,
-                               mode=self.mode,
-                               arena=self.arena,
-                               stats=stats,
-                               save=save,
-                               zone=self.zone,
-                               bounding_box_enable = bounding_box)
-
-        self._internal.set_status_led(True)
-
-        return markers 
-
+        return self.vision.detect_markers()

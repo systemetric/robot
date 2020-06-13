@@ -1,10 +1,9 @@
+"""An interface to the cyctron motor board. A gpio pin is used for each motor
+to give direction and has a PWM signal at 100Hz giving infomation about voltage
+to apply
 """
-Cytron.py -
-Provides a nice interface for controlling the cytron motor board
-Uses hardware PWM to ensure reliability. (Note update time to board of 2ms)
-"""
-import wiringpi as wp
-from greengiant import clamp
+import RPi.GPIO as GPIO
+from robot.greengiant import clamp
 
 DEFAULT_MOTOR_CLAMP = 25
 
@@ -64,10 +63,10 @@ class CytronBoard(object):
         [wp.pwmWrite(pin, 0) for pin in self._pwm_pins]
 
     def __getitem__(self, index):
-        """Returns the current PWM value in RC units. Adds a sign to represent
-        direction"""
-        if not 1 <= index <= 2:
-            raise IndexError("motor index must be 1 or 2")
+        if index not in (1, 2):
+            raise IndexError(
+                "Expected motor index to be 1 or 2 but instead got {}".format(index))
+
         index -= 1
 
         value = wp_to_rc_pwm(self._pwm_value[index])
@@ -76,10 +75,10 @@ class CytronBoard(object):
         return value
 
     def __setitem__(self, index, percent):
-        """Clamps a value, converts from percentage to wiring pi format and
-        sets a PWM format"""
-        if not 1 <= index <= 2:
-            raise IndexError("motor index must be 1 or 2")
+        if index not in (1, 2):
+            raise IndexError(
+                "Expected motor index to be 1 or 2 but instead got {}".format(index))
+
         index -= 1
 
         abs_value = abs(percent)
