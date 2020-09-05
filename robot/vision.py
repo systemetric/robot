@@ -1,5 +1,4 @@
-"""
-Gets frames from a camera, processes them with AprilTags and performs
+"""Gets frames from a camera, processes them with AprilTags and performs
 postprocessing on the data to make it accessible to the user
 """
 import abc
