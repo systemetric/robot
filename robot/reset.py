@@ -24,7 +24,7 @@ def reset():
     for i in range(4):
         gg.GreenGiantGPIOPin(bus, i, 4.096).mode = gg.INPUT
     internal = gg.GreenGiantInternal(bus)
-    internal.set_12v(False)
+    internal.enable_12v = False
     internal.set_status_led(True)
 
     bus.close()

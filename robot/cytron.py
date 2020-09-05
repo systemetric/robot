@@ -3,7 +3,7 @@ to give direction and has a PWM signal at 100Hz giving infomation about voltage
 to apply
 """
 import wiringpi as wp
-from greengiant import clamp
+from robot.greengiant import clamp
 
 _MAX_OUTPUT_VOLTAGE = 12
 

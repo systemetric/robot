@@ -1,8 +1,8 @@
 """A set of constants and interfaces for controlling the green giant over I2C"""
 
-def clamp(n, smallest, largest):
-    """Returns N if in bounds else returns the exceeded bound"""
-    return max(smallest, min(n, largest))
+def clamp(value, smallest, largest):
+    """Return `value` if in bounds else returns the exceeded bound"""
+    return max(smallest, min(value, largest))
 
 OUTPUT = 0b00
 INPUT = 0b01
@@ -81,11 +81,52 @@ def read_high_low_data(bus, high_addr, low_addr):
 
 
 class GreenGiantInternal(object):
+    """Intertions for use with the user
+    not intended to be part of the robot API"""
     def __init__(self, bus):
         self._bus = bus
+        self._12v_state = False
 
-    def set_12v(self, on):
+    @property
+    def enable_12v(self):
+        """Return if 12v is currently enabled
+
+        I (Edwin Shepherd) can't query this from the GG for some reason? but can
+        on Jacks Fallens? @will can you test this on a more default brain?
+
+        The code bellow seems to make my pi reboot (most of the time)
+        The code will make the OS, blank screen then go to the rainbow
+        bootscreen almost instantly. Doesn't seem to matter if it is run as
+        root.
+
+        I have plugged a scope into the 5V rail to make sure that the pi
+        wasn't suddenly losing power and it doesn't seem to be, maybe I'm
+        missing the edge. I think its software on the pi?
+
+        On Jacks BB the bits doesn't change when read back even though its set
+        and unset
+
+        import time
+
+        from smbus2 import SMBus
+
+        I2C_ADDR = 0x8
+        ENABLE_12V_REGISTER = 27
+        bus = SMBus(1)
+
+        for state in (True, False, True):
+            print("setting state to {}".format(state))
+            bus.write_byte_data(I2C_ADDR, ENABLE_12V_REGISTER, int(state))
+            time.sleep(1)
+            print("{0:b}".format(bus.read_byte_data(I2C_ADDR, ENABLE_12V_REGISTER)))
+        """
+        return self._12v_state
+
+    @enable_12v.setter
+    def enable_12v(self, on):
+        """Set the 12V and store the state on the Pi"""
         self._bus.write_byte_data(_GG_I2C_ADDR, _GG_ENABLE_12V, int(on))
+        self._12v_state = on
 
     def set_status_led(self, on):
         self._bus.write_byte_data(_GG_I2C_ADDR, _GG_STATUS, int(on))
@@ -94,10 +135,13 @@ class GreenGiantInternal(object):
         return self._bus.read_byte_data(_GG_I2C_ADDR, _GG_VERSION)
 
     def get_battery_voltage(self):
+        """TODO where does this magic number come from"""
         return 804519.936 / read_high_low_data(self._bus, _GG_BATTERY_V_H, _GG_BATTERY_V_L)
 
     def get_fvr_reading(self):
-        """Get the fixed voltage reading"""
+        """Return the fixed voltage reading
+        TODO where does this magic number come from
+        """
         return 268173.312 / read_high_low_data(self._bus, _GG_FVR_H, _GG_FVR_L)
 
 
@@ -156,7 +200,7 @@ class GreenGiantPWM(object):
         self._bus = bus
 
     def __getitem__(self, index):
-        if not (1 <= index <= 4):
+        if index not in (1, 2, 3, 4):
             raise IndexError("pwm index must be between 1 and 4")
         index -= 1
 
@@ -170,7 +214,7 @@ class GreenGiantPWM(object):
         return (value - _GG_PWM_CENTER) * 100 / _GG_PWM_PERCENT_HALF_RANGE
 
     def __setitem__(self, index, percent):
-        if not (1 <= index <= 4):
+        if index not in (1, 2, 3, 4):
             raise IndexError("pwm index must be between 1 and 4")
         index -= 1
 
