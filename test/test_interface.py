@@ -3,9 +3,11 @@ For speed all this does it checks that the software interface is consistent and
 doesn't raise runtime exceptions. All interactions with the hardware need to
 have manual tests
 """
+import logging
 import unittest
 
 import robot
+import test.harness as harness
 
 
 MOTOR_TESTS = [
@@ -28,16 +30,22 @@ class RobotInterface(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        """Initalise the robot as a class property so that it doesn't need to
+        be reinitialized for everytest."""
         cls.r = robot.Robot()
 
     @classmethod
     def tearDownClass(cls):
+        """Normally this doesn't need to be called as the process gets destroyed
+        however here the robot object could be re-initialized for other tests"""
         del cls.r
 
     def test_see(self):
-        """R.see() returns a list"""
+        """R.see() returns a list of marker objects"""
         markers = self.r.see()
         self.assertIsInstance(markers, list)
+        for marker in markers:
+            self.assertIsInstance(marker, robot.vision.Marker)
 
     def test_set_res(self):
         """We can set the res #TODO reference a capture to make sure that the res was set right"""
@@ -93,6 +101,21 @@ class RobotInterface(unittest.TestCase):
                 self.r.gpio[pin].digital = state
                 self.assertEqual(self.r.gpio[pin].digital, state)
 
+    def test_robot_power_down(self):
+        """robot.stop should set the motors to zero and the 12v off"""
+        self.r.stop()
+        for motor in self.r.motors:
+            self.assertEqual(motor, 0)
+        self.assertFalse(self.r.enable_12v)
+
+    def test_set_12v(self):
+        """Check that the 12v can be set an unset.
+
+        We take it on faith that the interface is correct.
+        """
+        for state in (True, True, False, False, True):
+            self.r.enable_12v = state
+            self.assertEqual(self.r.enable_12v, state)
 
 class RobotInit(unittest.TestCase):
     """No runtime errors from the `Robot` `kwargs`"""
@@ -138,3 +161,37 @@ class RobotInit(unittest.TestCase):
         # Reset state
         R.servos[1] = 0
         R.motors[1] = 0
+
+    def test_default_logging_level(self):
+        """Check that the logging level is set to logging.INFO by default"""
+        R = robot.Robot()
+        _logger = logging.getLogger("robot")
+        self.assertEqual(_logger.getEffectiveLevel(), logging.INFO)
+
+    def test_logging_level_adjusted(self):
+        """The logging level should be able to be set by passing a kwarg into
+        the robot object.
+        """
+        R = robot.Robot(logging_level=logging.DEBUG)
+        _logger = logging.getLogger("robot")
+        self.assertEqual(_logger.getEffectiveLevel(), logging.DEBUG)
+
+    def test_robot_is_singleton(self):
+        """Test that the robot can only be initialized once"""
+        R1 = robot.Robot()
+        with self.assertRaises(RuntimeError):
+            R2 = robot.Robot()
+
+    def test_hardware_status_printed(self):
+        """The robot object should print a hardware status report upon
+        initalisation, this test just checks that something like it is printed
+        it should be pretty obvious if not.
+        """
+        with harness.captured_output() as (out, err):
+            robot.Robot()
+
+        output = out.getvalue().strip()
+        print(output)
+        self.assertTrue("HARDWARE REPORT" in output)
+        self.assertTrue("---------------------------" in output)
+        # --------------------------- is the final line of the hardware report
