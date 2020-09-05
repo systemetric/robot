@@ -240,3 +240,4 @@ $RECYCLE.BIN/
 # End of https://www.gitignore.io/api/python,pycharm,windows
 
 .vscode
+.idea
