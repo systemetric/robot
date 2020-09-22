@@ -89,18 +89,18 @@ class RobotVision(unittest.TestCase):
 
         markers = self.r.see()
         print(f"markers {markers}")
-        # marker_codes = [m.code for m in markers]
-        # print(f"got {marker_codes}")
-        # for marker in markers:
-        #     with self.subTest(marker=marker):
-        #         expected_type = None
-        #         for code, type_ in marker_numbering_tests:
-        #             print(f"test_code {code}")
-        #             print(f"marker.code got code {marker.code}")
-        #             if code == marker.code:
-        #                 expected_type = type_
-        #                 break
-        #         self.assertEqual(marker.type, expected_type)
+        marker_codes = [m.code for m in markers]
+        print(f"got {marker_codes}")
+        for marker in markers:
+            with self.subTest(marker=marker):
+                expected_type = None
+                for code, type_ in marker_numbering_tests:
+                    print(f"test_code {code}")
+                    print(f"marker.code got code {marker.code}")
+                    if code == marker.code:
+                        expected_type = type_
+                        break
+                self.assertEqual(marker.type, expected_type)
 
     def test_bearings_from_real_image(self):
         """test `marker.bear.y` increases left to right in real image
@@ -120,14 +120,12 @@ class RobotVision(unittest.TestCase):
                 (85, -13.968911862136904, -44.657545026570745),
                 (144, -2.592376356827769, -27.045341210472248),
                 (198, 26.18739331265824, 60.27103778528233),
-
-
             )
         ]
         for expected_bear_y, expected_rot_y, marker_code in tests:
             with self.subTest(expected_bear_y=expected_bear_y,
-                              expected_rot_y=expected_rot_y,
-                              marker_code=marker_code):
+                               expected_rot_y=expected_rot_y,
+                               marker_code=marker_code):
                 for m in [m for m in markers if m.code == marker_code]:
                     self.assertAlmostEqual(m.bear.y, expected_bear_y, delta=0.5)
                     self.assertAlmostEqual(m.rot.y, expected_rot_y, delta=0.5)

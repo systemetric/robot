@@ -17,7 +17,7 @@ from smbus2 import SMBus
 
 from robot import vision
 from robot.cytron import CytronBoard
-from robot.greengiant import GreenGiantInternal, GreenGiantGPIOPin, GreenGiantPWM
+from robot.greengiant import GreenGiantInternal, GreenGiantGPIOPinList, GreenGiantPWM
 
 _logger = logging.getLogger("robot")
 
@@ -99,17 +99,11 @@ class Robot():
 
         self.bus = SMBus(1)
         self._green_giant = GreenGiantInternal(self.bus)
-        self.enable_12v = self._green_giant.enable_12v
-        self.enable_12v = True
-
-        self.servos = GreenGiantPWM(self.bus)
-
         self._adc_max = self._green_giant.get_fvr_reading()
         self._gg_version = self._green_giant.get_version()
 
-        self.gpio = [GreenGiantGPIOPin(self.bus, i, self._adc_max)
-                     for i in range(4)]
-
+        self.servos = GreenGiantPWM(self.bus)
+        self.gpio = GreenGiantGPIOPinList(self.bus, self._adc_max)
         self.motors = CytronBoard(self._max_motor_voltage)
 
         self.camera = vision.RoboConPiCamera() if camera is None else camera()
@@ -137,7 +131,7 @@ class Robot():
             self._warnings.append(
                 "Green Giant version not 2 but instead {}".format(self._gg_version))
 
-        camera_type_str = f"Camera:            {self.camera.__class__.__name__}"
+        camera_type_str = "Camera:            {}".format(self.camera.__class__.__name__)
 
         # print report of hardware
         _logger.info("------HARDWARE REPORT------")
@@ -155,6 +149,46 @@ class Robot():
 
         if not self._warnings:
             _logger.info("Hardware looks good")
+
+    @property
+    def enable_12v(self):
+        """Return if 12v is currently enabled
+
+        I (Edwin Shepherd) can't query this from the GG for some reason? but can
+        on Jacks Fallens? @will can you test this on a more default brain?
+
+        The code bellow seems to make my pi reboot (most of the time)
+        The code will make the OS, blank screen then go to the rainbow
+        bootscreen almost instantly. Doesn't seem to matter if it is run as
+        root.
+
+        I have plugged a scope into the 5V rail to make sure that the pi
+        wasn't suddenly losing power and it doesn't seem to be, maybe I'm
+        missing the edge. I think its software on the pi?
+
+        On Jacks BB the bits doesn't change when read back even though its set
+        and unset
+
+        import time
+
+        from smbus2 import SMBus
+
+        I2C_ADDR = 0x8
+        ENABLE_12V_REGISTER = 27
+        bus = SMBus(1)
+
+        for state in (True, False, True):
+            print("setting state to {}".format(state))
+            bus.write_byte_data(I2C_ADDR, ENABLE_12V_REGISTER, int(state))
+            time.sleep(1)
+            print("{0:b}".format(bus.read_byte_data(I2C_ADDR, ENABLE_12V_REGISTER)))
+        """
+        return self._green_giant.enabled_12v
+
+    @enable_12v.setter
+    def enable_12v(self, on):
+        """An nice alias for set_12v"""
+        return self._green_giant.set_12v(on)
 
     def stop(self):
         """Stops the robot and cuts power to the motors.
@@ -213,7 +247,7 @@ class Robot():
 
         if self.startfifo is None:
             self._start_pressed = True
-            _logger.info(f"No startfifo so using defaults (Zone: {self.zone})")
+            _logger.info("No startfifo so using defaults (Zone: {})".format(self.zone))
             return
 
         blink_thread = threading.Thread(target=self._wait_start_blink)

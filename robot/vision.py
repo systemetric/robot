@@ -20,6 +20,8 @@ import pprint
 
 import robot.apriltags3 as AT
 
+# TODO put all of the paths together
+IMAGE_TO_SHEPHERD_PATH = "/home/pi/shepherd/shepherd/static/image.jpg"
 
 class MarkerInfo(NamedTuple):
     """Marker Info which is independent of a robot"""
@@ -373,8 +375,7 @@ class PostProcessor(threading.Thread):
             try:
                 # TODO do we need pass colour infomation?
                 # pylint: disable=unused-variable
-                (capture, detections) = (
-                    self._owner.frames_to_postprocess.get(timeout=1))
+                (capture, detections) = self._owner.frames_to_postprocess.get(timeout=1)
             except queue.Empty:
                 pass
             else:
@@ -382,7 +383,7 @@ class PostProcessor(threading.Thread):
                 if self._bounding_box:
                     frame = self._draw_bounding_box(frame, detections)
                 if self._save:
-                    cv2.imwrite("/tmp/colimage.jpg", frame)
+                    cv2.imwrite(IMAGE_TO_SHEPHERD_PATH, frame)
                 if self._usb_stick:
                     self._write_to_usb(capture, detections)
                 if self._send_to_sheep:

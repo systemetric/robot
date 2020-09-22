@@ -5,6 +5,7 @@ have manual tests
 """
 import logging
 import unittest
+import atexit
 
 import robot
 import test.harness as harness
@@ -64,9 +65,12 @@ class RobotInterface(unittest.TestCase):
                 self.assertEqual(self.r.motors[motor], expected)
                 self.r.motors[motor] = 0  # Reset the motor state
 
+    # @will this test fails on my brain, but given my GG
+    # also fails the 12v read and jacks doesn't I don't trust my GG reading
+    # even though this is a different failure mode
     @unittest.expectedFailure
     def test_servos(self):
-        """Servos can be set to a value and can be queried for that value"""
+        """Servos can be set to a value and can be queried for that value."""
         servo_tests = [
             (test_value * sign, expected_value, servo)
             for servo in (1,2,3,4)
@@ -85,21 +89,27 @@ class RobotInterface(unittest.TestCase):
                 self.assertEqual(self.r.servos[servo], expected)
                 self.r.servos[servo] = 0  # Reset the motor state
 
-    @unittest.expectedFailure
     def test_gpio_output_set_and_read(self):
-        """GPIOs out digit'als can be set and read"""
-        # TODO This isn't' python3 compatiable (probally need to unit test everything)
+        """GPIOs out digitals can be set and read"""
         gpio_digital_out_tests = [
             (state, pin)
             for state in (True, False)
-            for pin in range(0, 4)
+            for pin in range(1, 5)
         ]
         for state, pin in gpio_digital_out_tests:
             with self.subTest(state=state, pin=pin):
-                print(type(self.r.gpio[pin]))
                 self.r.gpio[pin].mode = robot.OUTPUT
                 self.r.gpio[pin].digital = state
                 self.assertEqual(self.r.gpio[pin].digital, state)
+
+    def test_gpio_can_be_set_to_any_mode(self):
+        """Goes through the valid modes and checks that the gpio can be set"""
+        for mode in ("INPUT", "OUTPUT", "INPUT_ANALOG", "INPUT_PULLUP"):
+            for pin in (1,2,3,4):
+                with self.subTest(mode=mode, pin=pin):
+                    self.r.gpio[pin].mode = mode
+
+    # TODO check that anaglogue reads return something
 
     def test_robot_power_down(self):
         """robot.stop should set the motors to zero and the 12v off"""
@@ -113,9 +123,17 @@ class RobotInterface(unittest.TestCase):
 
         We take it on faith that the interface is correct.
         """
+        # Leave 12v enabled for the next test
         for state in (True, True, False, False, True):
             self.r.enable_12v = state
             self.assertEqual(self.r.enable_12v, state)
+
+    def test_r_zone(self):
+        """R.zone returns an integer, a more comprehensive test is in
+        the RobotInit Class but this is a nice smoke test
+        """
+        self.assertTrue(type(self.r.zone) is int)
+
 
 class RobotInit(unittest.TestCase):
     """No runtime errors from the `Robot` `kwargs`"""
@@ -128,7 +146,7 @@ class RobotInit(unittest.TestCase):
             with self.subTest(value=value, expected=expected, motor=motor):
                 R.motors[motor] = value
                 self.assertEqual(R.motors[motor], expected)
-                R.motors[motor] = 0  # Reset the motor state
+                R.motors[motor] = 0  # Reset the motor state for next test
 
     def test_motor_max_float(self):
         """Robot can have a custom max_motor_voltage less than 12V and is float
@@ -195,3 +213,11 @@ class RobotInit(unittest.TestCase):
         self.assertTrue("HARDWARE REPORT" in output)
         self.assertTrue("---------------------------" in output)
         # --------------------------- is the final line of the hardware report
+
+    # def test_r_zone_can_be_set(self):
+    #     """R.zone is read from a json via a FIFO pipe, initialize this FIFO with
+    #     different parameters to check r.zone can be set
+    #     """
+    #     USER_FIFO_PATH = mktemp(prefix="shepherd-fifo-")
+    #     os.mkfifo(USER_FIFO_PATH)
+    #     atexit.register(partial(os.remove, USER_FIFO_PATH))
