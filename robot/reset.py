@@ -19,7 +19,7 @@ def reset():
     """
     bus = SMBus(1)
 
-    c.CytronBoard(c.DEFAULT_MOTOR_CLAMP).stop()
+    c.CytronBoard(1).stop()
     gg.GreenGiantPWM(bus).off()
     for i in range(4):
         gg.GreenGiantGPIOPin(bus, i, 4.096).mode = gg.INPUT

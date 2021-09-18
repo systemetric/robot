@@ -1,13 +1,34 @@
 """A set of constants and interfaces for controlling the green giant over I2C"""
 
-def clamp(n, smallest, largest):
-    """Returns N if in bounds else returns the exceeded bound"""
-    return max(smallest, min(n, largest))
+def clamp(value, smallest, largest):
+    """Return `value` if in bounds else returns the exceeded bound"""
+    return max(smallest, min(value, largest))
 
-OUTPUT = 0b00
-INPUT = 0b01
-INPUT_ANALOG = 0b10
-INPUT_PULLUP = 0b11
+def _decrement_pin_index(index):
+    """Validate then decrement the pin index.
+
+    The pins internally are numbered from zero but externally from 1
+    """
+    valid_indexes = (1, 2, 3, 4)
+    if index not in valid_indexes:
+        raise ValueError(f"GPIO pin index must be in {valid_indexes}"
+                         + f" but instead got {index}")
+    index -= 1
+
+    return index
+
+OUTPUT = "OUTPUT"
+INPUT = "INPUT"
+INPUT_ANALOG = "INPUT_ANALOG"
+INPUT_PULLUP = "INPUT_PULLUP"
+
+_GG_GPIO_MASKS = {
+    OUTPUT: 0b00,
+    INPUT: 0b01,
+    INPUT_ANALOG: 0b10,
+    INPUT_PULLUP: 0b11,
+}
+
 
 _GG_I2C_ADDR = 0x8
 
@@ -81,11 +102,20 @@ def read_high_low_data(bus, high_addr, low_addr):
 
 
 class GreenGiantInternal(object):
+    """Intertions for use with the user
+    not intended to be part of the robot API"""
     def __init__(self, bus):
         self._bus = bus
+        self.enabled_12v = False
+        self.set_12v(self.enabled_12v)
 
-    def set_12v(self, on):
-        self._bus.write_byte_data(_GG_I2C_ADDR, _GG_ENABLE_12V, int(on))
+    def set_12v(self, new_state):
+        """Set the 12V and store the state on the Pi"""
+        self._bus.write_byte_data(_GG_I2C_ADDR, _GG_ENABLE_12V, int(0))
+        self.enabled_12v = new_state
+        # Up to and including GreenGiant v3 there is no way of reading the sate of 
+        # the 12v rail. This is more than a software change because to be useful
+        # we would have to monitor the output of the high side switch
 
     def set_status_led(self, on):
         self._bus.write_byte_data(_GG_I2C_ADDR, _GG_STATUS, int(on))
@@ -94,19 +124,24 @@ class GreenGiantInternal(object):
         return self._bus.read_byte_data(_GG_I2C_ADDR, _GG_VERSION)
 
     def get_battery_voltage(self):
+        """TODO where does this magic number come from"""
         return 804519.936 / read_high_low_data(self._bus, _GG_BATTERY_V_H, _GG_BATTERY_V_L)
 
     def get_fvr_reading(self):
-        """Get the fixed voltage reading"""
+        """Return the fixed voltage reading
+        TODO where does this magic number come from
+        """
         return 268173.312 / read_high_low_data(self._bus, _GG_FVR_H, _GG_FVR_L)
 
 
-class GreenGiantGPIOPin(object):
+class GreenGiantGPIOPin():
     def __init__(self, bus, index, adc_max):
         self._bus = bus
         self._index = index
         self._mode = None
         self._adc_max = adc_max
+        self._digital_read_modes = (INPUT, INPUT_PULLUP, OUTPUT)
+        self._analog_read_modes = (INPUT_ANALOG, INPUT_PULLUP)
 
     @property
     def mode(self):
@@ -115,21 +150,22 @@ class GreenGiantGPIOPin(object):
     @mode.setter
     def mode(self, mode):
         self._mode = mode
-        self._bus.write_byte_data(_GG_I2C_ADDR, _GG_CONTROL_START + self._index, mode)
+        mask = _GG_GPIO_MASKS[mode]
+        self._bus.write_byte_data(_GG_I2C_ADDR, _GG_CONTROL_START + self._index, mask)
 
     @property
     def digital(self):
-        if self._mode not in (INPUT, INPUT_PULLUP):
+        if self._mode not in self._digital_read_modes:
             raise IOError(f"Digital read attempted on pin {self._index} "
-                          f"requiring pin_mode in INPUT, INPUT_PULLUP but "
+                          f"requiring pin_mode in {self._digital_read_modes} but "
                           f"instead pin_mode is {self._mode}")
         return bool(self._bus.read_byte_data(_GG_I2C_ADDR, _GG_DIGITAL_START + self._index))
 
     @digital.setter
     def digital(self, value):
-        if self._mode != OUTPUT:
+        if self._mode is not OUTPUT:
             raise IOError(f"Digital write attempted on pin {self._index} "
-                          f"requiring pin_mode OUTPUT but instead pin_mode is "
+                          f"requiring pin_mode {OUTPUT} but instead pin_mode is "
                           f"{self._mode}")
 
         self._bus.write_byte_data(_GG_I2C_ADDR, _GG_DIGITAL_START + self._index, int(value))
@@ -137,9 +173,9 @@ class GreenGiantGPIOPin(object):
     @property
     def analog(self):
         """Reads an analog value from the ADC and converts it to a voltage"""
-        if self._mode not in (INPUT_ANALOG, INPUT_PULLUP):
+        if self._mode not in self._analog_read_modes:
             raise IOError(f"Analog read attempted on pin {self._index} "
-                          f"requiring pin_mode in INPUT_ANALOG, INPUT_PULLUP "
+                          f"requiring pin_mode in {self._analog_read_modes} "
                           f"but instead pin_mode is {self._mode}")
 
         # We have a 10 bit ADC this is the maximum value we could read from it
@@ -150,15 +186,36 @@ class GreenGiantGPIOPin(object):
 
         return  (raw_adc_value / raw_adc_max) * self._adc_max
 
+    def __bool__(self):
+        """Return a bool if in a digital mode or a float if in an analogue"""
+        if self._mode in self._digital_read_modes:
+            return self.digital
 
-class GreenGiantPWM(object):
+        raise ValueError(f"Tried to evaluate GPIO {self._index} as a True/False "
+                         f"but current mode:{self._mode} is not in {self._digital_read_modes}")
+
+
+class GreenGiantGPIOPinList():
+    """A list of pins indexed from 1"""
+    def __init__(self, bus, adc_max):
+        self._list = [GreenGiantGPIOPin(bus, i, adc_max)
+                      for i in range(4)]
+
+    def __getitem__(self, index):
+        return self._list[_decrement_pin_index(index)]
+
+    def __setitem__(self, index, value):
+        internal_index = _decrement_pin_index(index)
+        self._list[internal_index] = value
+
+
+class GreenGiantPWM():
+    """An object implementing a descriptor protocol to control the servos"""
     def __init__(self, bus):
         self._bus = bus
 
     def __getitem__(self, index):
-        if not (1 <= index <= 4):
-            raise IndexError("pwm index must be between 1 and 4")
-        index -= 1
+        index = _decrement_pin_index(index)
 
         command = _GG_PWM_START + (index * 2)
 
@@ -169,14 +226,12 @@ class GreenGiantPWM(object):
         return (value - _GG_PWM_CENTER) * 100 / _GG_PWM_PERCENT_HALF_RANGE
 
     def __setitem__(self, index, percent):
-        if not (1 <= index <= 4):
-            raise IndexError("pwm index must be between 1 and 4")
-        index -= 1
-
+        index = _decrement_pin_index(index)
         command = _GG_PWM_START + (index * 2)
 
         value = _GG_PWM_CENTER + (percent / 100 * _GG_PWM_PERCENT_HALF_RANGE)
         value = clamp(value, _GG_PWM_MIN, _GG_PWM_MAX)
+        value = int(value)
 
         low = value & 0xFF
         high = value >> 8

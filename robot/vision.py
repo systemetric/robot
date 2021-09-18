@@ -1,5 +1,4 @@
-"""
-Gets frames from a camera, processes them with AprilTags and performs
+"""Gets frames from a camera, processes them with AprilTags and performs
 postprocessing on the data to make it accessible to the user
 """
 import abc
@@ -17,15 +16,17 @@ import picamera
 import picamera.array
 # seperate import of picamera.array required:
 # <https://picamera.readthedocs.io/en/latest/api_array.html>
+import pprint
 
 import robot.apriltags3 as AT
 
+# TODO put all of the paths together
+IMAGE_TO_SHEPHERD_PATH = "/home/pi/shepherd/shepherd/static/image.jpg"
 
 class MarkerInfo(NamedTuple):
-    """Marker Info which is independent of a robot
-    """
+    """Marker Info which is independent of a robot"""
     code: int
-    marker_type: str
+    type_: str #  Rename from type to avoid name collision?
     size: float
     bounding_box_colour: tuple
 
@@ -38,17 +39,29 @@ class Marker():
         self.dist = detection.dist
         self.bear = detection.bear
         self.rot = detection.rot
-
-    def __str__(self):
-        """A reduced set of the attributes and description text"""
-        title_text = "The contents of the %s object" % self.__class__.__name__
-        reduced_attributes = self.__dict__.copy()
-        del reduced_attributes["detection"]
-        return "{}\n{}".format(title_text, reduced_attributes)
+        self.code = info.code
+        self.type = info.type_
 
     def __repr__(self):
         """A full string representation"""
         return str(self.__dict__)
+
+    def __str__(self):
+        """A reduced set of the attributes and description text"""
+        reduced_attributes = {"code": self.code,
+                              "dist": self.dist,
+                              "bear.y": self.bear.y,
+                              "type": self.type,}
+        return pprint.pformat(reduced_attributes)
+
+
+class Detections(list):
+    """A mutable return type for R.see"""
+    def __str__(self):
+        """Uses `str` instead of `repr` on list items
+        The return from R.see should be humman readable"""
+        return "\n".join([str(m) for m in self])
+
 
 
 class Capture(NamedTuple):
@@ -59,7 +72,7 @@ class Capture(NamedTuple):
     time: Any
 
 
-_AT_PATH = "/home/pi/apriltag"
+_AT_PATH= "/usr/local"
 _USB_IMAGES_PATH = "/media/RobotUSB/collect_images.txt"
 _USB_LOGS_PATH = "/media/RobotUSB/log_markers.txt"
 
@@ -76,7 +89,7 @@ WHITE = (255, 255, 255)  # White
 # MARKER_TYPE_: Marker Types
 MARKER_TYPE, MARKER_OFFSET, MARKER_COUNT, MARKER_SIZE, MARKER_COLOUR = (
     'type', 'offset', 'count', 'size', 'colour')
-MARKER_ARENA, MARKER_TOKEN = "arena", "token"
+MARKER_ARENA, MARKER_TOKEN, MARKER_DEFAULT = "arena", "token", "default"
 
 # NOTE Data about each marker
 #     MARKER_OFFSET: Offset
@@ -99,16 +112,22 @@ marker_types = {
         MARKER_COUNT: 8,
         MARKER_SIZE: 0.14 * (10.0 / 12),
         MARKER_COLOUR: YELLOW
-    }
+    },
+    MARKER_DEFAULT: {
+        MARKER_OFFSET: 40,
+        MARKER_COUNT: 1023 - (32 + 32),
+        MARKER_SIZE: 0.14 * (10.0 / 12), # This size is meaningless
+        MARKER_COLOUR: WHITE
+    },
 }
 
 # Creates a lookup table with all of the markers in the game
 MARKER_LUT = {}
-for maker_type, properties in marker_types.items():
+for type_, properties in marker_types.items():
     for n in range(properties[MARKER_COUNT]):
         code = properties[MARKER_OFFSET] + n
         m = MarkerInfo(code=code,
-                       marker_type=maker_type,
+                       type_=type_,
                        size=properties[MARKER_SIZE],
                        bounding_box_colour=properties[MARKER_COLOUR])
         MARKER_LUT[code] = m
@@ -151,6 +170,10 @@ class Camera(abc.ABC):
     @abc.abstractmethod
     def capture(self) -> Capture:
         """Get a frame from the camera"""
+
+    @abc.abstractmethod
+    def close(self) -> None:
+        """Closes any locks that the program might have on hardware"""
 
     def _update_camera_params(self, focal_lengths):
         """Calculates and sets `self.params` to the correct `fx, fy, cx, cy`
@@ -197,11 +220,14 @@ class RoboConPiCamera(Camera):
             colour_frame = stream.array
             grey_frame = cv2.cvtColor(stream.array, cv2.COLOR_BGR2GRAY)
 
-        result = Capture(grey_frame=grey_frame,
-                         colour_frame=colour_frame,
-                         colour_type="RGB",
-                         time=capture_time)
-        return result
+        return Capture(grey_frame=grey_frame,
+                       colour_frame=colour_frame,
+                       colour_type="RGB",
+                       time=capture_time)
+
+    def close(self):
+        """Prevent the picamera leaking GPU memory"""
+        self._pi_camera.close()
 
 
 class RoboConUSBCamera(Camera):
@@ -250,11 +276,17 @@ class RoboConUSBCamera(Camera):
 
         grey_frame = cv2.cvtColor(colour_frame, cv2.COLOR_BGR2GRAY)
 
-        result = Capture(grey_frame=grey_frame,
-                         colour_frame=colour_frame,
-                         colour_type="RGB",
-                         time=capture_time)
-        return result
+        return Capture(grey_frame=grey_frame,
+                       colour_frame=colour_frame,
+                       colour_type="RGB",
+                       time=capture_time)
+
+    def close(self):
+        """Close the openCV capture
+        OpenCV does this anyway on a call to `open` but it is good for
+        consistency
+        """
+        self._cv_capture.release()
 
 
 class PostProcessor(threading.Thread):
@@ -290,7 +322,7 @@ class PostProcessor(threading.Thread):
         self.start()
 
     def stop(self):
-        """Finnish current work then join main thread"""
+        """Finish current work then join main process"""
         self._stop_event.set()
         self.join()
 
@@ -343,8 +375,7 @@ class PostProcessor(threading.Thread):
             try:
                 # TODO do we need pass colour infomation?
                 # pylint: disable=unused-variable
-                (capture, detections) = (
-                    self._owner.frames_to_postprocess.get(timeout=1))
+                (capture, detections) = self._owner.frames_to_postprocess.get(timeout=1)
             except queue.Empty:
                 pass
             else:
@@ -352,7 +383,7 @@ class PostProcessor(threading.Thread):
                 if self._bounding_box:
                     frame = self._draw_bounding_box(frame, detections)
                 if self._save:
-                    cv2.imwrite("/tmp/colimage.jpg", frame)
+                    cv2.imwrite(IMAGE_TO_SHEPHERD_PATH, frame)
                 if self._usb_stick:
                     self._write_to_usb(capture, detections)
                 if self._send_to_sheep:
@@ -367,7 +398,7 @@ class Vision():
                  zone,
                  at_path=_AT_PATH,
                  max_queue_size=4,
-                 use_usb_cam=False):
+                 camera=None):
 
         self.zone = zone
 
@@ -390,23 +421,21 @@ class Vision():
                                        decode_sharpening=0.25,
                                        debug=0)
 
-        if use_usb_cam:
-            self.camera = RoboConUSBCamera()
-        else:
-            self.camera = RoboConPiCamera()
-
-        self._using_usb_cam = use_usb_cam
+        self.camera = camera
 
         self.frames_to_postprocess = queue.Queue(max_queue_size)
         self.post_processor = PostProcessor(self)
 
-    def __del__(self):
+    def stop(self):
+        """Cleanup to prevent leaking hardware resource"""
         self.post_processor.stop()
+        self.camera.close()
 
     @staticmethod
     def _generate_marker_properties(tags):
         """Adds `MarkerInfo` to detections"""
-        markers = []
+        detections = Detections()
+
         for tag in tags:
             if tag.id not in MARKER_LUT:
                 logging.warning("Detected tag with id %i but not found in lut",
@@ -414,9 +443,9 @@ class Vision():
                 continue
 
             info = MARKER_LUT[int(tag.id)]
-            markers.append(Marker(info, tag))
+            detections.append(Marker(info, tag))
 
-        return markers
+        return detections
 
     def _send_to_post_process(self, capture, detections):
         """Places data on the post processor queue with error handeling"""
