@@ -15,10 +15,11 @@ from __future__ import print_function
 
 import ctypes
 import os
-import numpy as np
-import scipy.spatial.transform as transform
 import itertools
 from collections import namedtuple
+
+import numpy as np
+import scipy.spatial.transform as transform
 
 
 ######################################################################
@@ -143,7 +144,7 @@ def _matd_get_array(mat_ptr):
                            int(mat_ptr.contents.ncols))
 
 
-def zarray_get(za, idx, ptr): # pylint: disable=C0321
+def zarray_get(za, idx, ptr):  # pylint: disable=C0321
     """"
     memcpy(p, &za->data[idx*za->el_sz], za->el_sz);
 
@@ -172,6 +173,8 @@ class Detection(object):
         self.pose_T = None
         self.pose_err = None
         self.dist = None
+        self.bearing = None
+        self.rotation = None
 
     def __str__(self):
         return('Detection object:' +
@@ -185,7 +188,9 @@ class Detection(object):
                '\npose_R = ' + str(self.pose_R) +
                '\npose_T = ' + str(self.pose_T) +
                '\npose_err = ' + str(self.pose_err) +
-               '\nself.dist = ' + str(self.dist)+'\n')
+               '\nself.dist = ' + str(self.dist) +
+               '\nself.rotation = ' + str(self.rotation) +
+               '\nself.bearing = ' + str(self.bearing)+'\n')
 
     def __repr__(self):
         return self.__str__()
@@ -424,7 +429,7 @@ class Detector(object):
             detection.corners = corners
 
             if estimate_tag_pose:
-                # TODO better to ask for forgiveness than permision
+                # TODO better to ask for forgiveness than permission
                 if camera_params is None:
                     raise ValueError(
                         "camera_params must be provided to detect if estimate_tag_pose is set to True")
@@ -457,14 +462,14 @@ class Detector(object):
 
                 rotations = transform.Rotation.from_matrix(detection.pose_R)
                 rotations = rotations.as_euler("xyz", degrees=True)
-                detection.rot = Coords(*rotations)
+                detection.rotation = Coords(*rotations)
 
                 # Find the rotation about an axis by using the arctan2 of the
                 # two other vectors perpendicular to that axis
                 # TODO make clearer and only compute x, y
                 bearings = (float(np.degrees(np.arctan2(u, v)))
                             for u, v in itertools.combinations(detection.pose_T, 2))
-                detection.bear = Coords(*bearings)
+                detection.bearing = Coords(*bearings)
 
             # Append this dict to the tag data array
             return_info.append(detection)
