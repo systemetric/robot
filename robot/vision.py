@@ -20,7 +20,7 @@ import picamera.array
 import robot.apriltags3 as AT
 
 # TODO put all of the paths together
-IMAGE_TO_SHEPHERD_PATH = "/home/pi/shepherd/shepherd/static/image.jpg"
+IMAGE_TO_SHEPHERD_PATH = "/robot/shepherd/shepherd/static/image.jpg"
 
 
 class MarkerInfo(NamedTuple):
@@ -49,8 +49,8 @@ class Marker():
 
     def __str__(self):
         """A reduced set of the attributes and description text"""
-        return (f"{self.type} Marker {self.code}: {self.dist:.3} @"
-                f"{self.bearing} degrees\n"
+        return (f"{self.type} Marker {self.code}: {self.dist:.3}m @"
+                f"{self.bearing.y:.3} degrees\n"
                 "{\n"
                 f"  type = {self.type}\n"
                 f"  code = {self.code}\n"
@@ -71,7 +71,7 @@ class Detections(list):
     def __str__(self):
         """Uses `str` instead of `repr` on list items
         The return from R.see should be humman readable"""
-        return "\n".join([str(m) for m in self])
+        return "[" + "\n".join([str(m) for m in self]) + "]"
 
 
 class Capture(NamedTuple):
@@ -139,10 +139,11 @@ def create_marker_lut():
         for n in range(properties[MARKER_COUNT]):
             code = properties[MARKER_OFFSET] + n
             m = MarkerInfo(code=code,
-                           type=type,
+                           type=type_,
                            size=properties[MARKER_SIZE],
                            bounding_box_colour=properties[MARKER_COLOUR])
             result[code] = m
+    return result
 
 
 MARKER_LUT = create_marker_lut()
