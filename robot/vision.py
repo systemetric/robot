@@ -20,7 +20,7 @@ import picamera.array
 import robot.apriltags3 as AT
 
 # TODO put all of the paths together
-IMAGE_TO_SHEPHERD_PATH = "/robot/shepherd/shepherd/static/image.jpg"
+IMAGE_TO_SHEPHERD_PATH = "/home/pi/shepherd/shepherd/static/image.jpg"
 
 
 class MarkerInfo(NamedTuple):
