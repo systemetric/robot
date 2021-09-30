@@ -260,7 +260,7 @@ class Robot():
 
         return start_info
 
-    def see(self):
+    def see(self) -> vision.Detections:
         """Take a photo, detect markers in sene, attach RoboCon specific
         properties"""
         return self._vision.detect_markers()

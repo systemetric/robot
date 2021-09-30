@@ -16,31 +16,32 @@ import picamera
 import picamera.array
 # seperate import of picamera.array required:
 # <https://picamera.readthedocs.io/en/latest/api_array.html>
-import pprint
 
 import robot.apriltags3 as AT
 
 # TODO put all of the paths together
 IMAGE_TO_SHEPHERD_PATH = "/home/pi/shepherd/shepherd/static/image.jpg"
 
+
 class MarkerInfo(NamedTuple):
     """Marker Info which is independent of a robot"""
     code: int
-    type_: str #  Rename from type to avoid name collision?
+    type: str
     size: float
     bounding_box_colour: tuple
 
 
 class Marker():
     """A class to automatically pull the dis and bear_y out of the detection"""
-    def __init__(self, info, detection):
+
+    def __init__(self, info: MarkerInfo, detection: AT.Detection):
         self.info = info
         self.detection = detection
         self.dist = detection.dist
-        self.bear = detection.bear
-        self.rot = detection.rot
+        self.bearing = detection.bearing
+        self.rotation = detection.rotation
         self.code = info.code
-        self.type = info.type_
+        self.type = info.type
 
     def __repr__(self):
         """A full string representation"""
@@ -48,20 +49,29 @@ class Marker():
 
     def __str__(self):
         """A reduced set of the attributes and description text"""
-        reduced_attributes = {"code": self.code,
-                              "dist": self.dist,
-                              "bear.y": self.bear.y,
-                              "type": self.type,}
-        return pprint.pformat(reduced_attributes)
+        return (f"{self.type} Marker {self.code}: {self.dist:.3}m @"
+                f"{self.bearing.y:.3} degrees\n"
+                "{\n"
+                f"  type = {self.type}\n"
+                f"  code = {self.code}\n"
+                f"  dist = {self.dist:.3}\n"
+                f"  bearing.y = {self.bearing.y:.3}\n"
+                f"  bearing.x = {self.bearing.x:.3}\n"
+                f"  rotation.y = {self.rotation.y:.3}\n"
+                f"  rotation.x = {self.rotation.x:.3}\n"
+                f"  rotation.z = {self.rotation.z:.3}\n"
+                f"  info = TO BIG TO PRINT\n"
+                f"  detection = TO BIG TO PRINT\n"
+                "}\n")
 
 
 class Detections(list):
     """A mutable return type for R.see"""
+
     def __str__(self):
         """Uses `str` instead of `repr` on list items
         The return from R.see should be humman readable"""
-        return "\n".join([str(m) for m in self])
-
+        return "[" + "\n".join([str(m) for m in self]) + "]"
 
 
 class Capture(NamedTuple):
@@ -72,7 +82,7 @@ class Capture(NamedTuple):
     time: Any
 
 
-_AT_PATH= "/usr/local"
+_AT_PATH = "/usr/local"
 _USB_IMAGES_PATH = "/media/RobotUSB/collect_images.txt"
 _USB_LOGS_PATH = "/media/RobotUSB/log_markers.txt"
 
@@ -116,21 +126,28 @@ marker_types = {
     MARKER_DEFAULT: {
         MARKER_OFFSET: 40,
         MARKER_COUNT: 1023 - (32 + 32),
-        MARKER_SIZE: 0.14 * (10.0 / 12), # This size is meaningless
+        MARKER_SIZE: 0.14 * (10.0 / 12),  # This size is meaningless
         MARKER_COLOUR: WHITE
     },
 }
 
-# Creates a lookup table with all of the markers in the game
-MARKER_LUT = {}
-for type_, properties in marker_types.items():
-    for n in range(properties[MARKER_COUNT]):
-        code = properties[MARKER_OFFSET] + n
-        m = MarkerInfo(code=code,
-                       type_=type_,
-                       size=properties[MARKER_SIZE],
-                       bounding_box_colour=properties[MARKER_COLOUR])
-        MARKER_LUT[code] = m
+
+def create_marker_lut():
+    """Creates a lookup table with all of the markers in the game"""
+    result = {}
+    for type_, properties in marker_types.items():
+        for n in range(properties[MARKER_COUNT]):
+            code = properties[MARKER_OFFSET] + n
+            m = MarkerInfo(code=code,
+                           type=type_,
+                           size=properties[MARKER_SIZE],
+                           bounding_box_colour=properties[MARKER_COLOUR])
+            result[code] = m
+    return result
+
+
+MARKER_LUT = create_marker_lut()
+
 
 # Image post processing constants
 BOUNDING_BOX_THICKNESS = 2
@@ -156,7 +173,7 @@ LOGITECH_C270_FOCAL_LENGTHS = {  # fx, fy tuples
 
 class Camera(abc.ABC):
     """Define the interface for what a camera should support"""
-    params = None # (fx, fy, cx, cy) tuples
+    params = None  # (fx, fy, cx, cy) tuples
 
     @abc.abstractproperty
     def res(self) -> tuple:
@@ -211,7 +228,6 @@ class RoboConPiCamera(Camera):
 
             self._update_camera_params(self.focal_lengths)
 
-
     def capture(self):
         # TODO Make this return the YUV capture
         with picamera.array.PiRGBArray(self._pi_camera) as stream:
@@ -232,6 +248,7 @@ class RoboConPiCamera(Camera):
 
 class RoboConUSBCamera(Camera):
     """A wrapper class for the open CV methods"""
+
     def __init__(self,
                  start_res=(1296, 736),
                  focal_lengths=None):
