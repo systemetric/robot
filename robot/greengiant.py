@@ -111,7 +111,7 @@ class GreenGiantInternal(object):
 
     def set_12v(self, new_state):
         """Set the 12V and store the state on the Pi"""
-        self._bus.write_byte_data(_GG_I2C_ADDR, _GG_ENABLE_12V, int(0))
+        self._bus.write_byte_data(_GG_I2C_ADDR, _GG_ENABLE_12V, int(new_state))
         self.enabled_12v = new_state
         # Up to and including GreenGiant v3 there is no way of reading the sate of 
         # the 12v rail. This is more than a software change because to be useful
