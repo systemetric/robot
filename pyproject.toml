@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "robot"
+version = "3.0.0"
+description = "A libarry for controlling the brainbox hardware"
+authors = ["Your Name <you@example.com>"]
+license = "BSD clause 2"
+
+[tool.poetry.dependencies]
+python = "^3.7"
+smbus2 = "^0.4.1"
+opencv-python = "^4.5.3"
+
+[tool.poetry.dev-dependencies]
+pylint = "^2.11.1"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
