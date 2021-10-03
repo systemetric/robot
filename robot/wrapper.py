@@ -78,6 +78,7 @@ class Robot():
 
         self.subsystem_init(camera)
         self.report_hardware_status()
+        self.enable_12v = True
         type(self)._initialised = True
 
         # Allows for the robot object to be set up and mutated before being
