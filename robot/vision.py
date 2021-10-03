@@ -192,12 +192,12 @@ class Camera(abc.ABC):
     def close(self) -> None:
         """Closes any locks that the program might have on hardware"""
 
-    def _update_camera_params(self, focal_lengths):
+    def _update_camera_params(self):
         """Calculates and sets `self.params` to the correct `fx, fy, cx, cy`
         fx: focal_length_x
         cx: focal_length_x
         """
-        focal_length = focal_lengths[self.res]
+        focal_length = self.focal_lengths[self.res]
         center = [i/2 for i in self.res]
         self.params = (*focal_length, *center)
 
