@@ -54,7 +54,7 @@ class Robot():
     def __init__(self,
                  wait_for_start=True,
                  camera=None,
-                 max_motor_voltage=3,
+                 max_motor_voltage=6,
                  logging_level=logging.INFO):
 
         self.zone = 0
@@ -81,7 +81,6 @@ class Robot():
         type(self)._initialised = True
 
         # Allows for the robot object to be set up and mutated before being
-        # started
         if wait_for_start is True:
             self.wait_start()
         else:
@@ -139,6 +138,7 @@ class Robot():
         _logger.info("ADC Max:           %.2fv", self._adc_max)
         _logger.info("Green Giant Board: Yes (v%d)", self._gg_version)
         _logger.info("Cytron Board:      Yes")
+        _logger.info("Motor Voltage:     %d", self._max_motor_voltage)
         _logger.info(camera_type_str)
         _logger.info("---------------------------")
 
