@@ -105,28 +105,27 @@ MARKER_ARENA, MARKER_TOKEN, MARKER_DEFAULT = "arena", "token", "default"
 #     MARKER_OFFSET: Offset
 #     MARKER_COUNT: Number of markers of type that exist
 #     MARKER_SIZE: Real life size of marker
-#         The numbers here (e.g. `0.25`) are in metres -- the 10/12 is a scaling
-#         factor so that april_tags gets the size of the 10x10 black/white
-#         portion (not including the white border), but so that humans can
-#         measure sizes including the border.
+#         The numbers here (e.g. `0.25`) are in metres 
+#         the we are using come as a 10x10 square the outer ring of 
+#         which is white. The size here includes this white boarder.
 #     MARKER_COLOUR: Bounding box colour
 marker_types = {
     MARKER_ARENA: {
         MARKER_OFFSET: 0,
         MARKER_COUNT: 32,
-        MARKER_SIZE: 0.14 * (10.0 / 12),
+        MARKER_SIZE: 0.200,
         MARKER_COLOUR: RED
     },
     MARKER_TOKEN: {
         MARKER_OFFSET: 32,
         MARKER_COUNT: 8,
-        MARKER_SIZE: 0.14 * (10.0 / 12),
+        MARKER_SIZE: 0.100 ,
         MARKER_COLOUR: YELLOW
     },
     MARKER_DEFAULT: {
         MARKER_OFFSET: 40,
         MARKER_COUNT: 1023 - (32 + 32),
-        MARKER_SIZE: 0.14 * (10.0 / 12),  # This size is meaningless
+        MARKER_SIZE: 0.100,  # This size is meaningless
         MARKER_COLOUR: WHITE
     },
 }
@@ -155,11 +154,11 @@ DEFAULT_BOUNDING_BOX_COLOUR = WHITE
 
 # Magic number's which lets AT calculate distance different for every camera
 PI_CAMERA_FOCAL_LENGTHS = {
-    (640, 480): (607.6669874845361, 607.6669874845361),
-    (1296, 736): (1243.0561163806915, 1243.0561163806915),
-    (1296, 976): (1232.4906991188611, 1232.4906991188611),
-    (1920, 1088): (3142.634753484673, 3142.634753484673),
-    (1920, 1440): (1816.5165227051677, 1816.5165227051677)
+    (640, 480): (401.5, 401.5),
+    (1296, 736): (821, 821),
+    (1296, 976): (821, 821),
+    (1920, 1088): (2076, 2076),
+    (1920, 1440): (1198, 1198)
 }
 
 LOGITECH_C270_FOCAL_LENGTHS = {  # fx, fy tuples
