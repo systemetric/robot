@@ -105,8 +105,8 @@ MARKER_ARENA, MARKER_TOKEN, MARKER_DEFAULT = "arena", "token", "default"
 #     MARKER_OFFSET: Offset
 #     MARKER_COUNT: Number of markers of type that exist
 #     MARKER_SIZE: Real life size of marker
-#         The numbers here (e.g. `0.25`) are in metres 
-#         the we are using come as a 10x10 square the outer ring of 
+#         The numbers here (e.g. `0.25`) are in metres
+#         the we are using come as a 10x10 square the outer ring of
 #         which is white. The size here includes this white boarder.
 #     MARKER_COLOUR: Bounding box colour
 marker_types = {
@@ -119,7 +119,7 @@ marker_types = {
     MARKER_TOKEN: {
         MARKER_OFFSET: 32,
         MARKER_COUNT: 8,
-        MARKER_SIZE: 0.100 ,
+        MARKER_SIZE: 0.100,
         MARKER_COLOUR: YELLOW
     },
     MARKER_DEFAULT: {
