@@ -19,6 +19,8 @@ import picamera.array
 
 import robot.apriltags3 as AT
 
+
+
 # TODO put all of the paths together
 IMAGE_TO_SHEPHERD_PATH = "/home/pi/shepherd/shepherd/static/image.jpg"
 
@@ -99,7 +101,7 @@ WHITE = (255, 255, 255)  # White
 # MARKER_TYPE_: Marker Types
 MARKER_TYPE, MARKER_OFFSET, MARKER_COUNT, MARKER_SIZE, MARKER_COLOUR = (
     'type', 'offset', 'count', 'size', 'colour')
-MARKER_ARENA, MARKER_TOKEN, MARKER_DEFAULT = "arena", "token", "default"
+MARKER_ARENA,MARKER_CUBE_WINKIE,MARKER_CUBE_GILLIKAN,MARKER_CUBE_QUADLING,MARKER_CUBE_MUNCHKIN,MARKER_DEFAULT = "arena", "winkie", "gillikan","quadling","munchkin","default"
 
 # NOTE Data about each marker
 #     MARKER_OFFSET: Offset
@@ -109,25 +111,45 @@ MARKER_ARENA, MARKER_TOKEN, MARKER_DEFAULT = "arena", "token", "default"
 #         the we are using come as a 10x10 square the outer ring of
 #         which is white. The size here includes this white boarder.
 #     MARKER_COLOUR: Bounding box colour
+
 marker_types = {
     MARKER_ARENA: {
         MARKER_OFFSET: 0,
-        MARKER_COUNT: 32,
-        MARKER_SIZE: 0.200,
-        MARKER_COLOUR: RED
+        MARKER_COUNT: 100,
+        MARKER_SIZE: 0.297,
+        MARKER_COLOUR: WHITE
     },
-    MARKER_TOKEN: {
-        MARKER_OFFSET: 32,
-        MARKER_COUNT: 8,
+    
+    MARKER_CUBE_WINKIE: {
+        MARKER_OFFSET: 100,
+        MARKER_COUNT: 10,
         MARKER_SIZE: 0.100,
         MARKER_COLOUR: YELLOW
     },
+    MARKER_CUBE_GILLIKAN: {
+        MARKER_OFFSET: 110,
+        MARKER_COUNT: 10,
+        MARKER_SIZE: 0.100,
+        MARKER_COLOUR:  YELLOW
+    },
+    MARKER_CUBE_QUADLING: {
+        MARKER_OFFSET: 120,
+        MARKER_COUNT: 10,
+        MARKER_SIZE: 0.100,
+        MARKER_COLOUR:  YELLOW
+    },
+    MARKER_CUBE_MUNCHKIN: {
+        MARKER_OFFSET: 130,
+        MARKER_COUNT: 10,
+        MARKER_SIZE: 0.100,
+        MARKER_COLOUR:  YELLOW
+    },
     MARKER_DEFAULT: {
-        MARKER_OFFSET: 40,
-        MARKER_COUNT: 1023 - (32 + 32),
+        MARKER_OFFSET: 140,
+        MARKER_COUNT: 1023 - (100+10*4),
         MARKER_SIZE: 0.100,  # This size is meaningless
         MARKER_COLOUR: WHITE
-    },
+    }
 }
 
 
@@ -316,15 +338,18 @@ class PostProcessor(threading.Thread):
 
     def __init__(self,
                  owner,
-                 bounding_box_thickness=2,
+                 zone,
+                 bounding_box_thickness=5,
                  bounding_box=True,
                  usb_stick=False,
                  send_to_sheep=False,
+                
                  save=True):
 
         super(PostProcessor, self).__init__()
 
         self._owner = owner
+        self.zone = zone
         self._bounding_box_thickness = bounding_box_thickness
         self._bounding_box = bounding_box
         self._usb_stick = usb_stick
@@ -352,6 +377,10 @@ class PostProcessor(threading.Thread):
         polygon_is_closed = True
         for detection in detections:
             marker_info_colour = MARKER_LUT[detection.id].bounding_box_colour
+            marker_code = MARKER_LUT[detection.id].code
+            marker_zone = int((marker_code-100)-5/10)
+            if marker_zone == self.zone:
+                marker_info_colour = RED
             colour = (marker_info_colour
                       if marker_info_colour is not None
                       else DEFAULT_BOUNDING_BOX_COLOUR)
@@ -440,7 +469,7 @@ class Vision():
         self.camera = camera
 
         self.frames_to_postprocess = queue.Queue(max_queue_size)
-        self.post_processor = PostProcessor(self)
+        self.post_processor = PostProcessor(self,zone = self.zone)
 
     def stop(self):
         """Cleanup to prevent leaking hardware resource"""
