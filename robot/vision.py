@@ -31,6 +31,7 @@ class MarkerInfo(NamedTuple):
     type: str
     size: float
     bounding_box_colour: tuple
+    species: tuple
 
 
 class Marker():
@@ -44,6 +45,7 @@ class Marker():
         self.rotation = detection.rotation
         self.code = info.code
         self.type = info.type
+        self.species = info.species
 
     def __repr__(self):
         """A full string representation"""
@@ -99,10 +101,10 @@ WHITE = (255, 255, 255)  # White
 
 # MARKER_: Marker Data Types
 # MARKER_TYPE_: Marker Types
-MARKER_TYPE, MARKER_OFFSET, MARKER_COUNT, MARKER_SIZE, MARKER_COLOUR = (
-    'type', 'offset', 'count', 'size', 'colour')
+MARKER_TYPE, MARKER_OFFSET, MARKER_COUNT, MARKER_SIZE, MARKER_COLOUR,MARKER_SPECIES = (
+    'type', 'offset', 'count', 'size', 'colour','species')
 MARKER_ARENA,MARKER_CUBE_WINKIE,MARKER_CUBE_GILLIKAN,MARKER_CUBE_QUADLING,MARKER_CUBE_MUNCHKIN,MARKER_DEFAULT = "arena", "winkie", "gillikan","quadling","munchkin","default"
-
+ARENA,CUBE = "arena","cube"
 # NOTE Data about each marker
 #     MARKER_OFFSET: Offset
 #     MARKER_COUNT: Number of markers of type that exist
@@ -117,38 +119,44 @@ marker_types = {
         MARKER_OFFSET: 0,
         MARKER_COUNT: 100,
         MARKER_SIZE: 0.297,
-        MARKER_COLOUR: WHITE
+        MARKER_COLOUR: WHITE,
+        MARKER_SPECIES: ARENA
     },
     
     MARKER_CUBE_WINKIE: {
         MARKER_OFFSET: 100,
         MARKER_COUNT: 10,
         MARKER_SIZE: 0.100,
-        MARKER_COLOUR: YELLOW
+        MARKER_COLOUR: YELLOW,
+        MARKER_SPECIES: CUBE
     },
     MARKER_CUBE_GILLIKAN: {
         MARKER_OFFSET: 110,
         MARKER_COUNT: 10,
         MARKER_SIZE: 0.100,
-        MARKER_COLOUR:  YELLOW
+        MARKER_COLOUR:  YELLOW,
+        MARKER_SPECIES: CUBE
     },
     MARKER_CUBE_QUADLING: {
         MARKER_OFFSET: 120,
         MARKER_COUNT: 10,
         MARKER_SIZE: 0.100,
-        MARKER_COLOUR:  YELLOW
+        MARKER_COLOUR:  YELLOW,
+        MARKER_SPECIES: CUBE
     },
     MARKER_CUBE_MUNCHKIN: {
         MARKER_OFFSET: 130,
         MARKER_COUNT: 10,
         MARKER_SIZE: 0.100,
-        MARKER_COLOUR:  YELLOW
+        MARKER_COLOUR:  YELLOW,
+        MARKER_SPECIES: CUBE
     },
     MARKER_DEFAULT: {
         MARKER_OFFSET: 140,
         MARKER_COUNT: 1023 - (100+10*4),
         MARKER_SIZE: 0.100,  # This size is meaningless
-        MARKER_COLOUR: WHITE
+        MARKER_COLOUR: WHITE,
+        MARKER_SPECIES: CUBE
     }
 }
 
@@ -162,7 +170,9 @@ def create_marker_lut():
             m = MarkerInfo(code=code,
                            type=type_,
                            size=properties[MARKER_SIZE],
-                           bounding_box_colour=properties[MARKER_COLOUR])
+                           bounding_box_colour=properties[MARKER_COLOUR],
+                           species=properties[MARKER_SPECIES])
+
             result[code] = m
     return result
 
