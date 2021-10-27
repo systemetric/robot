@@ -11,6 +11,7 @@ import os
 import logging
 import time
 import threading
+import random
 
 from datetime import datetime
 from smbus2 import SMBus
@@ -130,6 +131,22 @@ class Robot():
             self._warnings.append("Green Giant version not 3 but instead {}".format(self._gg_version))
 
         camera_type_str = "Camera:            {}".format(self.camera.__class__.__name__)
+
+      
+        #Adds the secret poem every now and then!
+        if random.randint(0,50) == 1:
+            _logger.info("Today your task is a challenging one")
+            _logger.info("Gifts for the wizard and deliveries to run")
+            _logger.info("But due to the unfortunate timing you can not go")  
+            _logger.info("So you have sent a robot with gifts in tow")
+            _logger.info("You start in your country with your gifts around")
+            _logger.info("Starting in your home (where ever it is found)")
+            _logger.info("Then taking gifts from your robots zone ")
+            _logger.info("Delivering it to the wizard on its own")
+            _logger.info("To the road is good and to the emerald palace is ideal ")
+            _logger.info("And if in another country you get some but a point they will steal")
+            _logger.info("There are many things that are to be considered")
+            _logger.info("But remember to bring your gifts for the wizard")
 
         # print report of hardware
         _logger.info("------HARDWARE REPORT------")
