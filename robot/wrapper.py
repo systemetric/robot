@@ -134,7 +134,7 @@ class Robot():
 
       
         #Adds the secret poem every now and then!
-        if random.randint(0,50) == 1:
+        if random.randint(0,100) == 1:
             _logger.info("Today your task is a challenging one")
             _logger.info("Gifts for the wizard and deliveries to run")
             _logger.info("But due to the unfortunate timing you can not go")  
