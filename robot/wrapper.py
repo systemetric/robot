@@ -59,6 +59,7 @@ class Robot():
                  logging_level=logging.INFO):
 
         self.zone = 0
+        self.mode = "competition"
         self._max_motor_voltage = max_motor_voltage
 
         self._initialised = False
@@ -82,9 +83,13 @@ class Robot():
         self.enable_12v = True
         type(self)._initialised = True
 
-        # Allows for the robot object to be set up and mutated before being
+        # Allows for the robot object to be set up and mutated before being set
+        # up. Dangerous as it means the start info might not get loaded
+        # depending on user code.
         if wait_for_start is True:
-            self.wait_start()
+            start_data = self.wait_start()
+            self.zone = start_data.zone
+            self.mode = start_data.mode
         else:
             _logger.warning("Robot initalized but usercode running before"
                            "`robot.wait_start`. Robot will not wait for the "
@@ -132,12 +137,12 @@ class Robot():
 
         camera_type_str = "Camera:            {}".format(self.camera.__class__.__name__)
 
-      
+
         #Adds the secret poem every now and then!
         if random.randint(0,100) == 1:
             _logger.info("Today your task is a challenging one")
             _logger.info("Gifts for the wizard and deliveries to run")
-            _logger.info("But due to the unfortunate timing you can not go")  
+            _logger.info("But due to the unfortunate timing you can not go")
             _logger.info("So you have sent a robot with gifts in tow")
             _logger.info("You start in your country with your gifts around")
             _logger.info("Starting in your home (where ever it is found)")
