@@ -103,7 +103,7 @@ WHITE = (255, 255, 255)  # White
 # MARKER_TYPE_: Marker Types
 MARKER_TYPE, MARKER_OFFSET, MARKER_COUNT, MARKER_SIZE, MARKER_COLOUR,MARKER_SPECIES = (
     'type', 'offset', 'count', 'size', 'colour','species')
-MARKER_ARENA,MARKER_CUBE_WINKIE,MARKER_CUBE_GILLIKAN,MARKER_CUBE_QUADLING,MARKER_CUBE_MUNCHKIN,MARKER_DEFAULT = "arena", "winkie", "gillikan","quadling","munchkin","default"
+MARKER_ARENA,MARKER_CUBE_WINKIE,MARKER_CUBE_GILLIKIN,MARKER_CUBE_QUADLING,MARKER_CUBE_MUNCHKIN,MARKER_DEFAULT = "arena", "winkie", "gillikin","quadling","munchkin","default"
 ARENA,CUBE = "arena","cube"
 # NOTE Data about each marker
 #     MARKER_OFFSET: Offset
@@ -129,7 +129,7 @@ marker_types = {
         MARKER_COLOUR: YELLOW,
         MARKER_SPECIES: CUBE
     },
-    MARKER_CUBE_GILLIKAN: {
+    MARKER_CUBE_GILLIKIN: {
         MARKER_OFFSET: 110,
         MARKER_COUNT: 10,
         MARKER_SIZE: 0.100,
