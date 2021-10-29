@@ -118,11 +118,10 @@ marker_types = {
     MARKER_ARENA: {
         MARKER_OFFSET: 0,
         MARKER_COUNT: 100,
-        MARKER_SIZE: 0.297,
-        MARKER_COLOUR: WHITE,
+        MARKER_SIZE: 0.290,
+        MARKER_COLOUR: GREEN,
         MARKER_SPECIES: ARENA
     },
-    
     MARKER_CUBE_WINKIE: {
         MARKER_OFFSET: 100,
         MARKER_COUNT: 10,
@@ -134,21 +133,21 @@ marker_types = {
         MARKER_OFFSET: 110,
         MARKER_COUNT: 10,
         MARKER_SIZE: 0.100,
-        MARKER_COLOUR:  YELLOW,
+        MARKER_COLOUR:  PURPLE,
         MARKER_SPECIES: CUBE
     },
     MARKER_CUBE_QUADLING: {
         MARKER_OFFSET: 120,
         MARKER_COUNT: 10,
         MARKER_SIZE: 0.100,
-        MARKER_COLOUR:  YELLOW,
+        MARKER_COLOUR:  RED,
         MARKER_SPECIES: CUBE
     },
     MARKER_CUBE_MUNCHKIN: {
         MARKER_OFFSET: 130,
         MARKER_COUNT: 10,
         MARKER_SIZE: 0.100,
-        MARKER_COLOUR:  YELLOW,
+        MARKER_COLOUR:  BLUE,
         MARKER_SPECIES: CUBE
     },
     MARKER_DEFAULT: {
@@ -389,8 +388,6 @@ class PostProcessor(threading.Thread):
             marker_info_colour = MARKER_LUT[detection.id].bounding_box_colour
             marker_code = MARKER_LUT[detection.id].code
             marker_zone = int((marker_code-100)-5/10)
-            if marker_zone == self.zone:
-                marker_info_colour = RED
             colour = (marker_info_colour
                       if marker_info_colour is not None
                       else DEFAULT_BOUNDING_BOX_COLOUR)
@@ -398,11 +395,19 @@ class PostProcessor(threading.Thread):
             # need to have this EXACT integer_corners syntax due to opencv bug
             # https://stackoverflow.com/questions/17241830/
             integer_corners = detection.corners.astype(np.int32)
-            cv2.polylines(frame,
-                          [integer_corners],
-                          polygon_is_closed,
-                          colour,
-                          thickness=self._bounding_box_thickness)
+
+            if (marker_zone == self.zone):
+                cv2.polylines(frame,
+                              [integer_corners],
+                              polygon_is_closed,
+                              colour,
+                              thickness=self._bounding_box_thickness*3)
+            else: 
+                 cv2.polylines(frame,
+                               [integer_corners],
+                               polygon_is_closed,
+                               colour,
+                               thickness=self._bounding_box_thickness)
 
         return frame
 
