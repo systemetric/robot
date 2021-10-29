@@ -88,8 +88,8 @@ class Robot():
         # depending on user code.
         if wait_for_start is True:
             start_data = self.wait_start()
-            self.zone = start_data.zone
-            self.mode = start_data.mode
+            self.zone = start_data['zone']
+            self.mode = start_data['mode']
         else:
             _logger.warning("Robot initalized but usercode running before"
                            "`robot.wait_start`. Robot will not wait for the "
@@ -254,10 +254,10 @@ class Robot():
         settings = json.loads(d)
 
         assert "zone" in settings, "zone must be in startup info"
-        if self.zone not in range(3):
+        if settings["zone"] not in range(4):
             raise ValueError(
                 "zone must be in range 0-3 inclusive -- value of %i is invalid"
-                % self.zone)
+                % settings["zone"])
 
         self._start_pressed = True
 
