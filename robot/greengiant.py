@@ -101,7 +101,7 @@ def read_high_low_data(bus, high_addr, low_addr):
     return low_value + (high_value << 8)
 
 
-class GreenGiantInternal(object):
+class GreenGiantInternal():
     """Intertions for use with the user
     not intended to be part of the robot API"""
     def __init__(self, bus):
@@ -135,7 +135,8 @@ class GreenGiantInternal(object):
 
 
 class GreenGiantGPIOPin():
-    def __init__(self, bus, index, adc_max):
+    def __init__(self, pin_list, bus, index, adc_max):
+        self._pin_list = pin_list
         self._bus = bus
         self._index = index
         self._mode = None
@@ -149,9 +150,20 @@ class GreenGiantGPIOPin():
 
     @mode.setter
     def mode(self, mode):
+        """Update the mode of all of the pins.
+        Due to a bug in the GG software all of the pins modes need to be updated
+        in order
+        `_pin_list.update_mode` triggers all of the pins to be re-updated with
+        the new settings
+        """
         self._mode = mode
-        mask = _GG_GPIO_MASKS[mode]
+        self._pin_list.update_modes()
+
+    def update_mode(self):
+        """Writes a mode update for this pin only to the I2C bus"""
+        mask = _GG_GPIO_MASKS[self._mode]
         self._bus.write_byte_data(_GG_I2C_ADDR, _GG_CONTROL_START + self._index, mask)
+
 
     @property
     def digital(self):
@@ -198,7 +210,7 @@ class GreenGiantGPIOPin():
 class GreenGiantGPIOPinList():
     """A list of pins indexed from 1"""
     def __init__(self, bus, adc_max):
-        self._list = [GreenGiantGPIOPin(bus, i, adc_max)
+        self._list = [GreenGiantGPIOPin(self, bus, i, adc_max)
                       for i in range(4)]
 
     def __getitem__(self, index):
@@ -207,6 +219,14 @@ class GreenGiantGPIOPinList():
     def __setitem__(self, index, value):
         internal_index = _decrement_pin_index(index)
         self._list[internal_index] = value
+
+    def update_modes(self):
+        """All of the modes must be updated in order due to a bug in the GG
+        This function provides a function aware of the state of all of the pins
+        which can update them on the GG.
+        """
+        for pin in self._list:
+            pin.update_mode()
 
 
 class GreenGiantPWM():
