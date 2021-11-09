@@ -114,7 +114,6 @@ class Robot():
         self.camera = vision.RoboConPiCamera() if camera is None else camera()
         if not isinstance(self.camera, vision.Camera):
             raise ValueError("camera must inherit from vision.Camera")
-        self.res = self.camera.res
 
         self._vision = vision.Vision(self.zone, camera=self.camera)
 
