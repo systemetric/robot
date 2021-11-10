@@ -212,6 +212,9 @@ class GreenGiantGPIOPinList():
     def __init__(self, bus, adc_max):
         self._list = [GreenGiantGPIOPin(self, bus, i, adc_max)
                       for i in range(4)]
+        self.update_modes()  # Make sure the state of the GG matches the state
+                             # which we have assumed (INPUT) when creating
+                             # GreenGiantGPIOPin's
 
     def __getitem__(self, index):
         return self._list[_decrement_pin_index(index)]
