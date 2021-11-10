@@ -139,7 +139,7 @@ class GreenGiantGPIOPin():
         self._pin_list = pin_list
         self._bus = bus
         self._index = index
-        self._mode = None
+        self._mode = INPUT
         self._adc_max = adc_max
         self._digital_read_modes = (INPUT, INPUT_PULLUP, OUTPUT)
         self._analog_read_modes = (INPUT_ANALOG, INPUT_PULLUP)
