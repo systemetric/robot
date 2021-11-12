@@ -352,7 +352,7 @@ class PostProcessor(threading.Thread):
                  bounding_box=True,
                  usb_stick=False,
                  send_to_sheep=False,
-                
+
                  save=True):
 
         super(PostProcessor, self).__init__()
@@ -402,7 +402,7 @@ class PostProcessor(threading.Thread):
                               polygon_is_closed,
                               colour,
                               thickness=self._bounding_box_thickness*3)
-            else: 
+            else:
                  cv2.polylines(frame,
                                [integer_corners],
                                polygon_is_closed,
