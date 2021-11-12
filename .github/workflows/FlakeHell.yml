@@ -22,7 +22,7 @@ jobs:
       - uses: actions/setup-python@v2
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install flake8
+      - name: Install dependencies
         # Flake8 4 doesn't work with FlakeHell so we have pin the version
         run: python -m pip install 'flake8==3.8' flakehell
       - name: Run FlakeHell
