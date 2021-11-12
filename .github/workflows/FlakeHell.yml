@@ -31,4 +31,4 @@ jobs:
       - name: Install dependencies
         run: poetry install
       - name: Run FlakeHell
-        run: flakehell lint
+        run: python -m flakehell lint
