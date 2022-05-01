@@ -14,12 +14,14 @@ KP = 100
 KD = 5
 K_READING_COUNTS = 0.5
 
+
 def _get_reading():
     while True:
         try:
             return R.see()[0].dist
         except IndexError:
             print("saw nothing")
+
 
 def _get_reading_number(error):
     result = int(K_READING_COUNTS / error)
@@ -29,6 +31,7 @@ def _get_reading_number(error):
     elif result > 6:
         result = 6
     return result
+
 
 R = robot.Robot()
 result = {}
@@ -57,8 +60,10 @@ for res in R.camera.focal_lengths.copy():
         previous_error = error
         error = TARGET - average_dist
 
-        print("Tried: {} got dist {} error: {}".format(value, average_dist, error))
-        print("    Max: {} min: {} range: {}".format(max(dists), min(dists), max(dists) - min(dists)))
+        print("Tried: {} got dist {} error: {}".format(
+            value, average_dist, error))
+        print("    Max: {} min: {} range: {}".format(
+            max(dists), min(dists), max(dists) - min(dists)))
         print("    P = {} reading_counts {}".format(error * KP, reading_counts))
 
     result[res] = (value, value)

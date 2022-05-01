@@ -1,8 +1,10 @@
 """A set of constants and interfaces for controlling the green giant over I2C"""
 
+
 def clamp(value, smallest, largest):
     """Return `value` if in bounds else returns the exceeded bound"""
     return max(smallest, min(value, largest))
+
 
 def _decrement_pin_index(index):
     """Validate then decrement the pin index.
@@ -16,6 +18,7 @@ def _decrement_pin_index(index):
     index -= 1
 
     return index
+
 
 OUTPUT = "OUTPUT"
 INPUT = "INPUT"
@@ -104,6 +107,7 @@ def read_high_low_data(bus, high_addr, low_addr):
 class GreenGiantInternal(object):
     """Intertions for use with the user
     not intended to be part of the robot API"""
+
     def __init__(self, bus):
         self._bus = bus
         self.enabled_12v = False
@@ -151,7 +155,8 @@ class GreenGiantGPIOPin():
     def mode(self, mode):
         self._mode = mode
         mask = _GG_GPIO_MASKS[mode]
-        self._bus.write_byte_data(_GG_I2C_ADDR, _GG_CONTROL_START + self._index, mask)
+        self._bus.write_byte_data(
+            _GG_I2C_ADDR, _GG_CONTROL_START + self._index, mask)
 
     @property
     def digital(self):
@@ -168,7 +173,8 @@ class GreenGiantGPIOPin():
                           f"requiring pin_mode {OUTPUT} but instead pin_mode is "
                           f"{self._mode}")
 
-        self._bus.write_byte_data(_GG_I2C_ADDR, _GG_DIGITAL_START + self._index, int(value))
+        self._bus.write_byte_data(
+            _GG_I2C_ADDR, _GG_DIGITAL_START + self._index, int(value))
 
     @property
     def analog(self):
@@ -182,9 +188,10 @@ class GreenGiantGPIOPin():
         raw_adc_max = 0xFFC0
 
         analog_addr = _GG_ANALOG_START + (self._index * 2)
-        raw_adc_value = read_high_low_data(self._bus, analog_addr, analog_addr + 1)
+        raw_adc_value = read_high_low_data(
+            self._bus, analog_addr, analog_addr + 1)
 
-        return  (raw_adc_value / raw_adc_max) * self._adc_max
+        return (raw_adc_value / raw_adc_max) * self._adc_max
 
     def __bool__(self):
         """Return a bool if in a digital mode or a float if in an analogue"""
@@ -197,6 +204,7 @@ class GreenGiantGPIOPin():
 
 class GreenGiantGPIOPinList():
     """A list of pins indexed from 1"""
+
     def __init__(self, bus, adc_max):
         self._list = [GreenGiantGPIOPin(bus, i, adc_max)
                       for i in range(4)]
@@ -211,6 +219,7 @@ class GreenGiantGPIOPinList():
 
 class GreenGiantPWM():
     """An object implementing a descriptor protocol to control the servos"""
+
     def __init__(self, bus):
         self._bus = bus
 

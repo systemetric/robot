@@ -47,7 +47,8 @@ class CytronBoard():
 
         # because we care about heating effects in the motors, we have to scale by
         # the square of the ratio
-        self.power_scaling_factor = (max_motor_voltage / _MAX_OUTPUT_VOLTAGE) ** 2
+        self.power_scaling_factor = (
+            max_motor_voltage / _MAX_OUTPUT_VOLTAGE) ** 2
 
         self._percentages = [0, 0]
         self._dir = [_DIR_PIN_1, _DIR_PIN_2]
@@ -65,7 +66,8 @@ class CytronBoard():
     def __getitem__(self, index):
         """Returns the current PWM value in RC units. Adds a sign to represent"""
         if index not in (1, 2):
-            raise IndexError(f"motor index must be in (1,2) but instead got {index}")
+            raise IndexError(
+                f"motor index must be in (1,2) but instead got {index}")
 
         index -= 1
         return self._percentages[index]
@@ -74,7 +76,8 @@ class CytronBoard():
         """Clamps input value, converts from percentage to wiring pi format and
         sets a PWM format"""
         if index not in (1, 2):
-            raise IndexError(f"motor index must be in (1,2) but instead got {index}")
+            raise IndexError(
+                f"motor index must be in (1,2) but instead got {index}")
 
         index -= 1
         percent = clamp(percent, -100, 100)
