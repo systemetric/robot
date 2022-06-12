@@ -27,6 +27,7 @@ _logger = logging.getLogger("robot")
 # this boot cycle. This is to highlight weird behaviour in the arena
 COPY_STAT_FILE = "/tmp/usb_file_uploaded"
 
+
 def setup_logging(level):
     """Display the just the message when logging events
     Sets the logging level to `level`"""
@@ -43,6 +44,7 @@ def setup_logging(level):
 
 class NoCameraPresent(Exception):
     """Camera not connected."""
+
     def __str__(self):
         return "No camera found."
 
@@ -73,7 +75,8 @@ class Robot():
         # check if copy stat file exists and read it if it does then delete it
         try:
             with open(COPY_STAT_FILE, "r") as f:
-                _logger.info("Robot code copied %s from USB\n", f.read().strip())
+                _logger.info("Robot code copied %s from USB\n",
+                             f.read().strip())
             os.remove(COPY_STAT_FILE)
         except IOError:
             pass
@@ -92,8 +95,8 @@ class Robot():
             self.mode = start_data['mode']
         else:
             _logger.warning("Robot initalized but usercode running before"
-                           "`robot.wait_start`. Robot will not wait for the "
-                           "start button until `robot.wait_start` is called.")
+                            "`robot.wait_start`. Robot will not wait for the "
+                            "start button until `robot.wait_start` is called.")
 
     def subsystem_init(self, camera):
         """Allows for initalisation of subsystems after instansating `Robot()`
@@ -114,10 +117,8 @@ class Robot():
         self.camera = vision.RoboConPiCamera() if camera is None else camera()
         if not isinstance(self.camera, vision.Camera):
             raise ValueError("camera must inherit from vision.Camera")
-        self.res = self.camera.res
 
         self._vision = vision.Vision(self.zone, camera=self.camera)
-
 
     def report_hardware_status(self):
         """Print out a nice log message at the start of each robot init with
@@ -133,13 +134,14 @@ class Robot():
                                   "changing for a charged battery")
 
         if self._gg_version != 3:
-            self._warnings.append("Green Giant version not 3 but instead {}".format(self._gg_version))
+            self._warnings.append(
+                "Green Giant version not 3 but instead {}".format(self._gg_version))
 
-        camera_type_str = "Camera:            {}".format(self.camera.__class__.__name__)
+        camera_type_str = "Camera:            {}".format(
+            self.camera.__class__.__name__)
 
-
-        #Adds the secret poem every now and then!
-        if random.randint(0,100) == 1:
+        # Adds the secret poem every now and then!
+        if random.randint(0, 100) == 1:
             _logger.info("Today your task is a challenging one")
             _logger.info("Gifts for the wizard and deliveries to run")
             _logger.info("But due to the unfortunate timing you can not go")
@@ -148,14 +150,17 @@ class Robot():
             _logger.info("Starting in your home (where ever it is found)")
             _logger.info("Then taking gifts from your robots zone ")
             _logger.info("Delivering it to the wizard on its own")
-            _logger.info("To the road is good and to the emerald palace is ideal ")
-            _logger.info("And if in another country you get some but a point they will steal")
+            _logger.info(
+                "To the road is good and to the emerald palace is ideal ")
+            _logger.info(
+                "And if in another country you get some but a point they will steal")
             _logger.info("There are many things that are to be considered")
             _logger.info("But remember to bring your gifts for the wizard")
 
         # print report of hardware
         _logger.info("------HARDWARE REPORT------")
-        _logger.info("Time:   %s", datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+        _logger.info("Time:   %s", datetime.now().strftime(
+            '%Y-%m-%d %H:%M:%S'))
         _logger.info("Patch Version:     0")
         _logger.info(battery_str)
         _logger.info("ADC Max:           %.2fv", self._adc_max)
@@ -268,7 +273,8 @@ class Robot():
 
         if self.startfifo is None:
             self._start_pressed = True
-            _logger.info("No startfifo so using defaults (Zone: {})".format(self.zone))
+            _logger.info(
+                "No startfifo so using defaults (Zone: {})".format(self.zone))
             return
 
         blink_thread = threading.Thread(target=self._wait_start_blink)

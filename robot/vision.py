@@ -20,7 +20,6 @@ import picamera.array
 import robot.apriltags3 as AT
 
 
-
 # TODO put all of the paths together
 IMAGE_TO_SHEPHERD_PATH = "/home/pi/shepherd/shepherd/static/image.jpg"
 
@@ -101,10 +100,10 @@ WHITE = (255, 255, 255)  # White
 
 # MARKER_: Marker Data Types
 # MARKER_TYPE_: Marker Types
-MARKER_TYPE, MARKER_OFFSET, MARKER_COUNT, MARKER_SIZE, MARKER_COLOUR,MARKER_SPECIES = (
-    'type', 'offset', 'count', 'size', 'colour','species')
-MARKER_ARENA,MARKER_CUBE_WINKIE,MARKER_CUBE_GILLIKIN,MARKER_CUBE_QUADLING,MARKER_CUBE_MUNCHKIN,MARKER_DEFAULT = "arena", "winkie", "gillikin","quadling","munchkin","default"
-ARENA,CUBE = "arena","cube"
+MARKER_TYPE, MARKER_OFFSET, MARKER_COUNT, MARKER_SIZE, MARKER_COLOUR, MARKER_SPECIES = (
+    'type', 'offset', 'count', 'size', 'colour', 'species')
+MARKER_ARENA, MARKER_CUBE_WINKIE, MARKER_CUBE_GILLIKIN, MARKER_CUBE_QUADLING, MARKER_CUBE_MUNCHKIN, MARKER_DEFAULT = "arena", "winkie", "gillikin", "quadling", "munchkin", "default"
+ARENA, CUBE = "arena", "cube"
 # NOTE Data about each marker
 #     MARKER_OFFSET: Offset
 #     MARKER_COUNT: Number of markers of type that exist
@@ -352,7 +351,6 @@ class PostProcessor(threading.Thread):
                  bounding_box=True,
                  usb_stick=False,
                  send_to_sheep=False,
-                
                  save=True):
 
         super(PostProcessor, self).__init__()
@@ -402,12 +400,12 @@ class PostProcessor(threading.Thread):
                               polygon_is_closed,
                               colour,
                               thickness=self._bounding_box_thickness*3)
-            else: 
-                 cv2.polylines(frame,
-                               [integer_corners],
-                               polygon_is_closed,
-                               colour,
-                               thickness=self._bounding_box_thickness)
+            else:
+                cv2.polylines(frame,
+                              [integer_corners],
+                              polygon_is_closed,
+                              colour,
+                              thickness=self._bounding_box_thickness)
 
         return frame
 
@@ -484,7 +482,7 @@ class Vision():
         self.camera = camera
 
         self.frames_to_postprocess = queue.Queue(max_queue_size)
-        self.post_processor = PostProcessor(self,zone = self.zone)
+        self.post_processor = PostProcessor(self, zone=self.zone)
 
     def stop(self):
         """Cleanup to prevent leaking hardware resource"""
