@@ -164,9 +164,7 @@ class GreenGiantGPIOPin():
         self._pin_list.update_modes()
 
     def update_mode(self):
-        """Writes a mode update for this pin only to the I2C bus
-        This is to work around a bug in the GG.
-        """
+        """Writes a mode update for this pin only to the I2C bus"""
         mask = _GG_GPIO_MASKS[self._mode]
         self._bus.write_byte_data(_GG_I2C_ADDR, _GG_CONTROL_START + self._index, mask)
 
