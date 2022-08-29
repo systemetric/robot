@@ -61,7 +61,6 @@ class Robot():
                  logging_level=logging.INFO):
 
         self.zone = 0
-        self.mode = "competition"
         self._max_motor_voltage = max_motor_voltage
 
         self._initialised = False
@@ -92,7 +91,6 @@ class Robot():
         if wait_for_start is True:
             start_data = self.wait_start()
             self.zone = start_data['zone']
-            self.mode = start_data['mode']
         else:
             _logger.warning("Robot initalized but usercode running before"
                             "`robot.wait_start`. Robot will not wait for the "
