@@ -9,7 +9,7 @@ import sys
 import robot.log
 
 from robot.wrapper import Robot, NoCameraPresent
-from robot.greengiant import OUTPUT, INPUT, INPUT_ANALOG, INPUT_PULLUP
+from robot.greengiant import OUTPUT, INPUT, INPUT_ANALOG, INPUT_PULLUP, PWM_SERVO
 from robot.vision import MARKER_ARENA, MARKER_CUBE_WINKIE, MARKER_CUBE_GILLIKIN, MARKER_CUBE_QUADLING, MARKER_CUBE_MUNCHKIN, MARKER_DEFAULT, RoboConUSBCamera
 
 MINIUM_VERSION = (3, 6)
@@ -18,4 +18,5 @@ if sys.version_info <= MINIUM_VERSION:
         MINIUM_VERSION, sys.version_info))
 
 __all__ = ["Robot", "NoCameraPresent", "OUTPUT", "INPUT", "INPUT_ANALOG",
-           "INPUT_PULLUP", "MARKER_ARENA", "MARKER_CUBE_WINKIE", "MARKER_CUBE_GILLIKIN", "MARKER_CUBE_QUADLING", "MARKER_CUBE_MUNCHKIN", "MARKER_DEFAULT"]
+           "INPUT_PULLUP", "PWM_SERVO", "MARKER_ARENA", "MARKER_CUBE_WINKIE", 
+           "MARKER_CUBE_GILLIKIN", "MARKER_CUBE_QUADLING", "MARKER_CUBE_MUNCHKIN", "MARKER_DEFAULT"]
