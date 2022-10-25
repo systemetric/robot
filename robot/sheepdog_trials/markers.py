@@ -20,6 +20,18 @@ class WOOL_TYPE(enum.Enum):
 
 
 class BASE_MARKER:
+    team_marker_colors: dict[TEAM, tuple[int, int, int]] = {
+        TEAM.LEON: (64, 255, 0),
+        TEAM.PRIS: (128, 0, 255),
+        TEAM.ROY: (255, 32, 32),
+        TEAM.ZHORA: (255, 255, 32),
+    }
+
+    wool_type_colors: dict[WOOL_TYPE, tuple[int, int, int]] = {
+        WOOL_TYPE.GOLDEN_FLEECE: (218, 165, 32),
+        WOOL_TYPE.STEEL_WOOL: (113, 121, 126),
+    }
+
     def __init__(
         self,
         id: int,
@@ -43,8 +55,17 @@ class BASE_MARKER:
 
     @property
     def bounding_box_color(self) -> tuple[int, int, int]:
-        return 255, 0, 0
+        if self.type == MARKER_TYPE.ARENA:
+            return 125, 249, 225
 
+        if self.owner == MARKER_OWNER.ANOTHER_TEAM:
+            assert self.owning_team != None
+            # We cannot have another team owning the marker but no owning team
+            return self.team_marker_colors[self.owning_team]
+
+        assert self.wool_type != None
+        # If MARKER_TYPE != SHEEP, we must have a wool_type
+        return self.wool_type_colors[self.wool_type]
 
 class ARENA_MARKER(BASE_MARKER):
     def __init__(self, id: int) -> None:
