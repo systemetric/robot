@@ -5,6 +5,8 @@ by shepherd"""
 
 import importlib
 
+from robot.sheepdog_trials.markers import BASE_MARKER
+
 has_picamera = importlib.find_loader("picamera") is not None
 
 if not has_picamera:
@@ -24,14 +26,16 @@ import robot.log
 
 from robot.wrapper import Robot, NoCameraPresent
 from robot.greengiant import OUTPUT, INPUT, INPUT_ANALOG, INPUT_PULLUP
-from robot.vision import (
-    MARKER_ARENA,
-    MARKER_CUBE_WINKIE,
-    MARKER_CUBE_GILLIKIN,
-    MARKER_CUBE_QUADLING,
-    MARKER_CUBE_MUNCHKIN,
-    MARKER_DEFAULT,
-    RoboConUSBCamera,
+from robot.vision import RoboConUSBCamera
+from robot.sheepdog_trials import (
+    MARKER,
+    BASE_MARKER,
+    ARENA_MARKER,
+    SHEEP_MARKER,
+    MARKER_TYPE,
+    MARKER_OWNER,
+    WOOL_TYPE,
+    TEAM
 )
 
 MINIUM_VERSION = (3, 6)
@@ -40,17 +44,20 @@ if sys.version_info <= MINIUM_VERSION:
         "Expected python {} but instead got {}".format(MINIUM_VERSION, sys.version_info)
     )
 
-__all__ = [
+__all__ = (
     "Robot",
     "NoCameraPresent",
     "OUTPUT",
     "INPUT",
     "INPUT_ANALOG",
     "INPUT_PULLUP",
-    "MARKER_ARENA",
-    "MARKER_CUBE_WINKIE",
-    "MARKER_CUBE_GILLIKIN",
-    "MARKER_CUBE_QUADLING",
-    "MARKER_CUBE_MUNCHKIN",
-    "MARKER_DEFAULT",
-]
+    "MARKER",
+    "BASE_MARKER",
+    "ARENA_MARKER",
+    "SHEEP_MARKER",
+    "MARKER_TYPE",
+    "MARKER_OWNER",
+    "WOOL_TYPE",
+    "TEAM",
+    "RoboConUSBCamera"
+)

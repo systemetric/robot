@@ -6,6 +6,7 @@ from .markers import (
     ARENA_MARKER,
     SHEEP_MARKER,
     BASE_MARKER,
+    WOOL_TYPE,
 )
 
 __all__ = (
@@ -16,4 +17,5 @@ __all__ = (
     "MARKER_OWNER",
     "BASE_MARKER",
     "ARENA_MARKER",
+    "WOOL_TYPE",
 )
