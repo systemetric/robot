@@ -21,6 +21,8 @@ from collections import namedtuple
 import numpy as np
 import scipy.spatial.transform as transform
 
+from robot.sheepdog_trials.markers import MARKER
+
 
 ######################################################################
 # Types
@@ -387,7 +389,7 @@ class Detector(object):
             self.libc.apriltag_detector_destroy.restype = None
             self.libc.apriltag_detector_destroy(self.tag_detector_ptr)
 
-    def detect(self, img, estimate_tag_pose=False, camera_params=None, tag_size_lut=None):
+    def detect(self, img, estimate_tag_pose=False, camera_params=None):
         """Run detectons on the provided image. The image must be a grayscale
            image of type np.uint8.
         # TODO get rid of the magic numbers
@@ -433,11 +435,7 @@ class Detector(object):
                 if camera_params is None:
                     raise ValueError(
                         "camera_params must be provided to detect if estimate_tag_pose is set to True")
-                if tag_size_lut is None:
-                    raise ValueError(
-                        "tag_size_lut must be provided to detect if estimate_tag_pose is set to True")
-
-                tag_size = tag_size_lut[tag.id]
+                tag_size = MARKER.by_id(tag.id).size
 
                 camera_fx, camera_fy, camera_cx, camera_cy = [
                     c for c in camera_params]
