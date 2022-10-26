@@ -16,7 +16,7 @@ if not has_picamera:
     sys.modules["RPi"] = fake_rpi.RPi
     sys.modules["RPi.GPIO"] = fake_rpi.RPi.GPIO
     sys.modules["picamera"] = fake_rpi.picamera
-    sys.modules["smbus"] = fake_rpi.smbus
+    sys.modules["smbus2"] = fake_rpi.smbus
 
 import sys
 
