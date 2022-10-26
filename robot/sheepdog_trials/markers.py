@@ -1,4 +1,5 @@
 import enum
+import typing
 
 from .teams import TEAM
 
@@ -20,14 +21,14 @@ class WOOL_TYPE(enum.Enum):
 
 
 class BASE_MARKER:
-    team_marker_colors: dict[TEAM, tuple[int, int, int]] = {
+    team_marker_colors: dict = {
         TEAM.LEON: (64, 255, 0),
         TEAM.PRIS: (128, 0, 255),
         TEAM.ROY: (255, 32, 32),
         TEAM.ZHORA: (255, 255, 32),
     }
 
-    wool_type_colors: dict[WOOL_TYPE, tuple[int, int, int]] = {
+    wool_type_colors: dict = {
         WOOL_TYPE.GOLDEN_FLEECE: (218, 165, 32),
         WOOL_TYPE.STEEL_WOOL: (113, 121, 126),
     }
@@ -43,18 +44,18 @@ class BASE_MARKER:
         self.type = type
         self.owner = owner
 
-        self.owning_team: TEAM | None = None
+        self.owning_team: typing.Union[TEAM, None] = None
 
         self.wool_type: WOOL_TYPE | None = None
 
         # Sizes are in meters
-        self.size = 0.290 if self.type == MARKER_TYPE.ARENA else 0.08
+        self.size = 0.2 if self.type == MARKER_TYPE.ARENA else 0.08
 
     def __repr__(self) -> str:
         return f"<Marker type={self.type} wool_type={self.wool_type} owner={self.owner} owning_team={self.owning_team} />"
 
     @property
-    def bounding_box_color(self) -> tuple[int, int, int]:
+    def bounding_box_color(self) -> tuple:
         if self.type == MARKER_TYPE.ARENA:
             return 125, 249, 225
 
@@ -64,7 +65,7 @@ class BASE_MARKER:
             return self.team_marker_colors[self.owning_team]
 
         assert self.wool_type != None
-        # If MARKER_TYPE != SHEEP, we must have a wool_type
+        # If MARKER_TYPE == SHEEP, we must have a wool_type
         return self.wool_type_colors[self.wool_type]
 
 class ARENA_MARKER(BASE_MARKER):
@@ -77,7 +78,7 @@ class ARENA_MARKER(BASE_MARKER):
 
 class SHEEP_MARKER(BASE_MARKER):
     def __init__(
-        self, id: int, owner: TEAM, my_team: TEAM | None, wool_type: WOOL_TYPE
+        self, id: int, owner: TEAM, my_team: typing.Union[TEAM, None], wool_type: WOOL_TYPE
     ) -> None:
         super().__init__(
             id,
@@ -94,7 +95,7 @@ class SHEEP_MARKER(BASE_MARKER):
 
 class MARKER(BASE_MARKER):
     @staticmethod
-    def by_id(id: int, team: TEAM | None = None) -> ARENA_MARKER | SHEEP_MARKER:
+    def by_id(id: int, team: typing.Union[TEAM, None] = None) -> BASE_MARKER:
         """
         Get a marker object from an id
 
