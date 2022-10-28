@@ -12,6 +12,7 @@ import logging
 import time
 import threading
 import random
+import typing
 
 from datetime import datetime
 from smbus2 import SMBus
@@ -19,6 +20,8 @@ from smbus2 import SMBus
 from robot import vision
 from robot.cytron import CytronBoard
 from robot.greengiant import GreenGiantInternal, GreenGiantGPIOPinList, GreenGiantPWM
+from robot.sheepdog_trials.teams import TEAM
+from . import sheepdog_trials
 
 _logger = logging.getLogger("robot")
 
@@ -60,7 +63,7 @@ class Robot():
                  max_motor_voltage=6,
                  logging_level=logging.INFO):
 
-        self.zone = 0
+        self.zone = sheepdog_trials.TEAM.LEON
         self._max_motor_voltage = max_motor_voltage
 
         self._initialised = False
@@ -90,7 +93,7 @@ class Robot():
         # depending on user code.
         if wait_for_start is True:
             start_data = self.wait_start()
-            self.zone = start_data['zone']
+            self.zone = start_data or self.zone
         else:
             _logger.warning("Robot initalized but usercode running before"
                             "`robot.wait_start`. Robot will not wait for the "
@@ -261,19 +264,20 @@ class Robot():
             raise ValueError(
                 "zone must be in range 0-3 inclusive -- value of %i is invalid"
                 % settings["zone"])
+        settings["zone"] = TEAM[f"T{settings['zone']}"]
 
         self._start_pressed = True
 
         return settings
 
-    def wait_start(self):
+    def wait_start(self) -> typing.Union[TEAM, None]:
         """Wait for the start signal to happen"""
 
         if self.startfifo is None:
             self._start_pressed = True
             _logger.info(
                 "No startfifo so using defaults (Zone: {})".format(self.zone))
-            return
+            return None
 
         blink_thread = threading.Thread(target=self._wait_start_blink)
         blink_thread.start()
@@ -285,7 +289,7 @@ class Robot():
 
         _logger.info("Robot started!\n")
 
-        return start_info
+        return start_info["zone"]
 
     def see(self) -> vision.Detections:
         """Take a photo, detect markers in sene, attach RoboCon specific

@@ -311,7 +311,7 @@ class PostProcessor(threading.Thread):
         """
         polygon_is_closed = True
         for detection in detections:
-            marker_info = MARKER.by_id(detection.id)
+            marker_info = MARKER.by_id(detection.id, self.zone)
             marker_info_colour = marker_info.bounding_box_color
             marker_code = detection.id
             colour = (marker_info_colour
@@ -322,7 +322,7 @@ class PostProcessor(threading.Thread):
             # https://stackoverflow.com/questions/17241830/
             integer_corners = detection.corners.astype(np.int32)
 
-            if (marker_info.owning_team == TEAM[f"T{self.zone}"]):
+            if (marker_info.owning_team == self.zone):
                 cv2.polylines(frame,
                               [integer_corners],
                               polygon_is_closed,
@@ -412,13 +412,12 @@ class Vision():
         self.post_processor.stop()
         self.camera.close()
 
-    @staticmethod
-    def _generate_marker_properties(tags):
+    def _generate_marker_properties(self, tags):
         """Adds `MarkerInfo` to detections"""
         detections = Detections()
 
         for tag in tags:
-            info = MARKER.by_id(int(tag.id))
+            info = MARKER.by_id(int(tag.id), self.zone)
             detections.append(Marker(info, tag))
 
         return detections
