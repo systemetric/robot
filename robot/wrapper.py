@@ -181,7 +181,7 @@ class Robot():
         _logger.info("Patch Version:     0")
         _logger.info(battery_str)
         #_logger.info("ADC Max:           %.2fv", self._adc_max)
-        _logger.info("Green Giant Board: Yes (v%d)", self._gg_version)
+        _logger.info("Robocon Board: Yes (v%d)", self._gg_version)
         if self._gg_version <= 3:
             _logger.info("Motor Driver:      Cytron Board")
         else:
