@@ -234,7 +234,7 @@ class GreenGiantInternal():
 
     def get_battery_voltage(self):
         # both GG and PiLow use a 1/3 divider and a 4.096v reference giving a max readable voltage of ~12.3v
-        return read_high_low_data(self._bus, _GG_BATTERY_V_H, _GG_BATTERY_V_L) * _GG_BATTERY_MAX_READING / _GG_BATTERY_ADC_MAX
+        return  read_high_low_data(self._bus, _GG_BATTERY_V_H) * _GG_BATTERY_MAX_READING / _GG_BATTERY_ADC_MAX
 
     def get_fvr_reading(self):
         """Return the fixed voltage reading. The number read here is sampling the 4.096v reference using the VCC rail (GG only)
