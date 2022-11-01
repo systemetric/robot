@@ -293,7 +293,7 @@ class GreenGiantGPIOPin():
         if self._gpio_base is not None:
             mask = _GG_GPIO_MASKS[self._mode]
             self._bus.write_byte_data(_GG_I2C_ADDR, _GG_CONTROL_START + self._gpio_base, mask)
-            print (f"Mode set {self._mode} on address { _GG_CONTROL_START + self._gpio_base}")
+            
     @property
     def digital(self):
         if self._gpio_base is not None:
