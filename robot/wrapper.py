@@ -18,7 +18,7 @@ from smbus2 import SMBus
 
 from robot import vision
 from robot.cytron import CytronBoard
-from robot.greengiant import GreenGiantInternal, GreenGiantGPIOPinList, GreenGiantMotors, _GG_SERVO_PWM_BASE, _GG_GPIO_PWM_BASE, _GG_GPIO_GPIO_BASE, _GG_SERVO_GPIO_BASE
+from robot.greengiant import GreenGiantInternal, GreenGiantGPIOPinList, GreenGiantMotors, _GG_SERVO_PWM_BASE, _GG_GPIO_PWM_BASE, _GG_GPIO_GPIO_BASE, _GG_SERVO_GPIO_BASE, PWM_SERVO
 
 
 _logger = logging.getLogger("robot")
@@ -115,6 +115,9 @@ class Robot():
             self._adc_max = 5
             # configure User IO Ports
             self.servos = GreenGiantGPIOPinList(self.bus, self._gg_version, self._adc_max, _GG_SERVO_GPIO_BASE, _GG_SERVO_PWM_BASE)
+            for servo in self.servos:
+               servo.mode = PWM_SERVO
+
             self.gpio   = GreenGiantGPIOPinList(self.bus, self._gg_version, self._adc_max, _GG_GPIO_GPIO_BASE, _GG_GPIO_PWM_BASE)
             # configure motor drivers
             self.motors = GreenGiantMotors(self.bus, self._max_motor_voltage)
@@ -150,7 +153,7 @@ class Robot():
             self._warnings.append("Battery voltage below 11.5v, consider "
                                   "changing for a charged battery")
 
-        if self._gg_version != 3:
+        if self._gg_version >= 10 and self._gg_version != 11:
             self._warnings.append(
                 "Green Giant version not 3 but instead {}".format(self._gg_version))
 

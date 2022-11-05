@@ -339,11 +339,12 @@ class GreenGiantGPIOPin():
         else:
             if self._mode is not PWM_SERVO:
                 raise IOError(f"Attempt to read PWM property from pin configured as {self._mode}")
-            raw = read_high_low_data(self._bus, self._analog_base)
+            raw = read_high_low_data(self._bus, self._pwm_base)
             if self._version < 10:
                return ((raw - _GG_GG_PWM_CENTER) / _GG_GG_PWM_PERCENT_HALF_RANGE) * 100
             else:
-               return ((raw - _GG_PiLow_PWM_CENTER) / _GG_PiLow_PWM_PERCENT_HALF_RANGE) * 100
+               print(raw)
+               return ((raw - _GG_PiLow_PWM_CENTER) / _GG_PiLow_PWM_HALF_RANGE) * _GG_PiLow_PWM_PERCENT_HALF_RANGE
     @pwm.setter
     def pwm(self, percent):
         if self._pwm_base is not None:
