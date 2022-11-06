@@ -43,7 +43,6 @@ class Marker():
         self.rotation = detection.rotation
         self.code = info.id
         self.type = info.type
-        self.species = info.location
         self.owner = info.owner
         self.owning_team = info.owning_team
 

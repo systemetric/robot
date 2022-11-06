@@ -18,7 +18,8 @@ from smbus2 import SMBus
 
 from robot import vision
 from robot.cytron import CytronBoard
-from robot.greengiant import GreenGiantInternal, GreenGiantGPIOPinList, GreenGiantPWM
+from robot.greengiant import GreenGiantInternal, GreenGiantGPIOPinList, GreenGiantMotors, _GG_SERVO_PWM_BASE, _GG_GPIO_PWM_BASE, _GG_GPIO_GPIO_BASE, _GG_SERVO_GPIO_BASE, PWM_SERVO
+
 
 _logger = logging.getLogger("robot")
 
@@ -105,12 +106,33 @@ class Robot():
 
         self.bus = SMBus(1)
         self._green_giant = GreenGiantInternal(self.bus)
-        self._adc_max = self._green_giant.get_fvr_reading()
         self._gg_version = self._green_giant.get_version()
+        if self._gg_version >= 10:
+            # enable power rails
+            self._green_giant.set_motor_power(True)
+            self._green_giant.set_12v_acc_power(True)    # Not sure, should this be controlled by user?
+            self._green_giant.set_5v_acc_power(True)
+            self._adc_max = 5
+            # configure User IO Ports
+            self.servos = GreenGiantGPIOPinList(self.bus, self._gg_version, self._adc_max, _GG_SERVO_GPIO_BASE, _GG_SERVO_PWM_BASE)
+            for servo in self.servos:
+               servo.mode = PWM_SERVO
 
-        self.servos = GreenGiantPWM(self.bus)
-        self.gpio = GreenGiantGPIOPinList(self.bus, self._adc_max)
-        self.motors = CytronBoard(self._max_motor_voltage)
+            self.gpio   = GreenGiantGPIOPinList(self.bus, self._gg_version, self._adc_max, _GG_GPIO_GPIO_BASE, _GG_GPIO_PWM_BASE)
+            # configure motor drivers
+            self.motors = GreenGiantMotors(self.bus, self._max_motor_voltage)
+            ## thinks, perhaps this should be inherrent to using the motors and
+            ## open load detection can be in there?
+            self.motors.enable_motors(True)
+        else:
+            # power rails
+            self._green_giant.set_motor_power()
+            self._adc_max = self._green_giant.get_fvr_reading()
+            # user IO
+            self.servos = GreenGiantGPIOPinList(self.bus, self._gg_version, None,          None,           _GG_SERVO_PWM_BASE)
+            self.gpio   = GreenGiantGPIOPinList(self.bus, self._gg_version, self._adc_max, _GG_GPIO_GPIO_BASE    , None)
+            # configure motor drivers
+            self.motors = CytronBoard(self._max_motor_voltage)
 
         self.camera = vision.RoboConPiCamera() if camera is None else camera()
         if not isinstance(self.camera, vision.Camera):
@@ -124,14 +146,14 @@ class Robot():
 
         battery_voltage = self._green_giant.get_battery_voltage()
         battery_str = "Battery Voltage:   %.2fv" % battery_voltage
-        # we cannot read voltages above 12.2v
+        # GG cannot read voltages above 12.2v
         if battery_voltage > 12.2:
             battery_str = "Battery Voltage:   > 12.2v"
         if battery_voltage < 11.5:
             self._warnings.append("Battery voltage below 11.5v, consider "
                                   "changing for a charged battery")
 
-        if self._gg_version != 3:
+        if self._gg_version >= 10 and self._gg_version != 11:
             self._warnings.append(
                 "Green Giant version not 3 but instead {}".format(self._gg_version))
 
@@ -157,14 +179,18 @@ class Robot():
 
         # print report of hardware
         _logger.info("------HARDWARE REPORT------")
-        _logger.info("Time:   %s", datetime.now().strftime(
-            '%Y-%m-%d %H:%M:%S'))
+        #_logger.info("Time:   %s", datetime.now().strftime('%Y-%m-%d %H:%M:%S')) 
+        # no RTC on new boards, perhaps use a "run number" increment instead?
         _logger.info("Patch Version:     0")
         _logger.info(battery_str)
-        _logger.info("ADC Max:           %.2fv", self._adc_max)
-        _logger.info("Green Giant Board: Yes (v%d)", self._gg_version)
-        _logger.info("Cytron Board:      Yes")
-        _logger.info("Motor Voltage:     %d", self._max_motor_voltage)
+        #_logger.info("ADC Max:           %.2fv", self._adc_max)
+        _logger.info("Robocon Board: Yes (v%d)", self._gg_version)
+        if self._gg_version <= 3:
+            _logger.info("Motor Driver:      Cytron Board")
+        else:
+            _logger.info("Motor Driver:      PiLow Cover")
+            # check and report open load here, warning race condition, is battery power on long enough?
+            # Thinks that we just motor enable/disable and leave motor power always on?
         _logger.info(camera_type_str)
         _logger.info("---------------------------")
 
@@ -175,44 +201,28 @@ class Robot():
             _logger.info("Hardware looks good")
 
     @property
-    def enable_12v(self):
-        """Return if 12v is currently enabled
+    def enable_motors(self):
+        """Return if motors are currently enabled
 
-        I (Edwin Shepherd) can't query this from the GG for some reason? but can
-        on Jacks Fallens? @will can you test this on a more default brain?
+        For the GG board this will be the state of the 12v line, which we cannot query,
+        so return what it was set to.
 
-        The code bellow seems to make my pi reboot (most of the time)
-        The code will make the OS, blank screen then go to the rainbow
-        bootscreen almost instantly. Doesn't seem to matter if it is run as
-        root.
+        For the PiLow series the Motors have both a power control and a enable. Generally
+        the Power should not be switched on and off, just the enable bits. The power may
+        be tripped in extreame circumstances. I guess that here we want to report any 
+        reason for  the motors not working, which includes power and enable
 
-        I have plugged a scope into the 5V rail to make sure that the pi
-        wasn't suddenly losing power and it doesn't seem to be, maybe I'm
-        missing the edge. I think its software on the pi?
-
-        On Jacks BB the bits doesn't change when read back even though its set
-        and unset
-
-        import time
-
-        from smbus2 import SMBus
-
-        I2C_ADDR = 0x8
-        ENABLE_12V_REGISTER = 27
-        bus = SMBus(1)
-
-        for state in (True, False, True):
-            print("setting state to {}".format(state))
-            bus.write_byte_data(I2C_ADDR, ENABLE_12V_REGISTER, int(state))
-            time.sleep(1)
-            print("{0:b}".format(bus.read_byte_data(I2C_ADDR, ENABLE_12V_REGISTER)))
         """
-        return self._green_giant.enabled_12v
+        if self._gg_version < 10:
+            return self._green_giant.enable_12v
+        else:
+            return self._green_giant.get_motorpwr() and self._green_giant.get_enable()
 
-    @enable_12v.setter
-    def enable_12v(self, on):
+    @enable_motors.setter
+    def enable_motors(self, on):
         """An nice alias for set_12v"""
-        return self._green_giant.set_12v(on)
+        if self._version < 10:
+            return self._green_giant.enable_motors(on)
 
     def stop(self):
         """Stops the robot and cuts power to the motors.
@@ -242,9 +252,14 @@ class Robot():
         v = False
         while not self._start_pressed:
             time.sleep(0.2)
-            self._green_giant.set_status_led(v)
+            self._green_giant.set_user_led(v)
             v = not v
-        self._green_giant.set_status_led(True)
+        if self._gg_version < 10:
+            # on GG keep main LED on to show the device is running
+            self._green_giant.set_user_led(True)
+        else:
+            # for PiLow the board has its own Power LED, so this can be used by users
+            self._green_giant.set_user_led(False)
 
     def _get_start_info(self):
         """Get the start infomation from the fifo which was passed as an arg"""
