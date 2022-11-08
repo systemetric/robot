@@ -19,14 +19,23 @@ def reset():
     Used by Shepherd when the Stop button is pressed.
     """
     bus = SMBus(1)
+    version = gg.GreenGiantInternal(bus).get_version()
 
-    c.CytronBoard(1).stop()
-    gg.GreenGiantPWM(bus).off()
-    gpios = gg.GreenGiantGPIOPinList(bus, 4.096)
-    for i in range(1,5):
-        gpios[i].mode = gg.INPUT
+    if version < 10:
+        c.CytronBoard(1).stop()
+        gg.GreenGiantGPIOPinList(self.bus, version, 5, None, gg._GG_SERVO_PWM_BASE)
+        gg.GreenGiantGPIOPinList(self.bus, version, 5, gg._GG_GPIO_GPIO_BASE, None)
+    else:
+        gg.GreenGiantMotors(bus, 1).stop()
+        gg.GreenGiantGPIOPinList(bus, version, 5, gg._GG_SERVO_GPIO_BASE, gg._GG_SERVO_PWM_BASE).off()
+        gg.GreenGiantGPIOPinList(bus, version, 5, gg._GG_GPIO_GPIO_BASE, gg._GG_GPIO_PWM_BASE).off()
+
+    # probably should wrap this all up in a .off()
     internal = gg.GreenGiantInternal(bus)
-    internal.set_12v(False)
-    internal.set_status_led(True)
+    internal.enable_motors(False)
+    #internal.set_motor_power(False)
+    internal.set_12v_acc_power(False)    # Not sure, should this be controlled by user?
+    internal.set_5v_acc_power(False)
+    internal.set_user_led(False)
 
     bus.close()

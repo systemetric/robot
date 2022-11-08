@@ -25,7 +25,8 @@ import sys
 import robot.log
 
 from robot.wrapper import Robot, NoCameraPresent
-from robot.greengiant import OUTPUT, INPUT, INPUT_ANALOG, INPUT_PULLUP
+from robot.greengiant import OUTPUT, INPUT, INPUT_ANALOG, INPUT_PULLUP, PWM_SERVO
+
 from robot.vision import RoboConUSBCamera
 from robot.sheepdog_trials import (
     MARKER,
@@ -43,14 +44,16 @@ if sys.version_info <= MINIUM_VERSION:
     raise ImportError(
         "Expected python {} but instead got {}".format(MINIUM_VERSION, sys.version_info)
     )
-
-__all__ = (
+    
+__all__ = [
     "Robot",
     "NoCameraPresent",
     "OUTPUT",
     "INPUT",
     "INPUT_ANALOG",
     "INPUT_PULLUP",
+    "PWM_SERVO",
+    
     "MARKER",
     "BASE_MARKER",
     "ARENA_MARKER",
@@ -59,5 +62,4 @@ __all__ = (
     "MARKER_OWNER",
     "WOOL_TYPE",
     "TEAM",
-    "RoboConUSBCamera"
-)
+    "RoboConUSBCamera"]
