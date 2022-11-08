@@ -41,10 +41,6 @@ class Marker():
         self.dist = detection.dist
         self.bearing = detection.bearing
         self.rotation = detection.rotation
-        self.code = info.id
-        self.type = info.type
-        self.owner = info.owner
-        self.owning_team = info.owning_team
 
     def __repr__(self):
         """A full string representation"""
@@ -52,19 +48,20 @@ class Marker():
 
     def __str__(self):
         """A reduced set of the attributes and description text"""
-        return (f"{self.type} Marker {self.code}: {self.dist:.3}m @"
+        return (f"{self.info.type} Marker {self.info.id}: {self.dist:.3}m @"
                 f"{self.bearing.y:.3} degrees\n"
                 "{\n"
-                f"  type = {self.type}\n"
-                f"  code = {self.code}\n"
+                f"  info.type = {self.info.id}\n"
+                f"  info.id = {self.info.id}\n"
+                f"  info.owning_team or info.owner = {self.info.owning_team or self.info.owner}\n"
                 f"  dist = {self.dist:.3}\n"
                 f"  bearing.y = {self.bearing.y:.3}\n"
                 f"  bearing.x = {self.bearing.x:.3}\n"
                 f"  rotation.y = {self.rotation.y:.3}\n"
                 f"  rotation.x = {self.rotation.x:.3}\n"
                 f"  rotation.z = {self.rotation.z:.3}\n"
-                f"  info = TO BIG TO PRINT\n"
-                f"  detection = TO BIG TO PRINT\n"
+                f"  info = TOO BIG TO PRINT\n"
+                f"  detection = TOO BIG TO PRINT\n"
                 "}\n")
 
 
@@ -100,8 +97,6 @@ WHITE = (255, 255, 255)  # White
 
 # MARKER_: Marker Data Types
 # MARKER_TYPE_: Marker Types
-MARKER_TYPE, MARKER_OFFSET, MARKER_COUNT, MARKER_SIZE, MARKER_COLOUR, MARKER_SPECIES = (
-    'type', 'offset', 'count', 'size', 'colour', 'species')
 # NOTE Data about each marker
 #     MARKER_OFFSET: Offset
 #     MARKER_COUNT: Number of markers of type that exist
@@ -316,7 +311,7 @@ class PostProcessor(threading.Thread):
         """
         polygon_is_closed = True
         for detection in detections:
-            marker_info = MARKER.by_id(detection.id)
+            marker_info = MARKER.by_id(detection.id, self.zone)
             marker_info_colour = marker_info.bounding_box_color
             marker_code = detection.id
             colour = (marker_info_colour
@@ -327,7 +322,7 @@ class PostProcessor(threading.Thread):
             # https://stackoverflow.com/questions/17241830/
             integer_corners = detection.corners.astype(np.int32)
 
-            if (marker_info.owning_team == TEAM[f"T{self.zone}"]):
+            if (marker_info.owning_team == self.zone):
                 cv2.polylines(frame,
                               [integer_corners],
                               polygon_is_closed,
@@ -417,13 +412,12 @@ class Vision():
         self.post_processor.stop()
         self.camera.close()
 
-    @staticmethod
-    def _generate_marker_properties(tags):
+    def _generate_marker_properties(self, tags):
         """Adds `MarkerInfo` to detections"""
         detections = Detections()
 
         for tag in tags:
-            info = MARKER.by_id(int(tag.id))
+            info = MARKER.by_id(int(tag.id), self.zone)
             detections.append(Marker(info, tag))
 
         return detections
