@@ -6,6 +6,7 @@ import logging
 import os
 import threading
 import queue
+import subprocess as sp
 
 from datetime import datetime
 from typing import NamedTuple, Any
@@ -209,12 +210,28 @@ class RoboConUSBCamera(Camera):
     def __init__(self,
                  start_res=(1296, 736),
                  focal_lengths=None):
-        self._cv_capture = cv2.VideoCapture(0)
+        self._source = self.find_usb_cam()
+        if self._source == None:
+            raise Exception("No USB camera detected")
+        self._cv_capture = cv2.VideoCapture(self._source)
         self._res = start_res
         self.focal_lengths = (LOGITECH_C270_FOCAL_LENGTHS
                               if focal_lengths is None
                               else focal_lengths)
         self._update_camera_params(self.focal_lengths)
+
+    def find_usb_cam(self):
+        indicator_string = "bm2835" # if this string is present in the output then it is a pi cam
+        options = ["/dev/video0", "/dev/video1"] # Only two options so this is hardcoded
+        for option in options:
+            try:
+                output = sp.check_output(["v4l2-ctl", "-d", option, "-D"]).decode()
+            except sp.CalledProcessError:
+                continue
+
+            if indicator_string not in output:
+                return option
+        return None
 
     @property
     def res(self):
