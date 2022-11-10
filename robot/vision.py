@@ -7,6 +7,7 @@ import os
 import threading
 import queue
 import subprocess as sp
+import re
 
 from datetime import datetime
 from typing import NamedTuple, Any
