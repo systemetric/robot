@@ -221,17 +221,27 @@ class RoboConUSBCamera(Camera):
         self._update_camera_params(self.focal_lengths)
 
     def find_usb_cam(self):
-        indicator_string = "bm2835" # if this string is present in the output then it is a pi cam
-        options = ["/dev/video0", "/dev/video1"] # Only two options so this is hardcoded
+        options = filter(lambda file: file.startswith("video"),
+                         os.listdir("/dev/"))
         for option in options:
             try:
-                output = sp.check_output(["v4l2-ctl", "-d", option, "-D"]).decode()
+                output = sp.check_output(["v4l2-ctl", "-d", f"/dev/{option}", "-D"]).decode()
             except sp.CalledProcessError:
                 continue
 
-            if indicator_string not in output:
-                return option
-        return None
+            bus_info = re.search(r"Bus info *: (.*)", output)
+
+            if bus_info is None or "usb" not in bus_info.group(1):
+                # If this isn't a USB camera...
+                continue
+
+            video_capture_capabilities = re.search(
+                r"Device Caps *: .*(\n\t\t(.*))*\n\t\tVideo Capture\n", output, re.MULTILINE
+            )
+
+            if video_capture_capabilities is not None:
+                # If we have Video Capture listed under capabilities
+                return f"/dev/{option}"
 
     @property
     def res(self):
