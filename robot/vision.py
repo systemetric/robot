@@ -212,7 +212,7 @@ class RoboConUSBCamera(Camera):
                  focal_lengths=None):
         self._source = self.find_usb_cam()
         if self._source == None:
-            raise Exception("No USB camera detected")
+            raise Exception("No USB camera detected, please make sure it's plugged in")
         self._cv_capture = cv2.VideoCapture(self._source)
         self._res = start_res
         self.focal_lengths = (LOGITECH_C270_FOCAL_LENGTHS
