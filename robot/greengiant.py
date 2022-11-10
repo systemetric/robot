@@ -25,6 +25,7 @@ INPUT = "INPUT"
 INPUT_ANALOG = "INPUT_ANALOG"
 INPUT_PULLUP = "INPUT_PULLUP"
 PWM_SERVO = "PWM_SERVO"
+ULTRASONIC = "ULTRASONIC"
 
 _GG_GPIO_MASKS = {
     OUTPUT: 0b000,
@@ -33,7 +34,7 @@ _GG_GPIO_MASKS = {
     INPUT_PULLUP: 0b011,
     PWM_SERVO: 0b100,
     # PWM_MARK_SPACE: 0b101,
-    # ULTRASONIC: 0xb110
+    ULTRASONIC: 0b110
 }
 
 
@@ -165,6 +166,7 @@ def read_high_low_data(bus, address):
     """Fetches and combines data stored across two bytes"""
     high_value = bus.read_byte_data(_GG_I2C_ADDR, address)
     low_value = bus.read_byte_data(_GG_I2C_ADDR, address + 1)
+    print(address, address + 1)
     return low_value + (high_value << 8)
 
 def write_high_low_data(bus, address, data):
@@ -254,7 +256,7 @@ class GreenGiantGPIOPin():
             self._mode = INPUT
         self._adc_max = adc_max
         self._digital_read_modes = (INPUT, INPUT_PULLUP, OUTPUT) ## why not hard coded?
-        self._analog_read_modes = (INPUT_ANALOG, PWM_SERVO)
+        self._analog_read_modes = (INPUT_ANALOG)
         self._version = version
         self._gpio_base = gpio_base_address
         self._pwm_base = pwm_base_address
@@ -292,6 +294,7 @@ class GreenGiantGPIOPin():
         """Writes a mode update (for this pin only) to the I2C bus"""
         if self._gpio_base is not None:
             mask = _GG_GPIO_MASKS[self._mode]
+            print(self._gpio_base, mask)
             self._bus.write_byte_data(_GG_I2C_ADDR, _GG_CONTROL_START + self._gpio_base, mask)
             
     @property
@@ -326,8 +329,23 @@ class GreenGiantGPIOPin():
 
             # We have a 10 bit ADC this is the maximum value we could read from it
             raw_adc_max = 0xFFC0
+            print(self._analog_base)
             raw_adc_value = read_high_low_data(self._bus, self._analog_base)
             return (raw_adc_value / raw_adc_max) * self._adc_max
+        else:
+            raise IOError(f"Attempt to read PWM only pin")
+
+    @property
+    def ultrasonic(self):
+        """Reads the length of the last pulse from the Pilow and converts this into seconds"""
+        if self._gpio_base is not None:
+            if self._mode is not ULTRASONIC:
+                raise IOError(f"Ultrasonic read attempted on pin configured as {self._mode}")
+
+            raw_value = read_high_low_data(self._bus, self._analog_base)
+            print(raw_value)
+            frequency = 1500000
+            return raw_value / frequency
         else:
             raise IOError(f"Attempt to read PWM only pin")
 
