@@ -57,16 +57,16 @@ class BASE_MARKER:
     @property
     def bounding_box_color(self) -> tuple:
         if self.type == MARKER_TYPE.ARENA:
-            return 125, 249, 225
+            return tuple(reversed((125, 249, 225)))
 
         if self.owner == MARKER_OWNER.ANOTHER_TEAM:
             assert self.owning_team != None
             # We cannot have another team owning the marker but no owning team
-            return self.team_marker_colors[self.owning_team]
+            return tuple(reversed(self.team_marker_colors[self.owning_team]))
 
         assert self.wool_type != None
         # If MARKER_TYPE == SHEEP, we must have a wool_type
-        return self.wool_type_colors[self.wool_type]
+        return tuple(reversed(self.wool_type_colors[self.wool_type]))
 
 class ARENA_MARKER(BASE_MARKER):
     def __init__(self, id: int) -> None:
