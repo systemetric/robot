@@ -166,7 +166,6 @@ def read_high_low_data(bus, address):
     """Fetches and combines data stored across two bytes"""
     high_value = bus.read_byte_data(_GG_I2C_ADDR, address)
     low_value = bus.read_byte_data(_GG_I2C_ADDR, address + 1)
-    print(address, address + 1)
     return low_value + (high_value << 8)
 
 def write_high_low_data(bus, address, data):
@@ -294,7 +293,6 @@ class GreenGiantGPIOPin():
         """Writes a mode update (for this pin only) to the I2C bus"""
         if self._gpio_base is not None:
             mask = _GG_GPIO_MASKS[self._mode]
-            print(self._gpio_base, mask)
             self._bus.write_byte_data(_GG_I2C_ADDR, _GG_CONTROL_START + self._gpio_base, mask)
             
     @property
@@ -329,7 +327,6 @@ class GreenGiantGPIOPin():
 
             # We have a 10 bit ADC this is the maximum value we could read from it
             raw_adc_max = 0xFFC0
-            print(self._analog_base)
             raw_adc_value = read_high_low_data(self._bus, self._analog_base)
             return (raw_adc_value / raw_adc_max) * self._adc_max
         else:
@@ -343,8 +340,8 @@ class GreenGiantGPIOPin():
                 raise IOError(f"Ultrasonic read attempted on pin configured as {self._mode}")
 
             raw_value = read_high_low_data(self._bus, self._analog_base)
-            print(raw_value)
             frequency = 1500000
+            print(raw_value)
             return raw_value / frequency
         else:
             raise IOError(f"Attempt to read PWM only pin")
@@ -361,7 +358,6 @@ class GreenGiantGPIOPin():
             if self._version < 10:
                return ((raw - _GG_GG_PWM_CENTER) / _GG_GG_PWM_PERCENT_HALF_RANGE) * 100
             else:
-               print(raw)
                return ((raw - _GG_PiLow_PWM_CENTER) / _GG_PiLow_PWM_HALF_RANGE) * _GG_PiLow_PWM_PERCENT_HALF_RANGE
     @pwm.setter
     def pwm(self, percent):
