@@ -339,7 +339,7 @@ class Robot():
 
         start_time = time.time()
 
-        while (echo_pin.ultrasonic == 0) and (time.time() - start_time < timeout):
+        while (echo_pin.ultrasonic == 0 or echo_pin.ultrasonic == 0xFFFF / 1500000) and (time.time() - start_time < timeout):
             time.sleep(0.01)
 
         raw_result = echo_pin.ultrasonic
