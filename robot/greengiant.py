@@ -341,7 +341,6 @@ class GreenGiantGPIOPin():
 
             raw_value = read_high_low_data(self._bus, self._analog_base)
             frequency = 1500000
-            print(raw_value)
             return raw_value / frequency
         else:
             raise IOError(f"Attempt to read PWM only pin")

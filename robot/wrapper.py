@@ -336,7 +336,7 @@ class Robot():
         trig_pin.digital = False
 
         echo_pin.mode = ULTRASONIC  # only do this after trig pin stuff so that it theoretically would work in 1-wire mode
-       
+
         start_time = time.time()
 
         while (echo_pin.ultrasonic == 0) and (time.time() - start_time < timeout):
