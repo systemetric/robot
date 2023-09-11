@@ -329,18 +329,16 @@ class Robot():
         echo_original_mode = echo_pin.mode
 
         trig_pin.mode = OUTPUT
-        trig_pin.digital = False
-        time.sleep(0.01)
-        trig_pin.digital = True
+        trig_pin.digital = True  # make sure that it is initially true, distance is read on the falling edge
         time.sleep(0.01)
         trig_pin.digital = False
 
         echo_pin.mode = ULTRASONIC  # only do this after trig pin stuff so that it theoretically would work in 1-wire mode
 
         start_time = time.time()
-
+        
         while (echo_pin.ultrasonic == 0 or echo_pin.ultrasonic == 0xFFFF / 1500000) and (time.time() - start_time < timeout):
-            time.sleep(0.01)
+            time.sleep(0.02)  # this value is arbritrarily picked, don't want to flood the Pilow with requests, at the same time quicker is better
 
         raw_result = echo_pin.ultrasonic
 
