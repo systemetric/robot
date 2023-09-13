@@ -306,11 +306,10 @@ class Robot():
 
         return start_info["zone"]
 
-    def see(self) -> vision.Detections:
+    def see(self, return_frame=False)-> vision.Detections:
         """Take a photo, detect markers in sene, attach RoboCon specific
         properties"""
-        time.sleep(0.1) # TODO figure out if this is needed, currently it is here to ensure that the picture we use is taken after R.see() call.
-        return self._vision.detect_markers()
+        return self._vision.detect_markers(return_frame=return_frame)
 
     def __del__(self):
         """Frees hardware resources held by the vision object"""

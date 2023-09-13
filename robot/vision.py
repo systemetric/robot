@@ -513,7 +513,7 @@ class Vision():
         self.at_detector = AT.Detector(searchpath=at_lib_path,
                                        families="tag36h11",
                                        nthreads=4,
-                                       quad_decimate=1.0,
+                                       quad_decimate=3.0,
                                        quad_sigma=0.0,
                                        refine_edges=1,
                                        decode_sharpening=0.25,
@@ -553,24 +553,24 @@ class Vision():
         except queue.Full:
             logging.warning("Skipping postprocessing as queue is full")
 
-    def detect_markers(self):
+    def detect_markers(self, return_frame=False):
         """Returns the markers the robot can see:
             - Gets a frame
             - Finds the markers
             - Appends RoboCon specific properties, e.g. token or arena
             - Sends off for post-processing
         """
-
+        start_timestamp = time.perf_counter()
         self.lock.acquire()
         detections = self.detections.output
         capture = self.detections.frame
-        # timestamp = self.detections.timestamp
+        timestamp = self.detections.timestamp
         self.lock.release()
-        while detections is None:
+        while timestamp < start_timestamp:
             self.lock.acquire()
             detections = self.detections.output
             capture = self.detections.frame
-            # timestamp = self.detections.timestamp
+            timestamp = self.detections.timestamp
             self.lock.release()
 
         self._send_to_post_process(capture, detections)
@@ -578,5 +578,7 @@ class Vision():
         markers = self._generate_marker_properties(detections)
 
         # print(time.perf_counter() - timestamp, "final")
-
-        return markers
+        if return_frame:
+            return markers, capture
+        else:
+            return markers
