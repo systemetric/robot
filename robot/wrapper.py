@@ -306,10 +306,10 @@ class Robot():
 
         return start_info["zone"]
 
-    def see(self) -> vision.Detections:
+    def see(self, return_frame=False)-> vision.Detections:
         """Take a photo, detect markers in sene, attach RoboCon specific
         properties"""
-        return self._vision.detect_markers()
+        return self._vision.detect_markers(return_frame=return_frame)
 
     def __del__(self):
         """Frees hardware resources held by the vision object"""
