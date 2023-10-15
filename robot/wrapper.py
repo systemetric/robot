@@ -63,7 +63,7 @@ class Robot():
                  max_motor_voltage=6,
                  logging_level=logging.INFO):
 
-        self.zone = sheepdog_trials.TEAM.LEON
+        self.zone = sheepdog_trials.TEAM.RUSSET
         self._max_motor_voltage = max_motor_voltage
 
         self._initialised = False

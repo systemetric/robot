@@ -4,10 +4,11 @@ import enum
 
 class TEAM(enum.Enum):
     # TODO: Think of better team names
-    LEON = "N6MAC41717"
-    ZHORA = "N6FAB61216"
-    PRIS = "N6FAB21416"
-    ROY = "N6MAA10816"
+    RUSSET = "N6MAC41717"
+    SWEET = "N6FAB61216"
+    MARIS_PIPER = "N6FAB21416"
+    PURPLE = "N6MAA10816"
+    ARENA = "a random but consistent value"
 
     T0 = "N6MAC41717"
     T1 = "N6FAB61216"

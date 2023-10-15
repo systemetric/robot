@@ -4,7 +4,7 @@ from .markers import (
     MARKER_OWNER,
     MARKER_TYPE,
     ARENA_MARKER,
-    SHEEP_MARKER,
+    POTATO_MARKER,
     BASE_MARKER,
     WOOL_TYPE,
 )
@@ -12,7 +12,7 @@ from .markers import (
 __all__ = (
     "TEAM",
     "MARKER",
-    "SHEEP_MARKER",
+    "POTATO_MARKER",
     "MARKER_TYPE",
     "MARKER_OWNER",
     "BASE_MARKER",
