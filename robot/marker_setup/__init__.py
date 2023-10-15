@@ -1,12 +1,10 @@
 from .teams import TEAM
 from .markers import (
     MARKER,
-    MARKER_OWNER,
     MARKER_TYPE,
     ARENA_MARKER,
     POTATO_MARKER,
     BASE_MARKER,
-    WOOL_TYPE,
 )
 
 __all__ = (

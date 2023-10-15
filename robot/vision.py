@@ -10,9 +10,9 @@ import queue
 from datetime import datetime
 from typing import NamedTuple, Any
 
-from robot.sheepdog_trials.markers import MARKER
-from robot.sheepdog_trials.teams import TEAM
-from .sheepdog_trials import BASE_MARKER as MarkerInfo
+from robot.marker_setup.markers import MARKER
+from robot.marker_setup.teams import TEAM
+from .marker_setup import BASE_MARKER as MarkerInfo
 
 import cv2
 import numpy as np

@@ -5,7 +5,7 @@ by shepherd"""
 
 import importlib
 
-from robot.sheepdog_trials.markers import BASE_MARKER
+from robot.marker_setup.markers import BASE_MARKER
 
 has_picamera = importlib.find_loader("picamera") is not None
 
@@ -27,7 +27,7 @@ import robot.log
 from robot.wrapper import Robot, NoCameraPresent
 from robot.greengiant import OUTPUT, INPUT, INPUT_ANALOG, INPUT_PULLUP
 from robot.vision import RoboConUSBCamera
-from robot.sheepdog_trials import (
+from robot.marker_setup import (
     MARKER,
     BASE_MARKER,
     ARENA_MARKER,

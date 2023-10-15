@@ -20,8 +20,8 @@ from smbus2 import SMBus
 from robot import vision
 from robot.cytron import CytronBoard
 from robot.greengiant import GreenGiantInternal, GreenGiantGPIOPinList, GreenGiantPWM
-from robot.sheepdog_trials.teams import TEAM
-from . import sheepdog_trials
+from robot.marker_setup.teams import TEAM
+from . import marker_setup
 
 _logger = logging.getLogger("robot")
 
@@ -63,7 +63,7 @@ class Robot():
                  max_motor_voltage=6,
                  logging_level=logging.INFO):
 
-        self.zone = sheepdog_trials.TEAM.RUSSET
+        self.zone = marker_setup.TEAM.RUSSET
         self._max_motor_voltage = max_motor_voltage
 
         self._initialised = False
