@@ -5,8 +5,6 @@ by shepherd"""
 
 import importlib
 
-from robot.marker_setup.markers import BASE_MARKER
-
 has_picamera = importlib.find_loader("picamera") is not None
 
 if not has_picamera:

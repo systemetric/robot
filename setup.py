@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name="robot",
-    version="2023.1",
+    version="2024.1",
     packages=["robot", "robot.marker_setup"],
 
     install_requires=[

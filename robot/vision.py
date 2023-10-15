@@ -11,7 +11,6 @@ from datetime import datetime
 from typing import NamedTuple, Any
 
 from robot.marker_setup.markers import MARKER
-from robot.marker_setup.teams import TEAM
 from .marker_setup import BASE_MARKER as MarkerInfo
 
 import cv2
