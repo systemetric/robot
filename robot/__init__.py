@@ -33,8 +33,6 @@ from robot.marker_setup import (
     ARENA_MARKER,
     POTATO_MARKER,
     MARKER_TYPE,
-    MARKER_OWNER,
-    WOOL_TYPE,
     TEAM
 )
 
@@ -56,8 +54,6 @@ __all__ = (
     "ARENA_MARKER",
     "POTATO_MARKER",
     "MARKER_TYPE",
-    "MARKER_OWNER",
-    "WOOL_TYPE",
     "TEAM",
     "RoboConUSBCamera"
 )

@@ -17,10 +17,10 @@ class MARKER_TYPE(enum.Enum):
 
 class BASE_MARKER:
     team_marker_colors: dict = {
-        TEAM.RUSSET: (64, 255, 0), # RED
-        TEAM.MARIS_PIPER: (128, 0, 255), # GREEN
-        TEAM.PURPLE: (255, 32, 32), # PURPLE
+        TEAM.RUSSET: (255, 64, 0), # RED
         TEAM.SWEET: (255, 255, 32), # YELLOW
+        TEAM.MARIS_PIPER: (50,255,0), # GREEN
+        TEAM.PURPLE: (255, 32, 255), # PURPLE
     }
 
     def __init__(
@@ -49,7 +49,7 @@ class BASE_MARKER:
         if self.type == MARKER_TYPE.ARENA:
             return tuple(reversed((125, 249, 225))) # turquoise
         elif self.owning_team==TEAM.ARENA:
-            return tuple(reversed(255,255,255)) # white
+            return tuple(reversed((255,255,255))) # white
         else:
             return tuple(reversed(self.team_marker_colors[self.owning_team])) # team colour
 

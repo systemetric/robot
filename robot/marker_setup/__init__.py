@@ -12,8 +12,6 @@ __all__ = (
     "MARKER",
     "POTATO_MARKER",
     "MARKER_TYPE",
-    "MARKER_OWNER",
     "BASE_MARKER",
     "ARENA_MARKER",
-    "WOOL_TYPE",
 )

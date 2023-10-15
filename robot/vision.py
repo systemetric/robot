@@ -418,6 +418,7 @@ class Vision():
 
         for tag in tags:
             info = MARKER.by_id(int(tag.id), self.zone)
+            print(f"Spotted Marker's info is: {info}")
             detections.append(Marker(info, tag))
 
         return detections
