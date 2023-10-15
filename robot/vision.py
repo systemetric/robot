@@ -51,9 +51,9 @@ class Marker():
         return (f"{self.info.type} Marker {self.info.id}: {self.dist:.3}m @"
                 f"{self.bearing.y:.3} degrees\n"
                 "{\n"
-                f"  info.type = {self.info.id}\n"
+                f"  info.type = {self.info.type}\n"
                 f"  info.id = {self.info.id}\n"
-                f"  info.owning_team or info.owner = {self.info.owning_team or self.info.owner}\n"
+                f"  info.owner = {self.info.owning_team}\n"
                 f"  dist = {self.dist:.3}\n"
                 f"  bearing.y = {self.bearing.y:.3}\n"
                 f"  bearing.x = {self.bearing.x:.3}\n"
@@ -418,7 +418,6 @@ class Vision():
 
         for tag in tags:
             info = MARKER.by_id(int(tag.id), self.zone)
-            print(f"Spotted Marker's info is: {info}")
             detections.append(Marker(info, tag))
 
         return detections
