@@ -17,10 +17,10 @@ class MARKER_TYPE(enum.Enum):
 
 class BASE_MARKER:
     team_marker_colors: dict = {
-        TEAM.RUSSET: (255, 64, 0), # RED
-        TEAM.SWEET: (255, 255, 32), # YELLOW
-        TEAM.MARIS_PIPER: (50,255,0), # GREEN
-        TEAM.PURPLE: (255, 32, 255), # PURPLE
+        TEAM.RUSSET: (255, 64, 0),  # RED
+        TEAM.SWEET: (255, 255, 32),  # YELLOW
+        TEAM.MARIS_PIPER: (50, 255, 0),  # GREEN
+        TEAM.PURPLE: (255, 32, 255),  # PURPLE
     }
 
     def __init__(
@@ -47,11 +47,13 @@ class BASE_MARKER:
     @property
     def bounding_box_color(self) -> tuple:
         if self.type == MARKER_TYPE.ARENA:
-            return tuple(reversed((125, 249, 225))) # turquoise
-        elif self.owning_team==TEAM.ARENA:
-            return tuple(reversed((255,255,255))) # white
+            return tuple(reversed((125, 249, 225)))  # turquoise
+        elif self.owning_team == TEAM.ARENA:
+            return tuple(reversed((255, 255, 255)))  # white
         else:
-            return tuple(reversed(self.team_marker_colors[self.owning_team])) # team colour
+            # team colour
+            return tuple(reversed(self.team_marker_colors[self.owning_team]))
+
 
 class ARENA_MARKER(BASE_MARKER):
     def __init__(self, id: int) -> None:
@@ -63,7 +65,8 @@ class ARENA_MARKER(BASE_MARKER):
 
 class POTATO_MARKER(BASE_MARKER):
     def __init__(
-        self, id: int, owner: TEAM, #my_team: typing.Union[TEAM, None], wool_type: WOOL_TYPE
+        # my_team: typing.Union[TEAM, None], wool_type: WOOL_TYPE
+        self, id: int, owner: TEAM,
     ) -> None:
         super().__init__(
             id,
@@ -84,7 +87,7 @@ class MARKER(BASE_MARKER):
         Get a marker object from an id
 
         Marker IDs are between 0 and 99(? potentially higher)
-        Low marker IDs (0-39) are potatoes. The first 4 potato markers are Jacket 
+        Low marker IDs (0-39) are potatoes. The first 4 potato markers are Jacket
         Potatoes and belong to the team with the corresponding ID.
         The rest of the low markers are unowned - their owning_team property is None
         and their owner is ARENA.
@@ -100,9 +103,9 @@ class MARKER(BASE_MARKER):
 
         if id >= 40:
             return ARENA_MARKER(id)
-        
+
         wrappingId = id % 20
-        if wrappingId<4:
+        if wrappingId < 4:
             owning_team = TEAM[f"T{wrappingId}"]
         else:
             owning_team = TEAM["ARENA"]
