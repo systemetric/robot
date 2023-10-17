@@ -16,14 +16,7 @@ from .sheepdog_trials import BASE_MARKER as MarkerInfo
 
 import cv2
 import numpy as np
-import picamera
-
-try:
-    import picamera.array
-    # seperate import of picamera.array required:
-    # <https://picamera.readthedocs.io/en/latest/api_array.html>
-except ImportError:
-    pass  # Mock RPI doesn't have picamera.array as a separate import
+import picamera2
 
 import robot.apriltags3 as AT
 
@@ -164,7 +157,8 @@ class RoboConPiCamera(Camera):
     the robocon classes"""
 
     def __init__(self, start_res=(1296, 736), focal_lengths=None):
-        self._pi_camera = picamera.PiCamera(resolution=start_res)
+        self._pi_camera = picamera2.PiCamera2(resolution=start_res)
+        self._pi_camera.start()
         self.focal_lengths = (PI_CAMERA_FOCAL_LENGTHS
                               if focal_lengths is None
                               else focal_lengths)
@@ -187,11 +181,9 @@ class RoboConPiCamera(Camera):
 
     def capture(self):
         # TODO Make this return the YUV capture
-        with picamera.array.PiRGBArray(self._pi_camera) as stream:
-            self._pi_camera.capture(stream, format="bgr", use_video_port=True)
-            capture_time = datetime.now()
-            colour_frame = stream.array
-            grey_frame = cv2.cvtColor(stream.array, cv2.COLOR_BGR2GRAY)
+        capture_time = datetime.now()
+        colour_frame = picam2.capture_array():
+        grey_frame = cv2.cvtColor(stream.array, cv2.COLOR_BGR2GRAY)
 
         return Capture(grey_frame=grey_frame,
                        colour_frame=colour_frame,
