@@ -5,6 +5,7 @@ from .markers import (
     ARENA_MARKER,
     POTATO_MARKER,
     BASE_MARKER,
+    POEM_ON_STARTUP,
 )
 
 __all__ = (
@@ -14,4 +15,5 @@ __all__ = (
     "MARKER_TYPE",
     "BASE_MARKER",
     "ARENA_MARKER",
+    "POEM_ON_STARTUP",
 )

@@ -52,7 +52,7 @@ class Marker():
                 "{\n"
                 f"  info.type = {self.info.type}\n"
                 f"  info.id = {self.info.id}\n"
-                f"  info.owner = {self.info.owning_team}\n"
+                f"  info.owning_team = {self.info.owning_team}\n"
                 f"  dist = {self.dist:.3}\n"
                 f"  bearing.y = {self.bearing.y:.3}\n"
                 f"  bearing.x = {self.bearing.x:.3}\n"

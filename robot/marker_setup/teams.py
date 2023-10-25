@@ -10,7 +10,8 @@ class TEAM(enum.Enum):
     SWEET = "Ipomoea batatas"
     MARIS_PIPER = "Solanum Tuberosum 'Maris Piper'"
     PURPLE = "Solanum Tuberosum 'Vitolette'"
-    ARENA = "HOTTTTT!" # There is no T value for ARENA, so there is no way that the assignment of team to a marker can accidentally assign ARENA if the logic goes wrong.
+    ARENA = "HOTTTTT!" 
+    # There is no T value for ARENA, so there is no way that the assignment of team to a marker can accidentally assign ARENA if the logic goes wrong.
 
     T0 = "Solanum Tuberosum 'Ranger Russet'"
     T1 = "Ipomoea batatas"

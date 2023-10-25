@@ -7,14 +7,35 @@ from .teams import TEAM
 Hiiii!
 This file contains the definitions for the markers and the data we assign to them. 
 I have just set them to 2024's competition values, with MARKER_TYPE deciding whether a marker is part of 
-the ARENA walls, or a game object, which is this year (2023-2024) called a POTATO. So make the changes you need! But make 
-sure to change every reference to it in the code, not just the ones in this file.
+the ARENA walls, or a game object, which is this year (2023-2024) called a POTATO. So make the changes you 
+need! But make sure to change every reference to it in the code, not just the ones in this file.
 So go nuts! Good luck with your Robocon, and feel free to add your own messages for the future below!
 Byee!
  - Holly (2023-2024)
 
 [Put your future messages here]
 """
+
+class POEM_ON_STARTUP:
+    poem = """
+Today your task is a challenging one
+Gifts for the wizard and deliveries to run
+But due to the unfortunate timing you can not go
+So you have sent a robot with gifts in tow
+You start in your country with your gifts around
+Starting in your home (where ever it is found)
+Then taking gifts from your robots zone
+Delivering it to the wizard on its own
+To the road is good and to the emerald palace is ideal
+And if in another country you get some but a point they will steal
+There are many things that are to be considered
+But remember to bring your gifts for the wizard
+"""
+    @staticmethod
+    def write_poem(logger):
+        local_poem = POEM_ON_STARTUP.poem.split("\n")
+        for line in local_poem:
+            logger.info(line)
 
 class MARKER_TYPE(enum.Enum): # Keep something like this to determine if a marker is a wall or not.
     POTATO = enum.auto()
@@ -71,7 +92,6 @@ class POTATO_MARKER(BASE_MARKER): # This is a game object rather than a wall. Ad
     def __repr__(self) -> str:
         return f"<Marker(POTATO) owning_team={self.owning_team} />"
 
-
 class MARKER(BASE_MARKER): # This is literally just how the code gets the different marker types.
     @staticmethod
     def by_id(id: int, team: typing.Union[TEAM, None] = None) -> BASE_MARKER: # team is currently unused, but it is referenced throughout the code. It is the team of the robot I believe (check this)
@@ -98,7 +118,8 @@ class MARKER(BASE_MARKER): # This is literally just how the code gets the differ
         there). In practice these markers start at 100.
         """
 
-        if id >= 40: # If its part of the walls
+        ARENA_WALL_LOWER_ID = 40
+        if id >= ARENA_WALL_LOWER_ID:
             return ARENA_MARKER(id)
         
         wrappingId = id % 20 # Make sure that the ID range wraps after 20 values.
