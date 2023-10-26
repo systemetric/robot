@@ -10,25 +10,29 @@ import queue
 from datetime import datetime
 from typing import NamedTuple, Any
 
-from robot.marker_setup.markers import MARKER
-from .marker_setup import BASE_MARKER as MarkerInfo
+from robot.sheepdog_trials.markers import MARKER
+from robot.sheepdog_trials.teams import TEAM
+from .sheepdog_trials import BASE_MARKER as MarkerInfo
 
 import cv2
 import numpy as np
-import picamera
-
-try:
-    import picamera.array
-    # seperate import of picamera.array required:
-    # <https://picamera.readthedocs.io/en/latest/api_array.html>
-except ImportError:
-    pass  # Mock RPI doesn't have picamera.array as a separate import
+import picamera2
 
 import robot.apriltags3 as AT
 
 
+
 # TODO put all of the paths together
 IMAGE_TO_SHEPHERD_PATH = "/home/pi/shepherd/shepherd/static/image.jpg"
+
+
+class MarkerInfo(NamedTuple):
+    """Marker Info which is independent of a robot"""
+    code: int
+    type: str
+    size: float
+    bounding_box_colour: tuple
+    species: tuple
 
 
 class Marker():
@@ -40,6 +44,9 @@ class Marker():
         self.dist = detection.dist
         self.bearing = detection.bearing
         self.rotation = detection.rotation
+        self.code = info.code
+        self.type = info.type
+        self.species = info.species
 
     def __repr__(self):
         """A full string representation"""
@@ -50,9 +57,8 @@ class Marker():
         return (f"{self.info.type} Marker {self.info.id}: {self.dist:.3}m @"
                 f"{self.bearing.y:.3} degrees\n"
                 "{\n"
-                f"  info.type = {self.info.type}\n"
-                f"  info.id = {self.info.id}\n"
-                f"  info.owning_team = {self.info.owning_team}\n"
+                f"  type = {self.type}\n"
+                f"  code = {self.code}\n"
                 f"  dist = {self.dist:.3}\n"
                 f"  bearing.y = {self.bearing.y:.3}\n"
                 f"  bearing.x = {self.bearing.x:.3}\n"
@@ -96,6 +102,10 @@ WHITE = (255, 255, 255)  # White
 
 # MARKER_: Marker Data Types
 # MARKER_TYPE_: Marker Types
+MARKER_TYPE, MARKER_OFFSET, MARKER_COUNT, MARKER_SIZE, MARKER_COLOUR,MARKER_SPECIES = (
+    'type', 'offset', 'count', 'size', 'colour','species')
+MARKER_ARENA,MARKER_CUBE_WINKIE,MARKER_CUBE_GILLIKIN,MARKER_CUBE_QUADLING,MARKER_CUBE_MUNCHKIN,MARKER_DEFAULT = "arena", "winkie", "gillikin","quadling","munchkin","default"
+ARENA,CUBE = "arena","cube"
 # NOTE Data about each marker
 #     MARKER_OFFSET: Offset
 #     MARKER_COUNT: Number of markers of type that exist
@@ -105,18 +115,99 @@ WHITE = (255, 255, 255)  # White
 #         which is white. The size here includes this white boarder.
 #     MARKER_COLOUR: Bounding box colour
 
+marker_types = {
+    MARKER_ARENA: {
+        MARKER_OFFSET: 0,
+        MARKER_COUNT: 100,
+        MARKER_SIZE: 0.290,
+        MARKER_COLOUR: GREEN,
+        MARKER_SPECIES: ARENA
+    },
+    MARKER_CUBE_WINKIE: {
+        MARKER_OFFSET: 100,
+        MARKER_COUNT: 10,
+        MARKER_SIZE: 0.100,
+        MARKER_COLOUR: YELLOW,
+        MARKER_SPECIES: CUBE
+    },
+    MARKER_CUBE_GILLIKIN: {
+        MARKER_OFFSET: 110,
+        MARKER_COUNT: 10,
+        MARKER_SIZE: 0.100,
+        MARKER_COLOUR:  PURPLE,
+        MARKER_SPECIES: CUBE
+    },
+    MARKER_CUBE_QUADLING: {
+        MARKER_OFFSET: 120,
+        MARKER_COUNT: 10,
+        MARKER_SIZE: 0.100,
+        MARKER_COLOUR:  RED,
+        MARKER_SPECIES: CUBE
+    },
+    MARKER_CUBE_MUNCHKIN: {
+        MARKER_OFFSET: 130,
+        MARKER_COUNT: 10,
+        MARKER_SIZE: 0.100,
+        MARKER_COLOUR:  BLUE,
+        MARKER_SPECIES: CUBE
+    },
+    MARKER_DEFAULT: {
+        MARKER_OFFSET: 140,
+        MARKER_COUNT: 1023 - (100+10*4),
+        MARKER_SIZE: 0.100,  # This size is meaningless
+        MARKER_COLOUR: WHITE,
+        MARKER_SPECIES: CUBE
+    }
+}
+
+
+def create_marker_lut():
+    """Creates a lookup table with all of the markers in the game"""
+    result = {}
+    for type_, properties in marker_types.items():
+        for n in range(properties[MARKER_COUNT]):
+            code = properties[MARKER_OFFSET] + n
+            m = MarkerInfo(code=code,
+                           type=type_,
+                           size=properties[MARKER_SIZE],
+                           bounding_box_colour=properties[MARKER_COLOUR],
+                           species=properties[MARKER_SPECIES])
+
+            result[code] = m
+    return result
+
+
+MARKER_LUT = create_marker_lut()
+
+
 # Image post processing constants
 BOUNDING_BOX_THICKNESS = 2
 DEFAULT_BOUNDING_BOX_COLOUR = WHITE
 
 # Magic number's which lets AT calculate distance different for every camera
-PI_CAMERA_FOCAL_LENGTHS = {
+PI_2_1_CAMERA_FOCAL_LENGTHS = {
     (640, 480): (401.5, 401.5),
     (1296, 736): (821, 821),
     (1296, 976): (821, 821),
     (1920, 1088): (2076, 2076),
-    (1920, 1440): (1198, 1198)
+    (1920, 1440): (1198, 1198),
+    (1640, 1232): (1016.7,1016.7)
 }
+
+PI_1_3_CAMERA_FOCAL_LENGTHS = {
+    (640, 480): (467, 467),
+    (1296, 972): (928, 928),
+    (1920, 1080): (1887, 1887),
+    (2592, 1944): (1887, 1887)
+}
+
+
+ARDUCAM_GLOBAL_SHUTTER_FOCAL_LENGTHS = {
+    (640,480):   (380.5, 380.5),
+    (1280, 720): (618, 618),
+    (1280, 800): (618, 618)
+}
+
 
 LOGITECH_C270_FOCAL_LENGTHS = {  # fx, fy tuples
     (640, 480): (607.6669874845361, 607.6669874845361),
@@ -163,34 +254,68 @@ class RoboConPiCamera(Camera):
     the robocon classes"""
 
     def __init__(self, start_res=(1296, 736), focal_lengths=None):
-        self._pi_camera = picamera.PiCamera(resolution=start_res)
-        self.focal_lengths = (PI_CAMERA_FOCAL_LENGTHS
+        os.environ["LIBCAMERA_LOG_LEVELS"] = "3"
+        picamera2.Picamera2.set_logging(picamera2.Picamera2.ERROR)
+        self._pi_camera = picamera2.Picamera2()
+        # should test if the camera exists here, and give a nice warning
+        self.camera_model = self._pi_camera.camera_properties['Model'] 
+
+        if self.camera_model == 'ov9281':
+           # Global Shutter Camera
+           start_res=(1280,800) 
+           self.focal_lengths = (ARDUCAM_GLOBAL_SHUTTER_FOCAL_LENGTHS
                               if focal_lengths is None
                               else focal_lengths)
+        elif self.camera_model == 'imx219':
+           # PI cam version 2.1 
+           # Warning: only full res and 1640x1232  are full image (scaled), everything else seems full-res and cropped, reducing FOV
+           start_res=(1640,1232)
+           self.focal_lengths = (PI_2_1_CAMERA_FOCAL_LENGTHS
+                              if focal_lengths is None
+                              else focal_lengths)
+        elif self.camera_model == 'ov5647':
+           # clone pi cameras and zerocam
+           start_res=(1296, 972)
+           self.focal_lengths = (PI_1_3_CAMERA_FOCAL_LENGTHS
+                              if focal_lengths is None
+                              else focal_lengths)
+        else:
+           print ("unknown camera: " + self._pi_camera.camera_properties)
+
+        self._pi_camera.set_logging(picamera2.Picamera2.ERROR)
+        self._pi_camera_resolution = start_res  ## we store this - WHY?
+        self._camera_config = self._pi_camera.create_still_configuration(main={"size": start_res,"format":'RGB888'})
+        self._pi_camera.configure(self._camera_config)
+
+        self._pi_camera.start()
         self._update_camera_params(self.focal_lengths)
 
     @property
     def res(self):
-        return self._pi_camera.resolution
+        #can we read this from camera?
+        return self._pi_camera_resolution 
 
     @res.setter
     def res(self, new_res: tuple):
-        if new_res is not self._pi_camera.resolution:
-            self._pi_camera.resolution = new_res
-            actual = self._pi_camera.resolution
-
-            assert actual == new_res, (
-                f"Failed to set PiCam res, expected {new_res} but got {actual}")
-
+        if new_res is not self._pi_camera_resolution:
+            self._pi_camera.create_still_configuration(main={"size": new_res})
+            self._pi_camera_resolution = new_res
+            self._pi_camera.configure(self._camera_config)
             self._update_camera_params(self.focal_lengths)
 
     def capture(self):
         # TODO Make this return the YUV capture
-        with picamera.array.PiRGBArray(self._pi_camera) as stream:
-            self._pi_camera.capture(stream, format="bgr", use_video_port=True)
-            capture_time = datetime.now()
-            colour_frame = stream.array
-            grey_frame = cv2.cvtColor(stream.array, cv2.COLOR_BGR2GRAY)
+        capture_time = datetime.now()
+        raw = self._pi_camera.capture_array()
+        if (self._pi_camera.camera_properties['Model'] == 'imx219'):
+            # because the only size scaled in the camera 2.1 is huge
+            # read the big size and then scale in software
+            # otherwise the 2.1 camera gives a terrible FOV
+            colour_frame=cv2.resize(raw, (1280,800))
+        else:
+            # other cameras give more scaled outputs, so use them directly
+            colour_frame=raw
+        grey_frame = cv2.cvtColor(colour_frame, cv2.COLOR_BGR2GRAY)
 
         return Capture(grey_frame=grey_frame,
                        colour_frame=colour_frame,
@@ -310,9 +435,9 @@ class PostProcessor(threading.Thread):
         """
         polygon_is_closed = True
         for detection in detections:
-            marker_info = MARKER.by_id(detection.id, self.zone)
-            marker_info_colour = marker_info.bounding_box_color
-            marker_code = detection.id
+            marker_info_colour = MARKER_LUT[detection.id].bounding_box_colour
+            marker_code = MARKER_LUT[detection.id].code
+            marker_zone = int((marker_code-100)-5/10)
             colour = (marker_info_colour
                       if marker_info_colour is not None
                       else DEFAULT_BOUNDING_BOX_COLOUR)
@@ -321,18 +446,18 @@ class PostProcessor(threading.Thread):
             # https://stackoverflow.com/questions/17241830/
             integer_corners = detection.corners.astype(np.int32)
 
-            if (marker_info.owning_team == self.zone):
+            if (marker_zone == self.zone):
                 cv2.polylines(frame,
                               [integer_corners],
                               polygon_is_closed,
                               colour,
                               thickness=self._bounding_box_thickness*3)
-            else:
-                cv2.polylines(frame,
-                              [integer_corners],
-                              polygon_is_closed,
-                              colour,
-                              thickness=self._bounding_box_thickness)
+            else: 
+                 cv2.polylines(frame,
+                               [integer_corners],
+                               polygon_is_closed,
+                               colour,
+                               thickness=self._bounding_box_thickness)
 
         return frame
 
@@ -387,6 +512,11 @@ class Vision():
 
         self.zone = zone
 
+        self.marker_info_lut = MARKER_LUT
+        self.marker_size_lut = {}
+        for code, properties in MARKER_LUT.items():
+            self.marker_size_lut[code] = properties.size
+
         at_lib_path = (
             "{}/lib".format(at_path),
             "{}/lib64".format(at_path)
@@ -404,19 +534,25 @@ class Vision():
         self.camera = camera
 
         self.frames_to_postprocess = queue.Queue(max_queue_size)
-        self.post_processor = PostProcessor(self, zone=self.zone)
+        self.post_processor = PostProcessor(self,zone = self.zone)
 
     def stop(self):
         """Cleanup to prevent leaking hardware resource"""
         self.post_processor.stop()
         self.camera.close()
 
-    def _generate_marker_properties(self, tags):
+    @staticmethod
+    def _generate_marker_properties(tags):
         """Adds `MarkerInfo` to detections"""
         detections = Detections()
 
         for tag in tags:
-            info = MARKER.by_id(int(tag.id), self.zone)
+            if tag.id not in MARKER_LUT:
+                logging.warning("Detected tag with id %i but not found in lut",
+                                tag.id)
+                continue
+
+            info = MARKER_LUT[int(tag.id)]
             detections.append(Marker(info, tag))
 
         return detections

@@ -18,24 +18,22 @@ Byee!
 
 class POEM_ON_STARTUP:
     poem = """
-Today your task is a challenging one
-Gifts for the wizard and deliveries to run
-But due to the unfortunate timing you can not go
-So you have sent a robot with gifts in tow
-You start in your country with your gifts around
-Starting in your home (where ever it is found)
-Then taking gifts from your robots zone
-Delivering it to the wizard on its own
-To the road is good and to the emerald palace is ideal
-And if in another country you get some but a point they will steal
-There are many things that are to be considered
-But remember to bring your gifts for the wizard
+Why did the potato cross the road?
+He saw a fork up ahead.
+
+What do you say to a baked potato that's angry?
+Anything you like, just butter it up.
 """
     @staticmethod
     def write_poem(logger):
         local_poem = POEM_ON_STARTUP.poem.split("\n")
         for line in local_poem:
             logger.info(line)
+
+    @staticmethod
+    def on_startup(_logger, random):
+        if random.randint(0, 100) == 1:
+            POEM_ON_STARTUP.write_poem(_logger)
 
 class MARKER_TYPE(enum.Enum): # Keep something like this to determine if a marker is a wall or not.
     POTATO = enum.auto()

@@ -143,8 +143,7 @@ class Robot():
             self.camera.__class__.__name__)
 
         # Adds the secret poem every now and then!
-        if random.randint(0, 100) == 1:
-            POEM_ON_STARTUP.write_poem(_logger)
+        POEM_ON_STARTUP.on_startup(_logger,random)
 
         # print report of hardware
         _logger.info("------HARDWARE REPORT------")
