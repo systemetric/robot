@@ -578,35 +578,49 @@ class GreenGiantMotors():
 
 
 class UltrasonicSensor:
-    def __init__(self, trig_pin, echo_pin):
+    def __init__(self, trig_pin, *echo_pins):
         self._trig_pin = trig_pin
-        self._echo_pin = echo_pin
+        self._echo_pins = echo_pins
 
         self._trig_pin.mode = OUTPUT
-        self._echo_pin.mode = TIMER
+        for pin in self._echo_pins:
+            pin.mode = TIMER
+
+    def wait_for_pin(self, pin, timeout=0.5):
+        start_time = time.time()
+        time.sleep(0.05) # just to be safe, ultrasonic sensor takes some time before echo goes high
+        while pin.timer == 0 and (time.time() - start_time < timeout):
+            time.sleep(0.05)
+        return pin.timer
+
+    def read_ultra(self, echo, timeout=0.5):
+        if echo.mode != TIMER:
+            raise Exception("Echo pin should be timer")
+        raw_result = self.wait_for_pin(echo, timeout=timeout)
+
+        if raw_result == -1:
+            print("Timeout")
+            return None
+        elif raw_result == 0:
+            print("No sensor detected")
+            return None
+        else:
+            return raw_result * 343 / 2
 
     def read(self, timeout=0.5):
         """Reads ultrasonic sensor, flick trigger pin, then record output and return distance in meters"""
         if self._trig_pin.mode != OUTPUT:
             raise Exception("Trigger pin mode should be output")
-        if self._echo_pin.mode != TIMER:
-            raise Exception("Echo pin should be timer")
 
         self._trig_pin.digital = True
         time.sleep(0.01)
         self._trig_pin.digital = False
 
-        start_time = time.time()
-        while self._echo_pin.timer == 0 and (time.time() - start_time < timeout):
-            time.sleep(0.05)
-
-        raw_result = self._echo_pin.timer
-        if raw_result == -1:
-            print("Ultrasonic timeout")
-        elif raw_result == 0:
-            print("No ultrasonic sensor detected")
+        results = [self.read_ultra(p, timeout=timeout) for p in self._echo_pins]
+        if len(results) > 1:
+            return results
         else:
-            return raw_result * 343 / 2
+            return results[0]
 
 
 
