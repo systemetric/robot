@@ -10,12 +10,20 @@ import queue
 from datetime import datetime
 from typing import NamedTuple, Any
 
-from robot.marker_setup.markers import MARKER
-from .marker_setup import BASE_MARKER as MarkerInfo
+from robot.sheepdog_trials.markers import MARKER
+from robot.sheepdog_trials.teams import TEAM
+from .sheepdog_trials import BASE_MARKER as MarkerInfo
 
 import cv2
 import numpy as np
-import picamera2
+import picamera
+
+try:
+    import picamera.array
+    # seperate import of picamera.array required:
+    # <https://picamera.readthedocs.io/en/latest/api_array.html>
+except ImportError:
+    pass  # Mock RPI doesn't have picamera.array as a separate import
 
 import robot.apriltags3 as AT
 
@@ -43,9 +51,9 @@ class Marker():
         return (f"{self.info.type} Marker {self.info.id}: {self.dist:.3}m @"
                 f"{self.bearing.y:.3} degrees\n"
                 "{\n"
-                f"  info.type = {self.info.type}\n"
+                f"  info.type = {self.info.id}\n"
                 f"  info.id = {self.info.id}\n"
-                f"  info.owning_team = {self.info.owning_team}\n"
+                f"  info.owning_team or info.owner = {self.info.owning_team or self.info.owner}\n"
                 f"  dist = {self.dist:.3}\n"
                 f"  bearing.y = {self.bearing.y:.3}\n"
                 f"  bearing.x = {self.bearing.x:.3}\n"
@@ -103,27 +111,12 @@ BOUNDING_BOX_THICKNESS = 2
 DEFAULT_BOUNDING_BOX_COLOUR = WHITE
 
 # Magic number's which lets AT calculate distance different for every camera
-PI_2_1_CAMERA_FOCAL_LENGTHS = {
+PI_CAMERA_FOCAL_LENGTHS = {
     (640, 480): (401.5, 401.5),
     (1296, 736): (821, 821),
     (1296, 976): (821, 821),
     (1920, 1088): (2076, 2076),
-    (1920, 1440): (1198, 1198),
-    (1640, 1232): (1016.7,1016.7)
-}
-
-PI_1_3_CAMERA_FOCAL_LENGTHS = {
-    (640, 480): (467, 467),
-    (1296, 972): (928, 928),
-    (1920, 1080): (1887, 1887),
-    (2592, 1944): (1887, 1887)
-}
-
-
-ARDUCAM_GLOBAL_SHUTTER_FOCAL_LENGTHS = {
-    (640,480):   (380.5, 380.5),
-    (1280, 720): (618, 618),
-    (1280, 800): (618, 618)
+    (1920, 1440): (1198, 1198)
 }
 
 LOGITECH_C270_FOCAL_LENGTHS = {  # fx, fy tuples
@@ -171,68 +164,34 @@ class RoboConPiCamera(Camera):
     the robocon classes"""
 
     def __init__(self, start_res=(1296, 736), focal_lengths=None):
-        os.environ["LIBCAMERA_LOG_LEVELS"] = "3"
-        picamera2.Picamera2.set_logging(picamera2.Picamera2.ERROR)
-        self._pi_camera = picamera2.Picamera2()
-        # should test if the camera exists here, and give a nice warning
-        self.camera_model = self._pi_camera.camera_properties['Model'] 
-
-        if self.camera_model == 'ov9281':
-           # Global Shutter Camera
-           start_res=(1280,800) 
-           self.focal_lengths = (ARDUCAM_GLOBAL_SHUTTER_FOCAL_LENGTHS
+        self._pi_camera = picamera.PiCamera(resolution=start_res)
+        self.focal_lengths = (PI_CAMERA_FOCAL_LENGTHS
                               if focal_lengths is None
                               else focal_lengths)
-        elif self.camera_model == 'imx219':
-           # PI cam version 2.1 
-           # Warning: only full res and 1640x1232  are full image (scaled), everything else seems full-res and cropped, reducing FOV
-           start_res=(1640,1232)
-           self.focal_lengths = (PI_2_1_CAMERA_FOCAL_LENGTHS
-                              if focal_lengths is None
-                              else focal_lengths)
-        elif self.camera_model == 'ov5647':
-           # clone pi cameras and zerocam
-           start_res=(1296, 972)
-           self.focal_lengths = (PI_1_3_CAMERA_FOCAL_LENGTHS
-                              if focal_lengths is None
-                              else focal_lengths)
-        else:
-           print ("unknown camera: " + self._pi_camera.camera_properties)
-
-        self._pi_camera.set_logging(picamera2.Picamera2.ERROR)
-        self._pi_camera_resolution = start_res  ## we store this - WHY?
-        self._camera_config = self._pi_camera.create_still_configuration(main={"size": start_res,"format":'RGB888'})
-        self._pi_camera.configure(self._camera_config)
-
-        self._pi_camera.start()
         self._update_camera_params(self.focal_lengths)
 
     @property
     def res(self):
-        #can we read this from camera?
-        return self._pi_camera_resolution 
+        return self._pi_camera.resolution
 
     @res.setter
     def res(self, new_res: tuple):
-        if new_res is not self._pi_camera_resolution:
-            self._pi_camera.create_still_configuration(main={"size": new_res})
-            self._pi_camera_resolution = new_res
-            self._pi_camera.configure(self._camera_config)
+        if new_res is not self._pi_camera.resolution:
+            self._pi_camera.resolution = new_res
+            actual = self._pi_camera.resolution
+
+            assert actual == new_res, (
+                f"Failed to set PiCam res, expected {new_res} but got {actual}")
+
             self._update_camera_params(self.focal_lengths)
 
     def capture(self):
         # TODO Make this return the YUV capture
-        capture_time = datetime.now()
-        raw = self._pi_camera.capture_array()
-        if (self._pi_camera.camera_properties['Model'] == 'imx219'):
-            # because the only size scaled in the camera 2.1 is huge
-            # read the big size and then scale in software
-            # otherwise the 2.1 camera gives a terrible FOV
-            colour_frame=cv2.resize(raw, (1280,800))
-        else:
-            # other cameras give more scaled outputs, so use them directly
-            colour_frame=raw
-        grey_frame = cv2.cvtColor(colour_frame, cv2.COLOR_BGR2GRAY)
+        with picamera.array.PiRGBArray(self._pi_camera) as stream:
+            self._pi_camera.capture(stream, format="bgr", use_video_port=True)
+            capture_time = datetime.now()
+            colour_frame = stream.array
+            grey_frame = cv2.cvtColor(stream.array, cv2.COLOR_BGR2GRAY)
 
         return Capture(grey_frame=grey_frame,
                        colour_frame=colour_frame,
