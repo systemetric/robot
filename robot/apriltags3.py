@@ -21,7 +21,7 @@ from collections import namedtuple
 import numpy as np
 import scipy.spatial.transform as transform
 
-from robot.sheepdog_trials.markers import MARKER
+from robot.marker_setup.markers import MARKER
 
 
 ######################################################################

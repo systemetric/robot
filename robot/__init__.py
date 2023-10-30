@@ -5,8 +5,6 @@ by shepherd"""
 
 import importlib
 
-from robot.sheepdog_trials.markers import BASE_MARKER
-
 has_picamera = importlib.find_loader("picamera") is not None
 
 if not has_picamera:
@@ -27,14 +25,12 @@ import robot.log
 from robot.wrapper import Robot, NoCameraPresent
 from robot.greengiant import OUTPUT, INPUT, INPUT_ANALOG, INPUT_PULLUP, PWM_SERVO, ULTRASONIC
 from robot.vision import RoboConUSBCamera
-from robot.sheepdog_trials import (
+from robot.marker_setup import (
     MARKER,
     BASE_MARKER,
     ARENA_MARKER,
-    SHEEP_MARKER,
+    POTATO_MARKER,
     MARKER_TYPE,
-    MARKER_OWNER,
-    WOOL_TYPE,
     TEAM
 )
 
@@ -52,14 +48,11 @@ __all__ = [
     "INPUT_ANALOG",
     "INPUT_PULLUP",
     "PWM_SERVO",
-    "ULTRASONIC",
-    
+    "ULTRASONIC"
     "MARKER",
     "BASE_MARKER",
     "ARENA_MARKER",
-    "SHEEP_MARKER",
+    "POTATO_MARKER",
     "MARKER_TYPE",
-    "MARKER_OWNER",
-    "WOOL_TYPE",
     "TEAM",
     "RoboConUSBCamera"]
