@@ -38,12 +38,8 @@ class POEM_ON_STARTUP:
         as an argument because I don't have the energy to try importing it,
         I just spent quite a while struggling with the new brains.
         """
-        jokeNo = random.randint(0,len(POEM_ON_STARTUP.jokes))
-        jokeToPrint = "I don't know what went wrong, but we messed up our joke loading ;-;"
-        try:
-            jokeToPrint = POEM_ON_STARTUP.jokes[jokeNo]
-        except:
-            jokeToPrint = POEM_ON_STARTUP.jokes[0]
+        jokeNo = random.randint(0,len(POEM_ON_STARTUP.jokes) - 1)
+        jokeToPrint = POEM_ON_STARTUP.jokes[jokeNo]
         logger.info(jokeToPrint)
 
 class MARKER_TYPE(enum.Enum): # Keep something like this to determine if a marker is a wall or not.
