@@ -19,7 +19,8 @@ from smbus2 import SMBus
 
 from robot import vision
 from robot.cytron import CytronBoard
-from robot.greengiant import GreenGiantInternal, GreenGiantGPIOPinList, GreenGiantPWM
+from robot.greengiant import GreenGiantInternal, GreenGiantGPIOPinList, GreenGiantMotors, _GG_SERVO_PWM_BASE, _GG_GPIO_PWM_BASE, _GG_GPIO_GPIO_BASE, _GG_SERVO_GPIO_BASE, PWM_SERVO, OUTPUT, ULTRASONIC
+
 from robot.marker_setup.teams import TEAM
 from . import marker_setup
 from robot.marker_setup import POEM_ON_STARTUP

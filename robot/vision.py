@@ -565,7 +565,7 @@ class Vision():
         capture = self.detections.frame
         timestamp = self.detections.timestamp
         self.lock.release()
-        while timestamp < start_timestamp:
+        while timestamp is not None and timestamp < start_timestamp:
             self.lock.acquire()
             detections = self.detections.output
             capture = self.detections.frame
