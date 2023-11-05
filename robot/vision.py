@@ -18,15 +18,7 @@ from .sheepdog_trials import BASE_MARKER as MarkerInfo
 
 import cv2
 import numpy as np
-import picamera
-
-try:
-    import picamera.array
-    # seperate import of picamera.array required:
-    # <https://picamera.readthedocs.io/en/latest/api_array.html>
-except ImportError:
-    pass  # Mock RPI doesn't have picamera.array as a separate import
-
+import picamera2
 import robot.apriltags3 as AT
 
 
@@ -53,9 +45,9 @@ class Marker():
         return (f"{self.info.type} Marker {self.info.id}: {self.dist:.3}m @"
                 f"{self.bearing.y:.3} degrees\n"
                 "{\n"
-                f"  info.type = {self.info.id}\n"
+                f"  info.type = {self.info.type}\n"
                 f"  info.id = {self.info.id}\n"
-                f"  info.owning_team or info.owner = {self.info.owning_team or self.info.owner}\n"
+                f"  info.owning_team = {self.info.owning_team}\n"
                 f"  dist = {self.dist:.3}\n"
                 f"  bearing.y = {self.bearing.y:.3}\n"
                 f"  bearing.x = {self.bearing.x:.3}\n"
@@ -113,12 +105,36 @@ BOUNDING_BOX_THICKNESS = 2
 DEFAULT_BOUNDING_BOX_COLOUR = WHITE
 
 # Magic number's which lets AT calculate distance different for every camera
-PI_CAMERA_FOCAL_LENGTHS = {
+PI_2_1_CAMERA_FOCAL_LENGTHS = {
     (640, 480): (401.5, 401.5),
-    (1296, 736): (821, 821),
+    (1280, 720): (821, 821),
     (1296, 976): (821, 821),
     (1920, 1088): (2076, 2076),
-    (1920, 1440): (1198, 1198)
+    (1920, 1440): (1198, 1198),
+    (1640, 1232): (1016.7,1016.7)
+}
+
+#  for the pi camera 2.1 we want to take in a "full" resolution, then scale to the correct resolution
+PI_2_1_CAMERA_RES_MAP = {
+    (640, 480): (1640, 1232),
+    (1280, 720): (1640, 922),
+    (1640, 1232): (1640, 1232),
+    (1920, 1080): (1640, 922),  # TODO think of a more sensible option for this, we shouldn't really be scaling up, check reliability of taking full sensor images, and how that will limit the maximum framerate
+    # TODO more resolutions, make sure that the ones supported here are also the ones written in the docs
+}
+
+PI_1_3_CAMERA_FOCAL_LENGTHS = {
+    (640, 480): (467, 467),
+    (1296, 972): (928, 928),
+    (1920, 1080): (1887, 1887),
+    (2592, 1944): (1887, 1887)
+}
+
+
+ARDUCAM_GLOBAL_SHUTTER_FOCAL_LENGTHS = {
+    (640,480):   (380.5, 380.5),
+    (1280, 720): (618, 618),
+    (1280, 800): (618, 618)
 }
 
 LOGITECH_C270_FOCAL_LENGTHS = {  # fx, fy tuples
@@ -165,35 +181,73 @@ class RoboConPiCamera(Camera):
     """A wrapper for the PiCamera class providing the methods which are used by
     the robocon classes"""
 
-    def __init__(self, start_res=(1296, 736), focal_lengths=None):
-        self._pi_camera = picamera.PiCamera(resolution=start_res)
-        self.focal_lengths = (PI_CAMERA_FOCAL_LENGTHS
+    def __init__(self, start_res=(640, 480), focal_lengths=None):
+        os.environ["LIBCAMERA_LOG_LEVELS"] = "3"
+        picamera2.Picamera2.set_logging(picamera2.Picamera2.ERROR)
+        self._pi_camera = picamera2.Picamera2()
+        # should test if the camera exists here, and give a nice warning
+        self.camera_model = self._pi_camera.camera_properties['Model'] 
+
+        if self.camera_model == 'ov9281':
+           # Global Shutter Camera
+           start_res=(1280,800) 
+           self.focal_lengths = (ARDUCAM_GLOBAL_SHUTTER_FOCAL_LENGTHS
                               if focal_lengths is None
                               else focal_lengths)
+        elif self.camera_model == 'imx219':
+           # PI cam version 2.1 
+           # Warning: only full res and 1640x1232  are full image (scaled), everything else seems full-res and cropped, reducing FOV
+           self.focal_lengths = (PI_2_1_CAMERA_FOCAL_LENGTHS
+                              if focal_lengths is None
+                              else focal_lengths)
+        elif self.camera_model == 'ov5647':
+           # clone pi cameras and zerocam
+           start_res=(1296, 972)
+           self.focal_lengths = (PI_1_3_CAMERA_FOCAL_LENGTHS
+                              if focal_lengths is None
+                              else focal_lengths)
+        else:
+           print ("unknown camera: " + self._pi_camera.camera_properties)
+
+        self._pi_camera.set_logging(picamera2.Picamera2.ERROR)
+        self._resultant_resolution = None
+        self.res = start_res
+        self._pi_camera.start()
         self._update_camera_params(self.focal_lengths)
 
     @property
     def res(self):
-        return self._pi_camera.resolution
+        #can we read this from camera?
+        return self._resultant_resolution
 
     @res.setter
     def res(self, new_res: tuple):
-        if new_res is not self._pi_camera.resolution:
-            self._pi_camera.resolution = new_res
-            actual = self._pi_camera.resolution
-
-            assert actual == new_res, (
-                f"Failed to set PiCam res, expected {new_res} but got {actual}")
-
+        if new_res != self._resultant_resolution:
+            if self.camera_model == 'imx219':
+                if new_res not in PI_2_1_CAMERA_RES_MAP:
+                    raise Exception(f"Invalid resolution, please pick from {tuple(PI_2_1_CAMERA_RES_MAP.keys())}")
+                # Map resolution to the one we want the image to be in
+                cam_res = PI_2_1_CAMERA_RES_MAP[new_res]
+                self._pi_camera.resolution = cam_res
+            else:
+                self._pi_camera.create_still_configuration(main={"size": new_res})
+                self._pi_camera.configure(self._camera_config)
+            self._resultant_resolution = new_res
             self._update_camera_params(self.focal_lengths)
 
     def capture(self):
         # TODO Make this return the YUV capture
-        with picamera.array.PiRGBArray(self._pi_camera) as stream:
-            self._pi_camera.capture(stream, format="bgr", use_video_port=True)
-            capture_time = datetime.now()
-            colour_frame = stream.array
-            grey_frame = cv2.cvtColor(stream.array, cv2.COLOR_BGR2GRAY)
+        capture_time = datetime.now()
+        raw = self._pi_camera.capture_array()
+        if (self._pi_camera.camera_properties['Model'] == 'imx219'):
+            # because the only size scaled in the camera 2.1 is huge
+            # read the big size and then scale in software
+            # otherwise the 2.1 camera gives a terrible FOV
+            colour_frame=cv2.resize(raw, self._resultant_resolution)
+        else:
+            # other cameras give more scaled outputs, so use them directly
+            colour_frame=raw
+        grey_frame = cv2.cvtColor(colour_frame, cv2.COLOR_BGR2GRAY)
 
         return Capture(grey_frame=grey_frame,
                        colour_frame=colour_frame,
@@ -203,7 +257,6 @@ class RoboConPiCamera(Camera):
     def close(self):
         """Prevent the picamera leaking GPU memory"""
         self._pi_camera.close()
-
 
 class RoboConUSBCamera(Camera):
     """A wrapper class for the open CV methods"""
@@ -248,6 +301,23 @@ class RoboConUSBCamera(Camera):
     def res(self):
         return self._res
 
+    @res.setter
+    def res(self, new_res):
+        if new_res is not self._res:
+            cv_property_ids = (cv2.CV_CAP_PROP_FRAME_WIDTH,
+                               cv2.CV_CAP_PROP_FRAME_HEIGHT)
+
+            for new, property_id in zip(new_res, cv_property_ids):
+                self._cv_capture.set(property_id, new)
+                actual = self._cv_capture.get(property_id, new)
+                assert actual == new, (f"Failed to set USB res, expected {new} "
+                                       f"but got {actual}")
+
+            self._res = new_res
+            self._update_camera_params(self.focal_lengths)
+
+    def capture(self):
+        """Capture from a USB camera. Not all usb cameras support native YUV"""
     @res.setter
     def res(self, new_res):
         if new_res is not self._res:
@@ -450,6 +520,16 @@ class Vision():
 
         return detections
 
+        detections = self.at_detector.detect(capture.grey_frame,
+                                             estimate_tag_pose=True,
+                                             camera_params=self.camera.params)
+
+        self._send_to_post_process(capture, detections)
+
+        markers = self._generate_marker_properties(detections)
+
+        return markers
+
     def _send_to_post_process(self, capture, detections):
         """Places data on the post processor queue with error handeling"""
         try:
@@ -476,3 +556,6 @@ class Vision():
         markers = self._generate_marker_properties(detections)
 
         return markers
+
+
+
