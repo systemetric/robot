@@ -19,10 +19,12 @@ from smbus2 import SMBus
 
 from robot import vision
 from robot.cytron import CytronBoard
-from robot.greengiant import GreenGiantInternal, GreenGiantGPIOPinList, GreenGiantMotors, _GG_SERVO_PWM_BASE, _GG_GPIO_PWM_BASE, _GG_GPIO_GPIO_BASE, _GG_SERVO_GPIO_BASE, PWM_SERVO
+from robot.greengiant import GreenGiantInternal, GreenGiantGPIOPinList, GreenGiantMotors, _GG_SERVO_PWM_BASE, _GG_GPIO_PWM_BASE, _GG_GPIO_GPIO_BASE, _GG_SERVO_GPIO_BASE, PWM_SERVO, OUTPUT, ULTRASONIC
 
-from robot.sheepdog_trials.teams import TEAM
-from . import sheepdog_trials
+from robot.marker_setup.teams import TEAM
+from . import marker_setup
+from robot.marker_setup import POEM_ON_STARTUP
+
 
 _logger = logging.getLogger("robot")
 
@@ -64,7 +66,7 @@ class Robot():
                  max_motor_voltage=6,
                  logging_level=logging.INFO):
 
-        self.zone = sheepdog_trials.TEAM.LEON
+        self.zone = marker_setup.TEAM.RUSSET
         self._max_motor_voltage = max_motor_voltage
 
         self._initialised = False
@@ -164,21 +166,7 @@ class Robot():
             self.camera.__class__.__name__)
 
         # Adds the secret poem every now and then!
-        if random.randint(0, 100) == 1:
-            _logger.info("Today your task is a challenging one")
-            _logger.info("Gifts for the wizard and deliveries to run")
-            _logger.info("But due to the unfortunate timing you can not go")
-            _logger.info("So you have sent a robot with gifts in tow")
-            _logger.info("You start in your country with your gifts around")
-            _logger.info("Starting in your home (where ever it is found)")
-            _logger.info("Then taking gifts from your robots zone ")
-            _logger.info("Delivering it to the wizard on its own")
-            _logger.info(
-                "To the road is good and to the emerald palace is ideal ")
-            _logger.info(
-                "And if in another country you get some but a point they will steal")
-            _logger.info("There are many things that are to be considered")
-            _logger.info("But remember to bring your gifts for the wizard")
+        POEM_ON_STARTUP.on_startup(_logger,random)
 
         # print report of hardware
         _logger.info("------HARDWARE REPORT------")
@@ -306,10 +294,10 @@ class Robot():
 
         return start_info["zone"]
 
-    def see(self) -> vision.Detections:
+    def see(self, return_frame=False)-> vision.Detections:
         """Take a photo, detect markers in sene, attach RoboCon specific
         properties"""
-        return self._vision.detect_markers()
+        return self._vision.detect_markers(return_frame=return_frame)
 
     def __del__(self):
         """Frees hardware resources held by the vision object"""
@@ -319,3 +307,41 @@ class Robot():
         if hasattr(self, "_vision"):
             self._vision.stop()
         type(self)._initialised = False
+
+    def read_ultrasonic(self, trig_pin, echo_pin, timeout=0.5, one_wire=False):
+        """Read ultrasonic, toggle trig pin, wait for echo pulse in"""
+        if trig_pin == echo_pin and not one_wire:
+            print("Trigger pin is equal to echo pin, this won't work unless you're using a 1-wire ultrasonic sensor, in that case pass one_wire=True to this function to silence this warning") # TODO rewrite this text better
+
+        trig_original_mode = trig_pin.mode
+        echo_original_mode = echo_pin.mode
+
+        trig_pin.mode = OUTPUT
+        trig_pin.digital = True  # make sure that it is initially true, distance is read on the falling edge
+        time.sleep(0.01)
+        trig_pin.digital = False
+
+        echo_pin.mode = ULTRASONIC  # only do this after trig pin stuff so that it theoretically would work in 1-wire mode
+
+        start_time = time.time()
+        
+        while (echo_pin.ultrasonic == 0 or echo_pin.ultrasonic == 0xFFFF / 1500000) and (time.time() - start_time < timeout):
+            time.sleep(0.02)  # this value is arbritrarily picked, don't want to flood the Pilow with requests, at the same time quicker is better
+
+        raw_result = echo_pin.ultrasonic
+
+        trig_pin.mode = trig_original_mode
+        echo_pin.mode = echo_original_mode
+
+        if raw_result == 0xFFFF / 1500000:
+            # ultrasound detected but timed out
+            print("pilow ultrasonic timeout") # should we raise an exception here?
+        elif raw_result == 0:
+            # ultrasound not detected
+            print("NOT DETECTED") # should we raise an exception here?
+        else:
+            return raw_result * 343 / 2
+
+
+
+
