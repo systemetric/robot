@@ -25,6 +25,7 @@ INPUT = "INPUT"
 INPUT_ANALOG = "INPUT_ANALOG"
 INPUT_PULLUP = "INPUT_PULLUP"
 PWM_SERVO = "PWM_SERVO"
+ULTRASONIC = "ULTRASONIC"
 
 _GG_GPIO_MASKS = {
     OUTPUT: 0b000,
@@ -33,7 +34,7 @@ _GG_GPIO_MASKS = {
     INPUT_PULLUP: 0b011,
     PWM_SERVO: 0b100,
     # PWM_MARK_SPACE: 0b101,
-    # ULTRASONIC: 0xb110
+    ULTRASONIC: 0b110
 }
 
 
@@ -254,7 +255,7 @@ class GreenGiantGPIOPin():
             self._mode = INPUT
         self._adc_max = adc_max
         self._digital_read_modes = (INPUT, INPUT_PULLUP, OUTPUT) ## why not hard coded?
-        self._analog_read_modes = (INPUT_ANALOG, PWM_SERVO)
+        self._analog_read_modes = (INPUT_ANALOG)
         self._version = version
         self._gpio_base = gpio_base_address
         self._pwm_base = pwm_base_address
@@ -332,6 +333,19 @@ class GreenGiantGPIOPin():
             raise IOError(f"Attempt to read PWM only pin")
 
     @property
+    def ultrasonic(self):
+        """Reads the length of the last pulse from the Pilow and converts this into seconds"""
+        if self._gpio_base is not None:
+            if self._mode is not ULTRASONIC:
+                raise IOError(f"Ultrasonic read attempted on pin configured as {self._mode}")
+
+            raw_value = read_high_low_data(self._bus, self._analog_base)
+            frequency = 1500000
+            return raw_value / frequency
+        else:
+            raise IOError(f"Attempt to read PWM only pin")
+
+    @property
     def pwm(self):
         if self._version <= 3:
             # create an illusion for the GreenGiant, we cant read the state of an output
@@ -343,7 +357,6 @@ class GreenGiantGPIOPin():
             if self._version < 10:
                return ((raw - _GG_GG_PWM_CENTER) / _GG_GG_PWM_PERCENT_HALF_RANGE) * 100
             else:
-               print(raw)
                return ((raw - _GG_PiLow_PWM_CENTER) / _GG_PiLow_PWM_HALF_RANGE) * _GG_PiLow_PWM_PERCENT_HALF_RANGE
     @pwm.setter
     def pwm(self, percent):

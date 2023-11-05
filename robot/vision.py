@@ -2,25 +2,25 @@
 postprocessing on the data to make it accessible to the user
 """
 import abc
+import functools
 import logging
 import os
 import threading
 import queue
 import subprocess as sp
 import re
+import time
 
 from datetime import datetime
 from typing import NamedTuple, Any
 
-from robot.sheepdog_trials.markers import MARKER
-from robot.sheepdog_trials.teams import TEAM
-from .sheepdog_trials import BASE_MARKER as MarkerInfo
+from robot.marker_setup.markers import MARKER
+from .marker_setup import BASE_MARKER as MarkerInfo
 
 import cv2
 import numpy as np
 import picamera2
 import robot.apriltags3 as AT
-
 
 # TODO put all of the paths together
 IMAGE_TO_SHEPHERD_PATH = "/home/pi/shepherd/shepherd/static/image.jpg"
@@ -68,12 +68,13 @@ class Detections(list):
         return "[" + "\n".join([str(m) for m in self]) + "]"
 
 
-class Capture(NamedTuple):
+class Capture:
     """Allows for passing captures around particularly to the postprocessor"""
-    grey_frame: Any
-    colour_frame: Any
-    colour_type: Any
-    time: Any
+
+    def __init__(self):
+        self.colour = None
+        self.grey = None
+        self.timestamp = None
 
 
 _AT_PATH = "/usr/local"
@@ -173,8 +174,38 @@ class Camera(abc.ABC):
         cx: focal_length_x
         """
         focal_length = focal_lengths[self.res]
-        center = [i/2 for i in self.res]
+        center = [i / 2 for i in self.res]
         self.params = (*focal_length, *center)
+
+
+def pi_cam_capture(cam, capture, lock, img_queue):
+    while True:
+        raw = self._pi_camera.capture_array()
+        if (self._pi_camera.camera_properties['Model'] == 'imx219'):
+            # because the only size scaled in the camera 2.1 is huge
+            # read the big size and then scale in software
+            # otherwise the 2.1 camera gives a terrible FOV
+            img=cv2.resize(raw, self._resultant_resolution)
+        else:
+            # other cameras give more scaled outputs, so use them directly
+            img=raw
+        lock.acquire()
+        capture.colour = img
+        capture.grey = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        capture.timestamp = time.perf_counter()
+        lock.release()
+        img_queue.append(img)
+        time.sleep(0.001)
+
+
+def prepare_for_stream(img_queue):
+    while True:
+        if img_queue:
+            img = img_queue.pop()
+            cv2.imwrite("/tmp/in_progress_capture.jpg", img, [cv2.IMWRITE_JPEG_QUALITY, 60])
+            os.rename("/tmp/in_progress_capture.jpg", "/tmp/current.jpg")
+        else:
+            time.sleep(0.02)
 
 
 class RoboConPiCamera(Camera):
@@ -214,6 +245,15 @@ class RoboConPiCamera(Camera):
         self.res = start_res
         self._pi_camera.start()
         self._update_camera_params(self.focal_lengths)
+        self.latest_capture = Capture()
+        self.lock = threading.Lock()
+        self.queue = []
+        self.thread = threading.Thread(target=functools.partial(pi_cam_capture, self._pi_camera, self.latest_capture,
+                                                                self.lock, self.queue))
+        self.thread.start()
+
+        self.stream_thread = threading.Thread(target=functools.partial(prepare_for_stream, self.queue))
+        self.stream_thread.start()
 
     @property
     def res(self):
@@ -237,26 +277,38 @@ class RoboConPiCamera(Camera):
 
     def capture(self):
         # TODO Make this return the YUV capture
-        capture_time = datetime.now()
-        raw = self._pi_camera.capture_array()
-        if (self._pi_camera.camera_properties['Model'] == 'imx219'):
-            # because the only size scaled in the camera 2.1 is huge
-            # read the big size and then scale in software
-            # otherwise the 2.1 camera gives a terrible FOV
-            colour_frame=cv2.resize(raw, self._resultant_resolution)
-        else:
-            # other cameras give more scaled outputs, so use them directly
-            colour_frame=raw
-        grey_frame = cv2.cvtColor(colour_frame, cv2.COLOR_BGR2GRAY)
+        capture = Capture()
+        while True:
+            self.lock.acquire()
+            capture.colour = self.latest_capture.colour
+            capture.grey = self.latest_capture.grey
+            capture.timestamp = self.latest_capture.timestamp
+            self.lock.release()
+            if capture.colour is not None:
+                break
 
-        return Capture(grey_frame=grey_frame,
-                       colour_frame=colour_frame,
-                       colour_type="RGB",
-                       time=capture_time)
+        # print(time.perf_counter() - capture.timestamp, "cam")
+
+        return capture
 
     def close(self):
         """Prevent the picamera leaking GPU memory"""
         self._pi_camera.close()
+
+def usb_cam_capture(cam, capture, lock, img_queue):
+    while True:
+        cam_running, img = cam.read()
+
+        if not cam_running:
+            raise IOError("Capture from USB camera failed")
+
+        lock.acquire()
+        capture.colour = img
+        capture.grey = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        capture.timestamp = time.perf_counter()
+        lock.release()
+        img_queue.append(img)
+        time.sleep(0.001)
 
 class RoboConUSBCamera(Camera):
     """A wrapper class for the open CV methods"""
@@ -265,7 +317,7 @@ class RoboConUSBCamera(Camera):
                  start_res=(1296, 736),
                  focal_lengths=None):
         self._source = self.find_usb_cam()
-        if self._source == None:
+        if self._source is None:
             raise Exception("No USB camera detected, please make sure it's plugged in")
         self._cv_capture = cv2.VideoCapture(self._source)
         self._res = start_res
@@ -273,6 +325,18 @@ class RoboConUSBCamera(Camera):
                               if focal_lengths is None
                               else focal_lengths)
         self._update_camera_params(self.focal_lengths)
+
+        self.latest_capture = Capture()
+        self.lock = threading.Lock()
+
+        self.queue = []
+        self.thread = threading.Thread(target=functools.partial(usb_cam_capture,
+                                                                self._cv_capture, self.latest_capture,
+                                                                self.lock, self.queue))
+        self.thread.start()
+
+        self.stream_thread = threading.Thread(target=functools.partial(prepare_for_stream, self.queue))
+        self.stream_thread.start()
 
     def find_usb_cam(self):
         options = filter(lambda file: file.startswith("video"),
@@ -337,21 +401,20 @@ class RoboConUSBCamera(Camera):
         """Capture from a USB camera. Not all usb cameras support native YUV
         capturing so to ensure that we have the best USB camera compatibility
         we take the performance hit and capture in RGB and covert to grey."""
-        # TODO I'm sure openCV has some faster capture methods from video
-        # streams like libkoki used to do with V4L.
 
-        cam_running, colour_frame = self._cv_capture.read()
-        capture_time = datetime.now()
+        capture = Capture()
+        while True:
+            self.lock.acquire()
+            capture.colour = self.latest_capture.colour
+            capture.grey = self.latest_capture.grey
+            capture.timestamp = self.latest_capture.timestamp
+            self.lock.release()
+            if capture.colour is not None:
+                break
 
-        if not cam_running:
-            raise IOError("Capture from USB camera failed")
+        # print(time.perf_counter() - capture.timestamp, "cam")
 
-        grey_frame = cv2.cvtColor(colour_frame, cv2.COLOR_BGR2GRAY)
-
-        return Capture(grey_frame=grey_frame,
-                       colour_frame=colour_frame,
-                       colour_type="RGB",
-                       time=capture_time)
+        return capture
 
     def close(self):
         """Close the openCV capture
@@ -425,7 +488,7 @@ class PostProcessor(threading.Thread):
                               [integer_corners],
                               polygon_is_closed,
                               colour,
-                              thickness=self._bounding_box_thickness*3)
+                              thickness=self._bounding_box_thickness * 3)
             else:
                 cv2.polylines(frame,
                               [integer_corners],
@@ -463,7 +526,7 @@ class PostProcessor(threading.Thread):
             except queue.Empty:
                 pass
             else:
-                frame = capture.colour_frame
+                frame = capture
                 if self._bounding_box:
                     frame = self._draw_bounding_box(frame, detections)
                 if self._save:
@@ -472,6 +535,29 @@ class PostProcessor(threading.Thread):
                     self._write_to_usb(capture, detections)
                 if self._send_to_sheep:
                     pass
+
+
+class ATDetections:
+    def __init__(self):
+        self.output = None
+        self.frame = None
+        self.timestamp = None
+
+
+def detect_markers(camera, at_detector, detections, lock):
+    while True:
+        capture = camera.capture()
+        # print(time.perf_counter() - capture.timestamp, "marker")
+        s = time.perf_counter()
+        output = at_detector.detect(capture.grey, estimate_tag_pose=True,
+                                    camera_params=camera.params)
+        # print(time.perf_counter() - capture.timestamp, "marker")
+        # print(time.perf_counter() - s)
+        lock.acquire()
+        detections.output = output
+        detections.frame = capture.colour
+        detections.timestamp = capture.timestamp
+        lock.release()
 
 
 class Vision():
@@ -494,13 +580,19 @@ class Vision():
         self.at_detector = AT.Detector(searchpath=at_lib_path,
                                        families="tag36h11",
                                        nthreads=4,
-                                       quad_decimate=1.0,
+                                       quad_decimate=2.0,
                                        quad_sigma=0.0,
                                        refine_edges=1,
                                        decode_sharpening=0.25,
                                        debug=0)
 
         self.camera = camera
+
+        self.detections = ATDetections()
+        self.lock = threading.Lock()
+        self.at_thread = threading.Thread(target=functools.partial(detect_markers, self.camera,
+                                                                   self.at_detector, self.detections, self.lock))
+        self.at_thread.start()
 
         self.frames_to_postprocess = queue.Queue(max_queue_size)
         self.post_processor = PostProcessor(self, zone=self.zone)
@@ -531,31 +623,38 @@ class Vision():
         return markers
 
     def _send_to_post_process(self, capture, detections):
-        """Places data on the post processor queue with error handeling"""
+        """Places data on the post processor queue with error handling"""
         try:
             robot_picture = (capture, detections)
             self.frames_to_postprocess.put(robot_picture, timeout=1)
         except queue.Full:
             logging.warning("Skipping postprocessing as queue is full")
 
-    def detect_markers(self):
+    def detect_markers(self, return_frame=False):
         """Returns the markers the robot can see:
             - Gets a frame
             - Finds the markers
             - Appends RoboCon specific properties, e.g. token or arena
-            - Sends off for post processing
+            - Sends off for post-processing
         """
-        capture = self.camera.capture()
-
-        detections = self.at_detector.detect(capture.grey_frame,
-                                             estimate_tag_pose=True,
-                                             camera_params=self.camera.params)
+        start_timestamp = time.perf_counter()
+        self.lock.acquire()
+        detections = self.detections.output
+        capture = self.detections.frame
+        timestamp = self.detections.timestamp
+        self.lock.release()
+        while timestamp is not None and timestamp < start_timestamp:
+            self.lock.acquire()
+            detections = self.detections.output
+            capture = self.detections.frame
+            timestamp = self.detections.timestamp
+            self.lock.release()
 
         self._send_to_post_process(capture, detections)
 
         markers = self._generate_marker_properties(detections)
 
-        return markers
-
-
-
+        if return_frame:
+            return markers, capture
+        else:
+            return markers
