@@ -15,7 +15,7 @@ KD = 5
 K_READING_COUNTS = 0.5
 
 
-def _get_reading():
+def get_reading():
     while True:
         try:
             return R.see()[0].dist
@@ -23,7 +23,7 @@ def _get_reading():
             print("saw nothing")
 
 
-def _get_reading_number(error):
+def get_reading_number(error):
     result = int(K_READING_COUNTS / error)
     result = abs(result)
     if result is 0:
@@ -36,7 +36,7 @@ def _get_reading_number(error):
 R = robot.Robot()
 result = {}
 
-for res in R.camera.focal_lengths.copy():
+for res in [(640, 480), (1280, 720), (1640, 1232), (1920, 1080)]:
     print("Checking res {}".format(res))
     R.camera.res = res
     pprint.pprint(R.camera.focal_lengths)
@@ -50,7 +50,7 @@ for res in R.camera.focal_lengths.copy():
         value += p + d
 
         R.camera.focal_lengths[res] = (value, value)
-        R.camera._update_camera_params()
+        R.camera._update_camera_params(R.camera.focal_lengths)
 
         reading_counts = get_reading_number(error)
 

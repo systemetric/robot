@@ -106,12 +106,10 @@ DEFAULT_BOUNDING_BOX_COLOUR = WHITE
 
 # Magic number's which lets AT calculate distance different for every camera
 PI_2_1_CAMERA_FOCAL_LENGTHS = {
-    (640, 480): (401.5, 401.5),
-    (1280, 720): (821, 821),
-    (1296, 976): (821, 821),
-    (1920, 1088): (2076, 2076),
-    (1920, 1440): (1198, 1198),
-    (1640, 1232): (1016.7,1016.7)
+    (640, 480): (966.2877116008699, 966.2877116008699),
+    (1280, 720): (1933.1207564183787, 1933.1207564183787),
+    (1640, 1232): (2478.0066834501326, 2478.0066834501326),
+    (1920, 1080): (2908.464406719262, 2908.464406719262)
 }
 
 #  for the pi camera 2.1 we want to take in a "full" resolution, then scale to the correct resolution
