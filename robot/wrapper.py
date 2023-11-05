@@ -21,8 +21,10 @@ from robot import vision
 from robot.cytron import CytronBoard
 from robot.greengiant import GreenGiantInternal, GreenGiantGPIOPinList, GreenGiantMotors, _GG_SERVO_PWM_BASE, _GG_GPIO_PWM_BASE, _GG_GPIO_GPIO_BASE, _GG_SERVO_GPIO_BASE, PWM_SERVO, OUTPUT, TIMER
 
-from robot.sheepdog_trials.teams import TEAM
-from . import sheepdog_trials
+from robot.marker_setup.teams import TEAM
+from . import marker_setup
+from robot.marker_setup import POEM_ON_STARTUP
+
 
 _logger = logging.getLogger("robot")
 
@@ -64,7 +66,7 @@ class Robot():
                  max_motor_voltage=6,
                  logging_level=logging.INFO):
 
-        self.zone = sheepdog_trials.TEAM.LEON
+        self.zone = marker_setup.TEAM.RUSSET
         self._max_motor_voltage = max_motor_voltage
 
         self._initialised = False
@@ -164,21 +166,7 @@ class Robot():
             self.camera.__class__.__name__)
 
         # Adds the secret poem every now and then!
-        if random.randint(0, 100) == 1:
-            _logger.info("Today your task is a challenging one")
-            _logger.info("Gifts for the wizard and deliveries to run")
-            _logger.info("But due to the unfortunate timing you can not go")
-            _logger.info("So you have sent a robot with gifts in tow")
-            _logger.info("You start in your country with your gifts around")
-            _logger.info("Starting in your home (where ever it is found)")
-            _logger.info("Then taking gifts from your robots zone ")
-            _logger.info("Delivering it to the wizard on its own")
-            _logger.info(
-                "To the road is good and to the emerald palace is ideal ")
-            _logger.info(
-                "And if in another country you get some but a point they will steal")
-            _logger.info("There are many things that are to be considered")
-            _logger.info("But remember to bring your gifts for the wizard")
+        POEM_ON_STARTUP.on_startup(_logger,random)
 
         # print report of hardware
         _logger.info("------HARDWARE REPORT------")

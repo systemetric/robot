@@ -14,9 +14,8 @@ import time
 from datetime import datetime
 from typing import NamedTuple, Any
 
-from robot.sheepdog_trials.markers import MARKER
-from robot.sheepdog_trials.teams import TEAM
-from .sheepdog_trials import BASE_MARKER as MarkerInfo
+from robot.marker_setup.markers import MARKER
+from .marker_setup import BASE_MARKER as MarkerInfo
 
 import cv2
 import numpy as np
@@ -566,7 +565,7 @@ class Vision():
         capture = self.detections.frame
         timestamp = self.detections.timestamp
         self.lock.release()
-        while timestamp < start_timestamp:
+        while timestamp is not None and timestamp < start_timestamp:
             self.lock.acquire()
             detections = self.detections.output
             capture = self.detections.frame
