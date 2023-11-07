@@ -1,3 +1,5 @@
+import time
+
 """A set of constants and interfaces for controlling the green giant over I2C"""
 
 
@@ -25,7 +27,7 @@ INPUT = "INPUT"
 INPUT_ANALOG = "INPUT_ANALOG"
 INPUT_PULLUP = "INPUT_PULLUP"
 PWM_SERVO = "PWM_SERVO"
-ULTRASONIC = "ULTRASONIC"
+TIMER = "TIMER"
 
 _GG_GPIO_MASKS = {
     OUTPUT: 0b000,
@@ -34,7 +36,7 @@ _GG_GPIO_MASKS = {
     INPUT_PULLUP: 0b011,
     PWM_SERVO: 0b100,
     # PWM_MARK_SPACE: 0b101,
-    ULTRASONIC: 0b110
+    TIMER: 0b110
 }
 
 
@@ -270,6 +272,9 @@ class GreenGiantGPIOPin():
     def mode(self, mode):
         if self._gpio_base is not None:
             self._mode = mode
+            if mode is TIMER and self._version < 13:
+                raise Exception("Timer not implemented firmware version.")
+
             if self._pin_list is not None:
                 """Update the mode of all of the pins.
                 Due to a bug in the GG software all of the pins modes need to be updated
@@ -294,7 +299,7 @@ class GreenGiantGPIOPin():
         if self._gpio_base is not None:
             mask = _GG_GPIO_MASKS[self._mode]
             self._bus.write_byte_data(_GG_I2C_ADDR, _GG_CONTROL_START + self._gpio_base, mask)
-            
+
     @property
     def digital(self):
         if self._gpio_base is not None:
@@ -333,15 +338,19 @@ class GreenGiantGPIOPin():
             raise IOError(f"Attempt to read PWM only pin")
 
     @property
-    def ultrasonic(self):
-        """Reads the length of the last pulse from the Pilow and converts this into seconds"""
+    def timer(self):
+        """Reads the length of the last pulse from the Pilow and converts this into seconds
+        In the event of a timeout we return -1 to show that the time isn't recorded successfully."""
         if self._gpio_base is not None:
-            if self._mode is not ULTRASONIC:
-                raise IOError(f"Ultrasonic read attempted on pin configured as {self._mode}")
+            if self._mode is not TIMER:
+                raise IOError(f"TIMER read attempted on pin configured as {self._mode}")
 
             raw_value = read_high_low_data(self._bus, self._analog_base)
             frequency = 1500000
-            return raw_value / frequency
+            if raw_value != 0xFFFF:
+                return raw_value / frequency
+            else:
+                return -1
         else:
             raise IOError(f"Attempt to read PWM only pin")
 
@@ -398,6 +407,8 @@ class GreenGiantGPIOPin():
     def __getitem__(self):
         if self._mode is PWM_SERVO:
             return self.pwm
+        elif self._mode is TIMER:
+            return self.timer
         elif self._mode in self._digital_read_modes:
             return self.digital
         elif self._mode in self._analog_read_modes:
@@ -564,4 +575,52 @@ class GreenGiantMotors():
         self._bus.write_byte_data(_GG_I2C_ADDR, _GG_ENABLE_MOTORS, 0)
         self._bus.write_byte_data(_GG_I2C_ADDR, _GG_MOTOR_MAG_START, 0)
         self._bus.write_byte_data(_GG_I2C_ADDR, _GG_MOTOR_MAG_START + 1, 0)
+
+
+class UltrasonicSensor:
+    def __init__(self, trig_pin, *echo_pins):
+        self._trig_pin = trig_pin
+        self._echo_pins = echo_pins
+
+        self._trig_pin.mode = OUTPUT
+        for pin in self._echo_pins:
+            pin.mode = TIMER
+
+    def wait_for_pin(self, pin, timeout=0.5):
+        start_time = time.time()
+        time.sleep(0.05) # just to be safe, ultrasonic sensor takes some time before echo goes high
+        while pin.timer == 0 and (time.time() - start_time < timeout):
+            time.sleep(0.05)
+        return pin.timer
+
+    def read_ultra(self, echo, timeout=0.5):
+        if echo.mode != TIMER:
+            raise Exception("Echo pin should be timer")
+        raw_result = self.wait_for_pin(echo, timeout=timeout)
+
+        if raw_result == -1:
+            print("Timeout")
+            return None
+        elif raw_result == 0:
+            print("No sensor detected")
+            return None
+        else:
+            return raw_result * 343 / 2
+
+    def read(self, timeout=0.5):
+        """Reads ultrasonic sensor, flick trigger pin, then record output and return distance in meters"""
+        if self._trig_pin.mode != OUTPUT:
+            raise Exception("Trigger pin mode should be output")
+
+        self._trig_pin.digital = True
+        time.sleep(0.01)
+        self._trig_pin.digital = False
+
+        results = [self.read_ultra(p, timeout=timeout) for p in self._echo_pins]
+        if len(results) > 1:
+            return results
+        else:
+            return results[0]
+
+
 

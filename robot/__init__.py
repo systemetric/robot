@@ -23,7 +23,7 @@ import sys
 import robot.log
 
 from robot.wrapper import Robot, NoCameraPresent
-from robot.greengiant import OUTPUT, INPUT, INPUT_ANALOG, INPUT_PULLUP, PWM_SERVO, ULTRASONIC
+from robot.greengiant import OUTPUT, INPUT, INPUT_ANALOG, INPUT_PULLUP, PWM_SERVO, TIMER, UltrasonicSensor
 from robot.vision import RoboConUSBCamera
 from robot.marker_setup import (
     MARKER,
@@ -48,7 +48,8 @@ __all__ = [
     "INPUT_ANALOG",
     "INPUT_PULLUP",
     "PWM_SERVO",
-    "ULTRASONIC"
+    "TIMER",
+    "UltrasonicSensor",
     "MARKER",
     "BASE_MARKER",
     "ARENA_MARKER",
