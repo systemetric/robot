@@ -177,13 +177,13 @@ class Camera(abc.ABC):
 
 
 def pi_cam_capture(cam, capture, lock, img_queue):
-    while True:
-        raw = self._pi_camera.capture_array()
-        if (self._pi_camera.camera_properties['Model'] == 'imx219'):
+    while not cam._thread_stopping:
+        raw = cam._pi_camera.capture_array()
+        if (cam._pi_camera.camera_properties['Model'] == 'imx219'):
             # because the only size scaled in the camera 2.1 is huge
             # read the big size and then scale in software
             # otherwise the 2.1 camera gives a terrible FOV
-            img=cv2.resize(raw, self._resultant_resolution)
+            img=cv2.resize(raw, cam._resultant_resolution)
         else:
             # other cameras give more scaled outputs, so use them directly
             img=raw
@@ -193,7 +193,7 @@ def pi_cam_capture(cam, capture, lock, img_queue):
         capture.timestamp = time.perf_counter()
         lock.release()
         img_queue.append(img)
-        time.sleep(0.001)
+        time.sleep(0.05)
 
 
 def prepare_for_stream(img_queue):
@@ -211,6 +211,9 @@ class RoboConPiCamera(Camera):
     the robocon classes"""
 
     def __init__(self, start_res=(640, 480), focal_lengths=None):
+        self.latest_capture = Capture()
+        self.lock = threading.Lock()
+        self.queue = []
         os.environ["LIBCAMERA_LOG_LEVELS"] = "3"
         picamera2.Picamera2.set_logging(picamera2.Picamera2.ERROR)
         self._pi_camera = picamera2.Picamera2()
@@ -237,21 +240,31 @@ class RoboConPiCamera(Camera):
                               else focal_lengths)
         else:
            print ("unknown camera: " + self._pi_camera.camera_properties)
+        
+        self._thread = None
+        self._thread_stopping = True
 
         self._pi_camera.set_logging(picamera2.Picamera2.ERROR)
         self._resultant_resolution = None
         self.res = start_res
         self._pi_camera.start()
         self._update_camera_params(self.focal_lengths)
-        self.latest_capture = Capture()
-        self.lock = threading.Lock()
-        self.queue = []
-        self.thread = threading.Thread(target=functools.partial(pi_cam_capture, self._pi_camera, self.latest_capture,
-                                                                self.lock, self.queue))
-        self.thread.start()
+        self._start_thread()
 
         self.stream_thread = threading.Thread(target=functools.partial(prepare_for_stream, self.queue))
         self.stream_thread.start()
+
+    def _start_thread(self):
+        if self._thread_stopping:
+            self._thread_stopping = False
+            self._thread = threading.Thread(target=functools.partial(pi_cam_capture, self, self.latest_capture,
+                                                                    self.lock, self.queue))
+            self._thread.start() 
+
+    def _stop_thread(self):
+        if self._thread:
+            self._thread_stopping = True
+            self._thread.join()
 
     @property
     def res(self):
@@ -261,6 +274,7 @@ class RoboConPiCamera(Camera):
     @res.setter
     def res(self, new_res: tuple):
         if new_res != self._resultant_resolution:
+            self._stop_thread()
             if self.camera_model == 'imx219':
                 if new_res not in PI_2_1_CAMERA_RES_MAP:
                     raise Exception(f"Invalid resolution, please pick from {tuple(PI_2_1_CAMERA_RES_MAP.keys())}")
@@ -272,6 +286,7 @@ class RoboConPiCamera(Camera):
                 self._pi_camera.configure(self._camera_config)
             self._resultant_resolution = new_res
             self._update_camera_params(self.focal_lengths)
+            self._start_thread()
 
     def capture(self):
         # TODO Make this return the YUV capture
@@ -291,6 +306,7 @@ class RoboConPiCamera(Camera):
 
     def close(self):
         """Prevent the picamera leaking GPU memory"""
+        self._stop_thread()
         self._pi_camera.close()
 
 def usb_cam_capture(cam, capture, lock, img_queue):
