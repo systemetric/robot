@@ -630,6 +630,7 @@ class Vision():
                                              estimate_tag_pose=True,
                                              camera_params=self.camera.params)
 
+        detections = list(filter(lambda x: x is not None, detections))
         self._send_to_post_process(capture, detections)
 
         markers = self._generate_marker_properties(detections)
