@@ -188,8 +188,8 @@ def pi_cam_capture(cam, capture, lock, img_queue):
             # other cameras give more scaled outputs, so use them directly
             img=raw
         lock.acquire()
-        capture.colour = img
-        capture.grey = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        capture.colour = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        capture.grey = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
         capture.timestamp = time.perf_counter()
         lock.release()
         img_queue.append(img)
