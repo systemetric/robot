@@ -569,7 +569,6 @@ def detect_markers(camera, at_detector, detections, lock):
                                     camera_params=camera.params)
         # print(time.perf_counter() - capture.timestamp, "marker")
         # print(time.perf_counter() - s)
-        output = list(filter(lambda x: x is not None, output))
         lock.acquire()
         detections.output = output
         detections.frame = capture.colour
@@ -650,7 +649,7 @@ class Vision():
         capture = self.detections.frame
         timestamp = self.detections.timestamp
         self.lock.release()
-        while timestamp is not None and timestamp < start_timestamp:
+        while (timestamp is None) or (timestamp < start_timestamp):
             self.lock.acquire()
             detections = self.detections.output
             capture = self.detections.frame
