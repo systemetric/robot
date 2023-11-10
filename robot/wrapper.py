@@ -161,7 +161,7 @@ class Robot():
         if self._gg_version > 13:
             self._warnings.append(
                 "Pilow version not 13 but instead {}".format(self._gg_version))
-        elif self._gg_version != 13:
+        elif (self._gg_version != 13) and (self._gg_version != 11):
             raise Exception("Outdated firmware version, please return to RoboCon")
 
         camera_type_str = "Camera:            {}".format(
@@ -293,6 +293,7 @@ class Robot():
         start_info = self._get_start_info()
 
         _logger.info("Robot started!\n")
+        self.camera._start_thread()
 
         return start_info["zone"]
 

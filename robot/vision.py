@@ -249,7 +249,6 @@ class RoboConPiCamera(Camera):
         self.res = start_res
         self._pi_camera.start()
         self._update_camera_params(self.focal_lengths)
-        self._start_thread()
 
         self.stream_thread = threading.Thread(target=functools.partial(prepare_for_stream, self.queue))
         self.stream_thread.start()
@@ -274,7 +273,9 @@ class RoboConPiCamera(Camera):
     @res.setter
     def res(self, new_res: tuple):
         if new_res != self._resultant_resolution:
-            self._stop_thread()
+            thread_running = not self._thread_stopping
+            if thread_running:
+                self._stop_thread()
             if self.camera_model == 'imx219':
                 if new_res not in PI_2_1_CAMERA_RES_MAP:
                     raise Exception(f"Invalid resolution, please pick from {tuple(PI_2_1_CAMERA_RES_MAP.keys())}")
@@ -286,7 +287,8 @@ class RoboConPiCamera(Camera):
                 self._pi_camera.configure(self._camera_config)
             self._resultant_resolution = new_res
             self._update_camera_params(self.focal_lengths)
-            self._start_thread()
+            if thread_running:
+                self._start_thread()
 
     def capture(self):
         # TODO Make this return the YUV capture
