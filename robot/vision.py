@@ -567,6 +567,7 @@ def detect_markers(camera, at_detector, detections, lock):
                                     camera_params=camera.params)
         # print(time.perf_counter() - capture.timestamp, "marker")
         # print(time.perf_counter() - s)
+        output = list(filter(lambda x: x is not None, output))
         lock.acquire()
         detections.output = output
         detections.frame = capture.colour
@@ -625,17 +626,6 @@ class Vision():
             detections.append(Marker(info, tag))
 
         return detections
-
-        detections = self.at_detector.detect(capture.grey_frame,
-                                             estimate_tag_pose=True,
-                                             camera_params=self.camera.params)
-
-        detections = list(filter(lambda x: x is not None, detections))
-        self._send_to_post_process(capture, detections)
-
-        markers = self._generate_marker_properties(detections)
-
-        return markers
 
     def _send_to_post_process(self, capture, detections):
         """Places data on the post processor queue with error handling"""
