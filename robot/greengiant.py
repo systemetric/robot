@@ -181,6 +181,7 @@ class GreenGiantInternal():
         self._bus = bus
         self._version = self.get_version()
         self.enabled_12v = False
+        self.enabled_5v = False
         self.set_motor_power(self.enabled_12v)
 
     def enable_motors(self,new_state):
@@ -222,6 +223,7 @@ class GreenGiantInternal():
             # for GG this is always on, perhaps we should IOerror, for now just ignore
             # this is likely only ever used internally
             self._bus.write_byte_data(_GG_I2C_ADDR, _GG_ENABLE_5V_ACC, int(new_state))
+            self.enabled_5v = new_state
 
 
 
