@@ -180,13 +180,13 @@ class GreenGiantInternal():
     def __init__(self, bus):
         self._bus = bus
         self._version = self.get_version()
-        self.enabled_12v = False
-        self.set_motor_power(self.enabled_12v)
+        self.enabled_motors = False
+        self.set_motor_power(self.enabled_motors)
 
     def enable_motors(self,new_state):
         if self._version < 10:
             self._bus.write_byte_data(_GG_I2C_ADDR, _GG_ENABLE_MOTORS, int(new_state))
-            self.enabled_12v = new_state
+            self.enabled_motors = new_state
             # Up to and including GreenGiant v3 there is no way of reading the state of 
             # the 12v rail. This is more than a software change because to be useful
             # we would have to monitor the output of the high side switch
@@ -199,7 +199,7 @@ class GreenGiantInternal():
         For GG the 12v accessory power is also switched this way"""
         if self._version < 10:
             self._bus.write_byte_data(_GG_I2C_ADDR, _GG_ENABLE_MOTORS, int(new_state))
-            self.enabled_12v = new_state
+            self.enabled_motors = new_state
             # Up to and including GreenGiant v3 there is no way of reading the state of 
             # the 12v rail. This is more than a software change because to be useful
             # we would have to monitor the output of the high side switch
@@ -210,19 +210,37 @@ class GreenGiantInternal():
        if self._version < 10:
             # for GG, this is the same as the motor power above
             self._bus.write_byte_data(_GG_I2C_ADDR, _GG_ENABLE_MOTORS, int(new_state))
-            self.enabled_12v = new_state
+            self.enabled_motors = new_state
             # Up to and including GreenGiant v3 there is no way of reading the state of 
             # the 12v rail. This is more than a software change because to be useful
             # we would have to monitor the output of the high side switch
        else:
+            self.enabled_motors = new_state # Bug in PiLow firmware v11 and below
             self._bus.write_byte_data(_GG_I2C_ADDR, _GG_ENABLE_12V_ACC, int(new_state))
+    
+    def get_12v_acc_power(self):
+        if self._version <= 12:
+            # for GG, this is the same as the motor power above
+            return self.enabled_motors
+            # Up to and including GreenGiant v3 there is no way of reading the state of 
+            # the 12v rail. This is more than a software change because to be useful
+            # we would have to monitor the output of the high side switch
+        else:
+            return self._bus.read_byte_data(_GG_I2C_ADDR, _GG_ENABLE_12V_ACC)
 
     def set_5v_acc_power(self, new_state):
-       if self._version >= 10:
-            # for GG this is always on, perhaps we should IOerror, for now just ignore
-            # this is likely only ever used internally
+        if self._version >= 10:
             self._bus.write_byte_data(_GG_I2C_ADDR, _GG_ENABLE_5V_ACC, int(new_state))
+        else:
+            # for GG versions 5v power is always enabled
+            raise IOError(f"Attempted to set 5v power to {new_state} on an unsupported BrainBox.")
 
+    def get_5v_acc_power(self):
+        if self._version >= 10:
+            return bool(self._bus.read_byte_data(_GG_I2C_ADDR, _GG_ENABLE_5V_ACC))
+        else:
+            # for GG versions 5v power is always enabled
+            raise IOError(f"Attempted to get 5v powe on an unsupported BrainBox.")
 
 
     def set_user_led(self, on):

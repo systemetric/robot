@@ -89,7 +89,6 @@ class Robot():
 
         self.subsystem_init(camera, start_enable_12v, start_enable_5v)
         self.report_hardware_status()
-        self.enable_12v = True
         type(self)._initialised = True
 
         # Allows for the robot object to be set up and mutated before being set
@@ -117,8 +116,8 @@ class Robot():
         if self._gg_version >= 10:
             # enable power rails
             self._green_giant.set_motor_power(True)
-            self._green_giant.set_12v_acc_power(start_enable_12v)    # Not sure, should this be controlled by user?
-            self._green_giant.set_5v_acc_power(start_enable_5v)
+            self.enable_12v = start_enable_12v
+            self.enable_5v = start_enable_5v
             self._adc_max = 5
             # configure User IO Ports
             self.servos = GreenGiantGPIOPinList(self.bus, self._gg_version, self._adc_max, _GG_SERVO_GPIO_BASE, _GG_SERVO_PWM_BASE)
@@ -217,7 +216,7 @@ class Robot():
         
     @property
     def enable_12v(self):
-        return self._green_giant.enabled_12v
+        return self._green_giant.get_12v_acc_power()
 
     @enable_12v.setter
     def enable_12v(self, on):
@@ -225,7 +224,7 @@ class Robot():
 
     @property
     def enable_5v(self):
-        return self._green_giant.enabled_5v
+        return self._green_giant.get_5v_acc_power()
     
     @enable_5v.setter
     def enable_5v(self, on):
