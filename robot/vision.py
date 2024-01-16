@@ -215,10 +215,12 @@ class RoboConPiCamera(Camera):
     @res.setter
     def res(self, new_res: tuple):
         if new_res is not self._pi_camera_resolution:
+            self._pi_camera.stop()
             self._pi_camera.create_still_configuration(main={"size": new_res})
             self._pi_camera_resolution = new_res
             self._pi_camera.configure(self._camera_config)
             self._update_camera_params(self.focal_lengths)
+            self._pi_camera.start()
 
     def capture(self):
         # TODO Make this return the YUV capture
