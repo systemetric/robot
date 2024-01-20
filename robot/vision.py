@@ -170,7 +170,7 @@ class RoboConPiCamera(Camera):
     """A wrapper for the PiCamera class providing the methods which are used by
     the robocon classes"""
 
-    def __init__(self, start_res=(1296, 736), focal_lengths=None):
+    def __init__(self, start_res=None, focal_lengths=None):
         os.environ["LIBCAMERA_LOG_LEVELS"] = "3"
         picamera2.Picamera2.set_logging(picamera2.Picamera2.ERROR)
         self._pi_camera = picamera2.Picamera2()
@@ -178,26 +178,35 @@ class RoboConPiCamera(Camera):
         self.camera_model = self._pi_camera.camera_properties['Model'] 
 
         if self.camera_model == 'ov9281':
-           # Global Shutter Camera
-           start_res=(1280,800) 
-           self.focal_lengths = (ARDUCAM_GLOBAL_SHUTTER_FOCAL_LENGTHS
-                              if focal_lengths is None
-                              else focal_lengths)
+            # Global Shutter Camera
+            self.focal_lengths = (ARDUCAM_GLOBAL_SHUTTER_FOCAL_LENGTHS
+                                if focal_lengths is None
+                                else focal_lengths)
+            if start_res == None:
+                start_res=(1280,800)
+            elif start_res not in self.focal_lengths:
+                raise "Invalid resolution for camera."
         elif self.camera_model == 'imx219':
-           # PI cam version 2.1 
-           # Warning: only full res and 1640x1232  are full image (scaled), everything else seems full-res and cropped, reducing FOV
-           start_res=(1640,1232)
-           self.focal_lengths = (PI_2_1_CAMERA_FOCAL_LENGTHS
-                              if focal_lengths is None
-                              else focal_lengths)
+            # PI cam version 2.1 
+            # Warning: only full res and 1640x1232  are full image (scaled), everything else seems full-res and cropped, reducing FOV
+            self.focal_lengths = (PI_2_1_CAMERA_FOCAL_LENGTHS
+                                if focal_lengths is None
+                                else focal_lengths)
+            if start_res == None:
+                start_res=(1640,1232)
+            elif start_res not in self.focal_lengths:
+                raise "Invalid resolution for camera."
         elif self.camera_model == 'ov5647':
-           # clone pi cameras and zerocam
-           start_res=(1296, 972)
-           self.focal_lengths = (PI_1_3_CAMERA_FOCAL_LENGTHS
-                              if focal_lengths is None
-                              else focal_lengths)
+            # clone pi cameras and zerocam
+            self.focal_lengths = (PI_1_3_CAMERA_FOCAL_LENGTHS
+                                if focal_lengths is None
+                                else focal_lengths)
+            if start_res == None:
+                start_res=(1296, 972)
+            elif start_res not in self.focal_lengths:
+                raise "Invalid resolution for camera." 
         else:
-           print ("unknown camera: " + self._pi_camera.camera_properties)
+            print ("unknown camera: " + self._pi_camera.camera_properties)
 
         self._pi_camera.set_logging(picamera2.Picamera2.ERROR)
         self._pi_camera_resolution = start_res  ## we store this - WHY?
@@ -216,10 +225,11 @@ class RoboConPiCamera(Camera):
     def res(self, new_res: tuple):
         if new_res is not self._pi_camera_resolution:
             self._pi_camera.stop()
-            self._pi_camera.create_still_configuration(main={"size": new_res})
+            #self._pi_camera.create_still_configuration(main={"size": new_res, "format":"RGB888"})
+            self._camera_config = self._pi_camera.create_still_configuration(main={"size": new_res,"format":'RGB888'})
             self._pi_camera_resolution = new_res
             self._pi_camera.configure(self._camera_config)
-            self._update_camera_params(self.focal_lengths)
+            #self._update_camera_params(self.focal_lengths)
             self._pi_camera.start()
 
     def capture(self):
@@ -266,14 +276,23 @@ class RoboConUSBCamera(Camera):
     @res.setter
     def res(self, new_res):
         if new_res is not self._res:
-            cv_property_ids = (cv2.CV_CAP_PROP_FRAME_WIDTH,
-                               cv2.CV_CAP_PROP_FRAME_HEIGHT)
+            '''cv_property_ids = (cv2.CAP_PROP_FRAME_WIDTH,
+                               cv2.CAP_PROP_FRAME_HEIGHT)
 
             for new, property_id in zip(new_res, cv_property_ids):
                 self._cv_capture.set(property_id, new)
-                actual = self._cv_capture.get(property_id, new)
+                actual = self._cv_capture.get(property_id)
                 assert actual == new, (f"Failed to set USB res, expected {new} "
-                                       f"but got {actual}")
+                                       f"but got {actual}")'''
+
+            self._cv_capture.set(cv2.CAP_PROP_FRAME_WIDTH, new_res[0])
+            self._cv_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, new_res[1])
+            actual = self._cv_capture.get(cv2.CAP_PROP_FRAME_WIDTH)
+            assert actual == new_res[0], (f"Failed to set USB res, expected {new_res[0]} "
+                                    f"but got {actual}")
+            actual = self._cv_capture.get(cv2.CAP_PROP_FRAME_HEIGHT)
+            assert actual == new_res[1], (f"Failed to set USB res, expected {new_res[1]} "
+                                    f"but got {actual}")
 
             self._res = new_res
             self._update_camera_params(self.focal_lengths)
