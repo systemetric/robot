@@ -229,8 +229,8 @@ class RoboConPiCamera(Camera):
             self._camera_config = self._pi_camera.create_still_configuration(main={"size": new_res,"format":'RGB888'})
             self._pi_camera_resolution = new_res
             self._pi_camera.configure(self._camera_config)
-            #self._update_camera_params(self.focal_lengths)
             self._pi_camera.start()
+            self._update_camera_params(self.focal_lengths)
 
     def capture(self):
         # TODO Make this return the YUV capture
