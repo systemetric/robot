@@ -175,7 +175,7 @@ class RoboConPiCamera(Camera):
         picamera2.Picamera2.set_logging(picamera2.Picamera2.ERROR)
         self._pi_camera = picamera2.Picamera2()
         # should test if the camera exists here, and give a nice warning
-        self.camera_model = self._pi_camera.camera_properties['Model'] 
+        self.camera_model = self._pi_camera.camera_properties['Model']
 
         if self.camera_model == 'ov9281':
             # Global Shutter Camera
@@ -187,7 +187,7 @@ class RoboConPiCamera(Camera):
             elif start_res not in self.focal_lengths:
                 raise "Invalid resolution for camera."
         elif self.camera_model == 'imx219':
-            # PI cam version 2.1 
+            # PI cam version 2.1
             # Warning: only full res and 1640x1232  are full image (scaled), everything else seems full-res and cropped, reducing FOV
             self.focal_lengths = (PI_2_1_CAMERA_FOCAL_LENGTHS
                                 if focal_lengths is None
@@ -204,7 +204,7 @@ class RoboConPiCamera(Camera):
             if start_res == None:
                 start_res=(1296, 972)
             elif start_res not in self.focal_lengths:
-                raise "Invalid resolution for camera." 
+                raise "Invalid resolution for camera."
         else:
             print ("unknown camera: " + self._pi_camera.camera_properties)
 
@@ -219,7 +219,7 @@ class RoboConPiCamera(Camera):
     @property
     def res(self):
         #can we read this from camera?
-        return self._pi_camera_resolution 
+        return self._pi_camera_resolution
 
     @res.setter
     def res(self, new_res: tuple):
