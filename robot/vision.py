@@ -109,7 +109,7 @@ PI_2_1_CAMERA_FOCAL_LENGTHS = {
     (1296, 976): (821, 821),
     (1920, 1088): (2076, 2076),
     (1920, 1440): (1198, 1198),
-    (1640, 1232): (1016.7,1016.7)
+    (1640, 1232): (1016.7, 1016.7)
 }
 
 PI_1_3_CAMERA_FOCAL_LENGTHS = {
@@ -121,7 +121,7 @@ PI_1_3_CAMERA_FOCAL_LENGTHS = {
 
 
 ARDUCAM_GLOBAL_SHUTTER_FOCAL_LENGTHS = {
-    (640,480):   (380.5, 380.5),
+    (640, 480):   (380.5, 380.5),
     (1280, 720): (618, 618),
     (1280, 800): (618, 618)
 }
@@ -180,37 +180,38 @@ class RoboConPiCamera(Camera):
         if self.camera_model == 'ov9281':
             # Global Shutter Camera
             self.focal_lengths = (ARDUCAM_GLOBAL_SHUTTER_FOCAL_LENGTHS
-                                if focal_lengths is None
-                                else focal_lengths)
+                                  if focal_lengths is None
+                                  else focal_lengths)
             if start_res == None:
-                start_res=(1280,800)
+                start_res = (1280, 800)
             elif start_res not in self.focal_lengths:
                 raise "Invalid resolution for camera."
         elif self.camera_model == 'imx219':
             # PI cam version 2.1
             # Warning: only full res and 1640x1232  are full image (scaled), everything else seems full-res and cropped, reducing FOV
             self.focal_lengths = (PI_2_1_CAMERA_FOCAL_LENGTHS
-                                if focal_lengths is None
-                                else focal_lengths)
+                                  if focal_lengths is None
+                                  else focal_lengths)
             if start_res == None:
-                start_res=(1640,1232)
+                start_res = (1640, 1232)
             elif start_res not in self.focal_lengths:
                 raise "Invalid resolution for camera."
         elif self.camera_model == 'ov5647':
             # clone pi cameras and zerocam
             self.focal_lengths = (PI_1_3_CAMERA_FOCAL_LENGTHS
-                                if focal_lengths is None
-                                else focal_lengths)
+                                  if focal_lengths is None
+                                  else focal_lengths)
             if start_res == None:
-                start_res=(1296, 972)
+                start_res = (1296, 972)
             elif start_res not in self.focal_lengths:
                 raise "Invalid resolution for camera."
         else:
-            print ("unknown camera: " + self._pi_camera.camera_properties)
+            print("unknown camera: " + self._pi_camera.camera_properties)
 
         self._pi_camera.set_logging(picamera2.Picamera2.ERROR)
-        self._pi_camera_resolution = start_res  ## we store this - WHY?
-        self._camera_config = self._pi_camera.create_still_configuration(main={"size": start_res,"format":'RGB888'})
+        self._pi_camera_resolution = start_res  # we store this - WHY?
+        self._camera_config = self._pi_camera.create_still_configuration(
+            main={"size": start_res, "format": 'RGB888'})
         self._pi_camera.configure(self._camera_config)
 
         self._pi_camera.start()
@@ -218,15 +219,15 @@ class RoboConPiCamera(Camera):
 
     @property
     def res(self):
-        #can we read this from camera?
+        # can we read this from camera?
         return self._pi_camera_resolution
 
     @res.setter
     def res(self, new_res: tuple):
         if new_res is not self._pi_camera_resolution:
             self._pi_camera.stop()
-            #self._pi_camera.create_still_configuration(main={"size": new_res, "format":"RGB888"})
-            self._camera_config = self._pi_camera.create_still_configuration(main={"size": new_res,"format":'RGB888'})
+            self._camera_config = self._pi_camera.create_still_configuration(
+                main={"size": new_res, "format": 'RGB888'})
             self._pi_camera_resolution = new_res
             self._pi_camera.configure(self._camera_config)
             self._pi_camera.start()
@@ -240,10 +241,10 @@ class RoboConPiCamera(Camera):
             # because the only size scaled in the camera 2.1 is huge
             # read the big size and then scale in software
             # otherwise the 2.1 camera gives a terrible FOV
-            colour_frame=cv2.resize(raw, (1280,800))
+            colour_frame = cv2.resize(raw, (1280, 800))
         else:
             # other cameras give more scaled outputs, so use them directly
-            colour_frame=raw
+            colour_frame = raw
         grey_frame = cv2.cvtColor(colour_frame, cv2.COLOR_BGR2GRAY)
 
         return Capture(grey_frame=grey_frame,
@@ -289,10 +290,10 @@ class RoboConUSBCamera(Camera):
             self._cv_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, new_res[1])
             actual = self._cv_capture.get(cv2.CAP_PROP_FRAME_WIDTH)
             assert actual == new_res[0], (f"Failed to set USB res, expected {new_res[0]} "
-                                    f"but got {actual}")
+                                          f"but got {actual}")
             actual = self._cv_capture.get(cv2.CAP_PROP_FRAME_HEIGHT)
             assert actual == new_res[1], (f"Failed to set USB res, expected {new_res[1]} "
-                                    f"but got {actual}")
+                                          f"but got {actual}")
 
             self._res = new_res
             self._update_camera_params(self.focal_lengths)
