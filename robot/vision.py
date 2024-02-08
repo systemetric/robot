@@ -277,15 +277,6 @@ class RoboConUSBCamera(Camera):
     @res.setter
     def res(self, new_res):
         if new_res is not self._res:
-            '''cv_property_ids = (cv2.CAP_PROP_FRAME_WIDTH,
-                               cv2.CAP_PROP_FRAME_HEIGHT)
-
-            for new, property_id in zip(new_res, cv_property_ids):
-                self._cv_capture.set(property_id, new)
-                actual = self._cv_capture.get(property_id)
-                assert actual == new, (f"Failed to set USB res, expected {new} "
-                                       f"but got {actual}")'''
-
             self._cv_capture.set(cv2.CAP_PROP_FRAME_WIDTH, new_res[0])
             self._cv_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, new_res[1])
             actual = self._cv_capture.get(cv2.CAP_PROP_FRAME_WIDTH)
