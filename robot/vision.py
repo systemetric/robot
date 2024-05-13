@@ -373,17 +373,15 @@ class PostProcessor(threading.Thread):
             integer_corners = detection.corners.astype(np.int32)
 
             if (marker_info.owning_team == self.zone):
-                cv2.polylines(frame,
-                              [integer_corners],
-                              polygon_is_closed,
-                              colour,
-                              thickness=self._bounding_box_thickness*3)
+                bounding_box_thickness = self._bounding_box_thickness*3
             else:
-                cv2.polylines(frame,
-                              [integer_corners],
-                              polygon_is_closed,
-                              colour,
-                              thickness=self._bounding_box_thickness)
+                bounding_box_thickness = self._bounding_box_thickness
+
+            cv2.polylines(frame,
+                            [integer_corners],
+                            polygon_is_closed,
+                            colour,
+                            thickness=bounding_box_thickness)
 
         return frame
 
