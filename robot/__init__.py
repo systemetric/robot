@@ -25,7 +25,7 @@ import robot.log
 from robot.wrapper import Robot, NoCameraPresent
 from robot.greengiant import OUTPUT, INPUT, INPUT_ANALOG, INPUT_PULLUP, PWM_SERVO
 from robot.vision import RoboConUSBCamera
-from robot.marker_setup import (
+from robot.game_config import (
     MARKER,
     BASE_MARKER,
     ARENA_MARKER,
@@ -33,6 +33,7 @@ from robot.marker_setup import (
     MARKER_TYPE,
     TEAM
 )
+
 
 MINIUM_VERSION = (3, 6)
 if sys.version_info <= MINIUM_VERSION:

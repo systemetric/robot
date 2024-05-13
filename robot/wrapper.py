@@ -20,9 +20,9 @@ from smbus2 import SMBus
 from robot import vision
 from robot.cytron import CytronBoard
 from robot.greengiant import GreenGiantInternal, GreenGiantGPIOPinList, GreenGiantMotors, _GG_SERVO_PWM_BASE, _GG_GPIO_PWM_BASE, _GG_GPIO_GPIO_BASE, _GG_SERVO_GPIO_BASE
-from robot.marker_setup.teams import TEAM
-from . import marker_setup
-from robot.marker_setup import POEM_ON_STARTUP
+from robot.game_config import TEAM
+from . import game_config
+from robot.game_config import POEM_ON_STARTUP
 
 _logger = logging.getLogger("robot")
 
@@ -67,7 +67,7 @@ class Robot():
                  start_enable_5v = True,
                  ):
 
-        self.zone = marker_setup.TEAM.RUSSET
+        self.zone = game_config.TEAM.RUSSET
         self.mode = "competition"
         self._max_motor_voltage = max_motor_voltage
 
@@ -169,7 +169,7 @@ class Robot():
 
         # print report of hardware
         _logger.info("------HARDWARE REPORT------")
-        #_logger.info("Time:   %s", datetime.now().strftime('%Y-%m-%d %H:%M:%S')) 
+        #_logger.info("Time:   %s", datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
         # no RTC on new boards, perhaps use a "run number" increment instead?
         _logger.info("Patch Version:     ")
         _logger.info(battery_str)
@@ -199,7 +199,7 @@ class Robot():
 
         For the PiLow series the Motors have both a power control and a enable. Generally
         the Power should not be switched on and off, just the enable bits. The power may
-        be tripped in extreame circumstances. I guess that here we want to report any 
+        be tripped in extreame circumstances. I guess that here we want to report any
         reason for  the motors not working, which includes power and enable
 
         """
@@ -213,7 +213,7 @@ class Robot():
         """An nice alias for set_12v"""
         if self._version < 10:
             return self._green_giant.enable_motors(on)
-        
+
     @property
     def enable_12v(self):
         return self._green_giant.get_12v_acc_power()
@@ -225,7 +225,7 @@ class Robot():
     @property
     def enable_5v(self):
         return self._green_giant.get_5v_acc_power()
-    
+
     @enable_5v.setter
     def enable_5v(self, on):
         self._green_giant.set_5v_acc_power(on)
@@ -311,10 +311,10 @@ class Robot():
     def set_user_led(self, val=True):
        self._green_giant.set_user_led(val)
 
-    def see(self) -> vision.Detections:
+    def see(self, look_for=None) -> vision.Detections:
         """Take a photo, detect markers in sene, attach RoboCon specific
         properties"""
-        return self._vision.detect_markers()
+        return self._vision.detect_markers(look_for=look_for)
 
     def __del__(self):
         """Frees hardware resources held by the vision object"""

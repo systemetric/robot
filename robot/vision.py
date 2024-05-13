@@ -7,11 +7,13 @@ import os
 import threading
 import queue
 
+from collections.abc import Iterable
 from datetime import datetime
 from typing import NamedTuple, Any
 
-from robot.marker_setup.markers import MARKER
-from .marker_setup import BASE_MARKER as MarkerInfo
+
+from robot.game_config import MARKER, WHITE
+from .game_config import BASE_MARKER as MarkerInfo
 
 import cv2
 import numpy as np
@@ -77,15 +79,6 @@ class Capture(NamedTuple):
 _AT_PATH = "/usr/local"
 _USB_IMAGES_PATH = "/media/RobotUSB/collect_images.txt"
 _USB_LOGS_PATH = "/media/RobotUSB/log_markers.txt"
-
-# Colours are in the format BGR
-PURPLE = (255, 0, 215)  # Purple
-ORANGE = (0, 128, 255)  # Orange
-YELLOW = (0, 255, 255)  # Yellow
-GREEN = (0, 255, 0)  # Green
-RED = (0, 0, 255)  # Red
-BLUE = (255, 0, 0)  # Blue
-WHITE = (255, 255, 255)  # White
 
 # MARKER_: Marker Data Types
 # MARKER_TYPE_: Marker Types
@@ -188,7 +181,8 @@ class RoboConPiCamera(Camera):
                 raise "Invalid resolution for camera."
         elif self.camera_model == 'imx219':
             # PI cam version 2.1
-            # Warning: only full res and 1640x1232  are full image (scaled), everything else seems full-res and cropped, reducing FOV
+            # Warning: only full res and 1640x1232  are full image (scaled),
+            # everything else seems full-res and cropped, reducing FOV
             self.focal_lengths = (PI_2_1_CAMERA_FOCAL_LENGTHS
                                   if focal_lengths is None
                                   else focal_lengths)
@@ -365,12 +359,14 @@ class PostProcessor(threading.Thread):
         """
         polygon_is_closed = True
         for detection in detections:
-            marker_info = MARKER.by_id(detection.id, self.zone)
+            marker_info = MARKER(detection.id, self.zone)
             marker_info_colour = marker_info.bounding_box_color
             marker_code = detection.id
-            colour = (marker_info_colour
-                      if marker_info_colour is not None
-                      else DEFAULT_BOUNDING_BOX_COLOUR)
+
+            # The reverse is because OpenCV expects BGR but we use RGB
+            colour = reversed(marker_info_colour
+                              if marker_info_colour is not None
+                              else DEFAULT_BOUNDING_BOX_COLOUR)
 
             # need to have this EXACT integer_corners syntax due to opencv bug
             # https://stackoverflow.com/questions/17241830/
@@ -471,7 +467,7 @@ class Vision():
         detections = Detections()
 
         for tag in tags:
-            info = MARKER.by_id(int(tag.id), self.zone)
+            info = MARKER(int(tag.id), self.zone)
             detections.append(Marker(info, tag))
 
         return detections
@@ -484,12 +480,24 @@ class Vision():
         except queue.Full:
             logging.warning("Skipping postprocessing as queue is full")
 
-    def detect_markers(self):
+    def _filter_markers(self, markers, look_for_type):
+        """Ducktype filtering of markers based on type or code or list of both"""
+        if look_for_type is not None:
+            if isinstance(look_for_type, Iterable):
+                markers = filter(lambda m: m.code in look_for_type
+                                        or m.type in look_for_type, markers)
+            else:
+                markers = filter(lambda m: m.code == look_for_type
+                                        or m.type == look_for_type, markers)
+        return markers
+
+    def detect_markers(self, look_for=None):
         """Returns the markers the robot can see:
             - Gets a frame
             - Finds the markers
             - Appends RoboCon specific properties, e.g. token or arena
             - Sends off for post processing
+            - Filters and sorts the markers
         """
         capture = self.camera.capture()
 
@@ -500,5 +508,7 @@ class Vision():
         self._send_to_post_process(capture, detections)
 
         markers = self._generate_marker_properties(detections)
+        markers = self._filter_markers(markers, look_for)
+        markers = sorted(markers, key=lambda m: m.dist)
 
         return markers
