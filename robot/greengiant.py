@@ -240,7 +240,7 @@ class GreenGiantInternal():
             return bool(self._bus.read_byte_data(_GG_I2C_ADDR, _GG_ENABLE_5V_ACC))
         else:
             # for GG versions 5v power is always enabled
-            raise IOError(f"Attempted to get 5v powe on an unsupported BrainBox.")
+            raise IOError(f"Attempted to get 5v power on an unsupported BrainBox.")
 
 
     def set_user_led(self, on):
