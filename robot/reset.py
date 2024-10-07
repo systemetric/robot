@@ -30,12 +30,8 @@ def reset():
         gg.GreenGiantGPIOPinList(bus, version, 5, gg._GG_SERVO_GPIO_BASE, gg._GG_SERVO_PWM_BASE).off()
         gg.GreenGiantGPIOPinList(bus, version, 5, gg._GG_GPIO_GPIO_BASE, gg._GG_GPIO_PWM_BASE).off()
 
-    # probably should wrap this all up in a .off()
     internal = gg.GreenGiantInternal(bus)
-    internal.enable_motors(False)
-    #internal.set_motor_power(False)
-    internal.set_12v_acc_power(False)    # Not sure, should this be controlled by user?
-    internal.set_5v_acc_power(False)
-    internal.set_user_led(False)
+    # Disable motors, LED, 12v and 5v power
+    internal.all_off();
 
     bus.close()

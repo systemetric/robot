@@ -11,8 +11,7 @@ from collections.abc import Iterable
 from datetime import datetime
 from typing import NamedTuple, Any
 
-
-from robot.game_config import MARKER, WHITE
+from robot.game_config import MARKER
 from .game_config import BASE_MARKER as MarkerInfo
 
 import cv2
@@ -20,7 +19,6 @@ import numpy as np
 import picamera2
 
 import robot.apriltags3 as AT
-
 
 # TODO put all of the paths together
 IMAGE_TO_SHEPHERD_PATH = "/home/pi/shepherd/shepherd/static/image.jpg"
@@ -79,6 +77,15 @@ class Capture(NamedTuple):
 _AT_PATH = "/usr/local"
 _USB_IMAGES_PATH = "/media/RobotUSB/collect_images.txt"
 _USB_LOGS_PATH = "/media/RobotUSB/log_markers.txt"
+
+# Colours are in the format BGR
+PURPLE = (255, 0, 215)  # Purple
+ORANGE = (0, 128, 255)  # Orange
+YELLOW = (0, 255, 255)  # Yellow
+GREEN = (0, 255, 0)  # Green
+RED = (0, 0, 255)  # Red
+BLUE = (255, 0, 0)  # Blue
+WHITE = (255, 255, 255)  # White
 
 # MARKER_: Marker Data Types
 # MARKER_TYPE_: Marker Types

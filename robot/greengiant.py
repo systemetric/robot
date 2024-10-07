@@ -182,6 +182,13 @@ class GreenGiantInternal():
         self._version = self.get_version()
         self.enabled_motors = False
         self.set_motor_power(self.enabled_motors)
+        
+    # Disable motors, LED, 12v and 5v power
+    def all_off(self):
+        internal.enable_motors(False)
+        internal.set_12v_acc_power(False)
+        internal.set_5v_acc_power(False)
+        internal.set_user_led(False)
 
     def enable_motors(self,new_state):
         if self._version < 10:
