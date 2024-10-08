@@ -8,12 +8,13 @@ from .markers import (
     POEM_ON_STARTUP,
 )
 
-PURPLE = (255, 0, 215)  # Purple
-ORANGE = (0, 128, 255)  # Orange
-YELLOW = (0, 255, 255)  # Yellow
+# Colours definitions in RGB
+PURPLE = (215, 0, 255)  # Purple
+ORANGE = (255, 128, 0)  # Orange
+YELLOW = (255, 255, 0)  # Yellow
 GREEN = (0, 255, 0)  # Green
-RED = (0, 0, 255)  # Red
-BLUE = (255, 0, 0)  # Blue
+RED = (255, 0, 0)  # Red
+BLUE = (0, 0, 255)  # Blue
 WHITE = (255, 255, 255)  # White
 
 __all__ = (

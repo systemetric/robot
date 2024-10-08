@@ -435,7 +435,7 @@ class Detector(object):
                 if camera_params is None:
                     raise ValueError(
                         "camera_params must be provided to detect if estimate_tag_pose is set to True")
-                tag_size = MARKER(tag.id).size
+                tag_size = MARKER.by_id(tag.id).size # Changed by Edwin, we have changed it back as confused..? TODO: Needs testing
 
                 camera_fx, camera_fy, camera_cx, camera_cy = [
                     c for c in camera_params]

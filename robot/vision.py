@@ -359,7 +359,7 @@ class PostProcessor(threading.Thread):
         """
         polygon_is_closed = True
         for detection in detections:
-            marker_info = MARKER(detection.id, self.zone)
+            marker_info = MARKER.by_id(detection.id, self.zone)
             marker_info_colour = marker_info.bounding_box_color
             marker_code = detection.id
 
@@ -465,7 +465,7 @@ class Vision():
         detections = Detections()
 
         for tag in tags:
-            info = MARKER(int(tag.id), self.zone)
+            info = MARKER.by_id(int(tag.id), self.zone)
             detections.append(Marker(info, tag))
 
         return detections
