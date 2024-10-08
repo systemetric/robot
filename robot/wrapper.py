@@ -199,7 +199,7 @@ class Robot():
 
         For the PiLow series the Motors have both a power control and a enable. Generally
         the Power should not be switched on and off, just the enable bits. The power may
-        be tripped in extreame circumstances. I guess that here we want to report any
+        be tripped in extreme circumstances. I guess that here we want to report any
         reason for  the motors not working, which includes power and enable
 
         """
