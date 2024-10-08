@@ -5,8 +5,8 @@ from .markers import (
     ARENA_MARKER,
     POTATO_MARKER,
     BASE_MARKER,
-    POEM_ON_STARTUP,
 )
+from .startup_poems import POEM_ON_STARTUP
 
 PURPLE = (255, 0, 215)  # Purple
 ORANGE = (0, 128, 255)  # Orange
