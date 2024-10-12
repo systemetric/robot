@@ -14,6 +14,9 @@ So go nuts! Good luck with your Robocon, and feel free to add your own messages 
 Byee!
  - Holly (2023-2024)
 
+
+Don't know what to say. - Nathan Gill (2024 - 2025)
+No semi-colons please - Scott Wilson (2024 - 2025)
 [Put your future messages here]
 """
 
@@ -24,10 +27,10 @@ class MARKER_TYPE(enum.Enum): # Keep something like this to determine if a marke
 
 class BASE_MARKER: # Base marker class that POTATO_MARKER and ARENA_MARKER derive from.
     team_marker_colors: dict = { # Colour definitions for each team defined in TEAMS
-        TEAM.RUBY: (255, 0, 0), # RED
+        TEAM.RUBY: (0, 0, 255), # RED
         TEAM.JADE: (0, 255, 0), # GREEN
-        TEAM.TOPAZ: (255, 255, 0), # YELLOW
-        TEAM.DIAMOND: (0, 0, 255), # BLUE
+        TEAM.TOPAZ: (0, 255, 255), # YELLOW
+        TEAM.DIAMOND: (255, 0, 0), # BLUE
     }
 
     def __init__(
@@ -48,10 +51,10 @@ class BASE_MARKER: # Base marker class that POTATO_MARKER and ARENA_MARKER deriv
     @property
     def bounding_box_color(self) -> tuple:
         if self.type == MARKER_TYPE.ARENA: # If it is a wall
-            return tuple(reversed((125, 249, 225))) # Turquoise
-        elif self.owning_team==TEAM.ARENA: # If it is a Hot Potato (game object owned by ARENA)
+            return tuple(reversed((225, 249, 125))) # Turquoise
+        elif self.owning_team==TEAM.ARENA: # If it is a Sheep (game object owned by ARENA)
             return tuple(reversed((255,255,255))) # White
-        else: # If it is a Jacket Potato (game object owned by a team.)
+        else: # If it is a Jewel (game object owned by a team.)
             return tuple(reversed(self.team_marker_colors[self.owning_team])) # Picks the team colour from above
 
 class ARENA_MARKER(BASE_MARKER): # Not much going on here. This represents a wall.
@@ -119,22 +122,6 @@ class MARKER(BASE_MARKER): # This is literally just how the code gets the differ
         elif id == 24 or id == 25 or id == 50:
             owning_team = TEAM["T0"]
         else:
-            owning_team = None
-
-#        ARENA_WALL_LOWER_ID = 40
-#        if id >= ARENA_WALL_LOWER_ID:
- #           return ARENA_MARKER(id)
- #       
-  #      wrappingId = id % 20 # Make sure that the ID range wraps after 20 values.
-   #     if wrappingId<4: # If it is a Jacket Potato (has a team)
-    #        owning_team = TEAM[f"T{wrappingId}"] # Set to the corresponding TEAM enum.
-     #   else: # If it is a Hot Potato (Has no team)
-      #      owning_team = TEAM["ARENA"]
+            raise Exception("AHHHHHH!")
 
         return TARGET_MARKER(id, owning_team)
-
-## TESTING ##
-
-#print(f"{MARKER.get_size(0)}, {MARKER.get_size(30)}")
-#for i in range(0, 200):
-#   print(f"ID: {i}, {MARKER.by_id(i)}")
