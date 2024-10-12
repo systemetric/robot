@@ -6,6 +6,8 @@ the value of the Tx matches its team, and is unique - this year I picked the lat
 that the school will be competing as.
 """
 class TEAM(enum.Enum): 
+    
+    ## These easter eggs are locations that the corresponding gems were found (ChatGPT 4o Generated)
     RUBY = "Mogok Valley, Myanmar (Burma)" # This matches T0, for example.
     JADE = "Hetian (Hotan), Xinjiang, China"
     TOPAZ = "St. John's Island (Zabargad Island), Egypt"

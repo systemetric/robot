@@ -1,8 +1,8 @@
 import enum
 import typing
 
-#from .teams import TEAM
-from teams import TEAM
+from .teams import TEAM
+#from teams import TEAM
 
 """
 Hiiii!
@@ -18,16 +18,16 @@ Byee!
 """
 
 class MARKER_TYPE(enum.Enum): # Keep something like this to determine if a marker is a wall or not.
-    POTATO = enum.auto()
+    TARGET = enum.auto()
     ARENA = enum.auto()
 
 
 class BASE_MARKER: # Base marker class that POTATO_MARKER and ARENA_MARKER derive from.
     team_marker_colors: dict = { # Colour definitions for each team defined in TEAMS
-        TEAM.RUSSET: (255, 64, 0), # RED
-        TEAM.SWEET: (255, 255, 32), # YELLOW
-        TEAM.MARIS_PIPER: (50,255,0), # GREEN
-        TEAM.PURPLE: (255, 32, 255), # PURPLE
+        TEAM.RUBY: (255, 0, 0), # RED
+        TEAM.JADE: (0, 255, 0), # GREEN
+        TEAM.TOPAZ: (255, 255, 0), # YELLOW
+        TEAM.DIAMOND: (0, 0, 255), # BLUE
     }
 
     def __init__(
@@ -62,15 +62,15 @@ class ARENA_MARKER(BASE_MARKER): # Not much going on here. This represents a wal
         return f"<Marker(ARENA)/>"
 
 
-class POTATO_MARKER(BASE_MARKER): # This is a game object rather than a wall. Add properties you want to keep track of
+class TARGET_MARKER(BASE_MARKER): # This is a game object rather than a wall. Add properties you want to keep track of
     def __init__(
         self, id: int, owner: TEAM
     ) -> None:
-        super().__init__(id, MARKER_TYPE.POTATO)
+        super().__init__(id, MARKER_TYPE.TARGET)
         self.owning_team = owner
 
     def __repr__(self) -> str:
-        return f"<Marker(POTATO) owning_team={self.owning_team} />"
+        return f"<Marker(TARGET) owning_team={self.owning_team} />"
 
 class MARKER(BASE_MARKER): # This is literally just how the code gets the different marker types.
     @staticmethod
@@ -122,8 +122,4 @@ class MARKER(BASE_MARKER): # This is literally just how the code gets the differ
      #   else: # If it is a Hot Potato (Has no team)
       #      owning_team = TEAM["ARENA"]
 
-        return POTATO_MARKER(id, owning_team)
-        
-## TESTING ##
-for i in range(0, 200):
-    print(f"ID: {i}, {MARKER.by_id(i)}");
+        return TARGET_MARKER(id, owning_team)
