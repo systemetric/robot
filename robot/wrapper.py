@@ -67,7 +67,7 @@ class Robot():
                  start_enable_5v = True,
                  ):
 
-        self.zone = game_config.TEAM.RUSSET
+        self.zone = game_config.TEAM.RUBY
         self.mode = "competition"
         self._max_motor_voltage = max_motor_voltage
 
