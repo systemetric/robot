@@ -1,7 +1,8 @@
 import enum
 import typing
 
-from .teams import TEAM
+#from .teams import TEAM
+from teams import TEAM
 
 """
 Hiiii!
@@ -97,14 +98,32 @@ class MARKER(BASE_MARKER): # This is literally just how the code gets the differ
         there). In practice these markers start at 100.
         """
 
-        ARENA_WALL_LOWER_ID = 40
-        if id >= ARENA_WALL_LOWER_ID:
-            return ARENA_MARKER(id)
-        
-        wrappingId = id % 20 # Make sure that the ID range wraps after 20 values.
-        if wrappingId<4: # If it is a Jacket Potato (has a team)
-            owning_team = TEAM[f"T{wrappingId}"] # Set to the corresponding TEAM enum.
-        else: # If it is a Hot Potato (Has no team)
+        if id < 24:
+            owning_team = TEAM["ARENA"]
+        elif id == 36 or id == 37:
+            owning_team = TEAM["T3"]
+        elif id == 34 or id == 35:
+            owning_team = TEAM["T2"]
+        elif id == 32 or id == 33:
+            owning_team = TEAM["T1"]
+        elif id == 30 or id == 31:
+            owning_team = TEAM["T0"]
+        else:
             owning_team = TEAM["ARENA"]
 
+
+#        ARENA_WALL_LOWER_ID = 40
+#        if id >= ARENA_WALL_LOWER_ID:
+ #           return ARENA_MARKER(id)
+ #       
+  #      wrappingId = id % 20 # Make sure that the ID range wraps after 20 values.
+   #     if wrappingId<4: # If it is a Jacket Potato (has a team)
+    #        owning_team = TEAM[f"T{wrappingId}"] # Set to the corresponding TEAM enum.
+     #   else: # If it is a Hot Potato (Has no team)
+      #      owning_team = TEAM["ARENA"]
+
         return POTATO_MARKER(id, owning_team)
+        
+## TESTING ##
+for i in range(0, 200):
+    print(f"ID: {i}, {MARKER.by_id(i)}");
