@@ -98,19 +98,21 @@ class MARKER(BASE_MARKER): # This is literally just how the code gets the differ
         there). In practice these markers start at 100.
         """
 
+        if id > 99:
+            return ARENA_MARKER(id)
+
         if id < 24:
             owning_team = TEAM["ARENA"]
-        elif id == 36 or id == 37:
+        elif id == 30 or id == 31 or id == 53:
             owning_team = TEAM["T3"]
-        elif id == 34 or id == 35:
+        elif id == 28 or id == 29 or id == 52:
             owning_team = TEAM["T2"]
-        elif id == 32 or id == 33:
+        elif id == 26 or id == 27 or id == 51:
             owning_team = TEAM["T1"]
-        elif id == 30 or id == 31:
+        elif id == 24 or id == 25 or id == 50:
             owning_team = TEAM["T0"]
         else:
-            owning_team = TEAM["ARENA"]
-
+            owning_team = None
 
 #        ARENA_WALL_LOWER_ID = 40
 #        if id >= ARENA_WALL_LOWER_ID:
@@ -123,3 +125,7 @@ class MARKER(BASE_MARKER): # This is literally just how the code gets the differ
       #      owning_team = TEAM["ARENA"]
 
         return TARGET_MARKER(id, owning_team)
+
+## TESTING ##
+#for i in range(0, 200):
+#   print(f"ID: {i}, {MARKER.by_id(i)}")
