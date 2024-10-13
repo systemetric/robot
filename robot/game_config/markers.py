@@ -2,7 +2,6 @@ import enum
 import typing
 
 from .teams import TEAM
-#from teams import TEAM
 
 """
 Hiiii!
@@ -17,6 +16,7 @@ Byee!
 
 Don't know what to say. - Nathan Gill (2024 - 2025)
 No semi-colons please - Scott Wilson (2024 - 2025)
+
 [Put your future messages here]
 """
 
@@ -25,7 +25,7 @@ class MARKER_TYPE(enum.Enum): # Keep something like this to determine if a marke
     ARENA = enum.auto()
 
 
-class BASE_MARKER: # Base marker class that POTATO_MARKER and ARENA_MARKER derive from.
+class BASE_MARKER: # Base marker class that TARGET_MARKER and ARENA_MARKER derive from.
     team_marker_colors: dict = { # Colour definitions for each team defined in TEAMS
         TEAM.RUBY: (0, 0, 255), # RED
         TEAM.JADE: (0, 255, 0), # GREEN
@@ -106,6 +106,10 @@ class MARKER(BASE_MARKER): # This is literally just how the code gets the differ
         spaced as in 2021-2022's competition (6 markers on each side of the Arena,
         the first 50cm away from the wall and each subsequent marker 1m away from
         there). In practice these markers start at 100.
+        
+        
+        As of 2025: Sheep have IDs 0-23 inclusive; Jewels have IDs 24-31 inclusive; Lair IDs are 50-53 inclusive
+        
         """
 
         if id > 99:
@@ -122,6 +126,10 @@ class MARKER(BASE_MARKER): # This is literally just how the code gets the differ
         elif id == 24 or id == 25 or id == 50:
             owning_team = TEAM["T0"]
         else:
-            raise Exception("AHHHHHH!")
+            owning_team = TEAM["NONE"]
 
         return TARGET_MARKER(id, owning_team)
+        
+## TESTING ##
+for i in range(0, 200):
+    print(f"ID: {i}, {MARKER.by_id(i)}")

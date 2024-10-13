@@ -15,6 +15,8 @@ class TEAM(enum.Enum):
     ARENA = "Nothing!"
     # There is no T value for ARENA, so there is no way that the assignment of team to a marker can accidentally assign ARENA if the logic goes wrong.
 
+    NONE = "NONE"  ## This is only used when no other owning team is available for undefined IDs, this should never actually happen in-game.
+
     T0 = "Mogok Valley, Myanmar (Burma)"
     T1 = "Hetian (Hotan), Xinjiang, China"
     T2 = "St. John's Island (Zabargad Island), Egypt"
