@@ -126,10 +126,7 @@ class MARKER(BASE_MARKER): # This is literally just how the code gets the differ
         elif id == 24 or id == 25 or id == 50:
             owning_team = TEAM["T0"]
         else:
+            print(f"Marker ID {id} is not defined.")
             owning_team = TEAM["NONE"]
 
         return TARGET_MARKER(id, owning_team)
-        
-## TESTING ##
-for i in range(0, 200):
-    print(f"ID: {i}, {MARKER.by_id(i)}")
