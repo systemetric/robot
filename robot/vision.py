@@ -359,14 +359,14 @@ class PostProcessor(threading.Thread):
         """
         polygon_is_closed = True
         for detection in detections:
-            marker_info = MARKER(detection.id, self.zone)
+            marker_info = MARKER.by_id(detection.id, self.zone)
             marker_info_colour = marker_info.bounding_box_color
             marker_code = detection.id
 
             # The reverse is because OpenCV expects BGR but we use RGB
-            colour = reversed(marker_info_colour
+            colour = tuple(reversed(marker_info_colour
                               if marker_info_colour is not None
-                              else DEFAULT_BOUNDING_BOX_COLOUR)
+                              else DEFAULT_BOUNDING_BOX_COLOUR))
 
             # need to have this EXACT integer_corners syntax due to opencv bug
             # https://stackoverflow.com/questions/17241830/

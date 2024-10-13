@@ -1,17 +1,20 @@
 from random import randint
 
 class POEM_ON_STARTUP:
+    ## These jokes are terrible, (ChatGPT 4o Generated)
     jokes = [
-        "Why did the potato cross the road? \
-            He saw a fork up ahead.",
-        "What do you say to a baked potato that's angry? \
-            Anything you like, just butter it up.",
-        "Funny Potato Joke",
-        "Farm Facts: There are around 5000 different varieties of potato",
-        "Farm Facts: Potatoes were first domesticated in Peru around 4500 years ago around Lake Titicaca",
-        "Farm Facts: The word potato originates from the Taino \"batata\", meaning sweet potato.",
-        "Farm Facts: China is the leading producer of potatoes, with 94.3 million tonnes produced in 2021",
-        "Farm Facts: The maximum theoretical voltage "
+        "Why don't dragons tell secrets? \
+            Because they always breathe fire!",
+        "Why did the ruby go to school? \
+            To become a little more polished!",
+        "Why do sheep make terrible detectives? \
+            Because they always follow the herd!",
+        "What's a dragon's favourite type of exercise? \
+            Flame-ups!",            
+        "What did the diamond say to the ruby at the party? \
+            You're looking radiant tonight!",            
+        "Why was the sheep so quiet? \
+            Because it was feeling a little wool-gathered!",  
     ]
 
     @staticmethod

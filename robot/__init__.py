@@ -29,7 +29,7 @@ from robot.game_config import (
     MARKER,
     BASE_MARKER,
     ARENA_MARKER,
-    POTATO_MARKER,
+    TARGET_MARKER,
     MARKER_TYPE,
     TEAM
 )
