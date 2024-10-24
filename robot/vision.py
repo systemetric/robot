@@ -11,11 +11,13 @@ import subprocess as sp
 import re
 import time
 
+from collections.abc import Iterable
 from datetime import datetime
 from typing import NamedTuple, Any
 
-from robot.marker_setup.markers import MARKER
-from .marker_setup import BASE_MARKER as MarkerInfo
+
+from robot.game_config import MARKER, WHITE
+from .game_config import BASE_MARKER as MarkerInfo
 
 import cv2
 import numpy as np
@@ -81,15 +83,6 @@ _AT_PATH = "/usr/local"
 _USB_IMAGES_PATH = "/media/RobotUSB/collect_images.txt"
 _USB_LOGS_PATH = "/media/RobotUSB/log_markers.txt"
 
-# Colours are in the format BGR
-PURPLE = (255, 0, 215)  # Purple
-ORANGE = (0, 128, 255)  # Orange
-YELLOW = (0, 255, 255)  # Yellow
-GREEN = (0, 255, 0)  # Green
-RED = (0, 0, 255)  # Red
-BLUE = (255, 0, 0)  # Blue
-WHITE = (255, 255, 255)  # White
-
 # MARKER_: Marker Data Types
 # MARKER_TYPE_: Marker Types
 # NOTE Data about each marker
@@ -131,7 +124,7 @@ PI_1_3_CAMERA_FOCAL_LENGTHS = {
 
 
 ARDUCAM_GLOBAL_SHUTTER_FOCAL_LENGTHS = {
-    (640,480):   (380.5, 380.5),
+    (640, 480):   (380.5, 380.5),
     (1280, 720): (618, 618),
     (1280, 800): (618, 618)
 }
@@ -218,14 +211,17 @@ class RoboConPiCamera(Camera):
         picamera2.Picamera2.set_logging(picamera2.Picamera2.ERROR)
         self._pi_camera = picamera2.Picamera2()
         # should test if the camera exists here, and give a nice warning
-        self.camera_model = self._pi_camera.camera_properties['Model'] 
+        self.camera_model = self._pi_camera.camera_properties['Model']
 
         if self.camera_model == 'ov9281':
-           # Global Shutter Camera
-           start_res=(1280,800) 
-           self.focal_lengths = (ARDUCAM_GLOBAL_SHUTTER_FOCAL_LENGTHS
-                              if focal_lengths is None
-                              else focal_lengths)
+            # Global Shutter Camera
+            self.focal_lengths = (ARDUCAM_GLOBAL_SHUTTER_FOCAL_LENGTHS
+                                  if focal_lengths is None
+                                  else focal_lengths)
+            if start_res == None:
+                start_res = (1280, 800)
+            elif start_res not in self.focal_lengths:
+                raise "Invalid resolution for camera."
         elif self.camera_model == 'imx219':
            # PI cam version 2.1 
            # Warning: only full res and 1640x1232  are full image (scaled), everything else seems full-res and cropped, reducing FOV
@@ -233,11 +229,14 @@ class RoboConPiCamera(Camera):
                               if focal_lengths is None
                               else focal_lengths)
         elif self.camera_model == 'ov5647':
-           # clone pi cameras and zerocam
-           start_res=(1296, 972)
-           self.focal_lengths = (PI_1_3_CAMERA_FOCAL_LENGTHS
-                              if focal_lengths is None
-                              else focal_lengths)
+            # clone pi cameras and zerocam
+            self.focal_lengths = (PI_1_3_CAMERA_FOCAL_LENGTHS
+                                  if focal_lengths is None
+                                  else focal_lengths)
+            if start_res == None:
+                start_res = (1296, 972)
+            elif start_res not in self.focal_lengths:
+                raise "Invalid resolution for camera."
         else:
            print ("unknown camera: " + self._pi_camera.camera_properties)
         
@@ -384,31 +383,14 @@ class RoboConUSBCamera(Camera):
     @res.setter
     def res(self, new_res):
         if new_res is not self._res:
-            cv_property_ids = (cv2.CV_CAP_PROP_FRAME_WIDTH,
-                               cv2.CV_CAP_PROP_FRAME_HEIGHT)
-
-            for new, property_id in zip(new_res, cv_property_ids):
-                self._cv_capture.set(property_id, new)
-                actual = self._cv_capture.get(property_id, new)
-                assert actual == new, (f"Failed to set USB res, expected {new} "
-                                       f"but got {actual}")
-
-            self._res = new_res
-            self._update_camera_params(self.focal_lengths)
-
-    def capture(self):
-        """Capture from a USB camera. Not all usb cameras support native YUV"""
-    @res.setter
-    def res(self, new_res):
-        if new_res is not self._res:
-            cv_property_ids = (cv2.CV_CAP_PROP_FRAME_WIDTH,
-                               cv2.CV_CAP_PROP_FRAME_HEIGHT)
-
-            for new, property_id in zip(new_res, cv_property_ids):
-                self._cv_capture.set(property_id, new)
-                actual = self._cv_capture.get(property_id, new)
-                assert actual == new, (f"Failed to set USB res, expected {new} "
-                                       f"but got {actual}")
+            self._cv_capture.set(cv2.CAP_PROP_FRAME_WIDTH, new_res[0])
+            self._cv_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, new_res[1])
+            actual = self._cv_capture.get(cv2.CAP_PROP_FRAME_WIDTH)
+            assert actual == new_res[0], (f"Failed to set USB res, expected {new_res[0]} "
+                                          f"but got {actual}")
+            actual = self._cv_capture.get(cv2.CAP_PROP_FRAME_HEIGHT)
+            assert actual == new_res[1], (f"Failed to set USB res, expected {new_res[1]} "
+                                          f"but got {actual}")
 
             self._res = new_res
             self._update_camera_params(self.focal_lengths)
@@ -488,29 +470,29 @@ class PostProcessor(threading.Thread):
         """
         polygon_is_closed = True
         for detection in detections:
-            marker_info = MARKER.by_id(detection.id, self.zone)
+            marker_info = MARKER(detection.id, self.zone)
             marker_info_colour = marker_info.bounding_box_color
             marker_code = detection.id
-            colour = (marker_info_colour
-                      if marker_info_colour is not None
-                      else DEFAULT_BOUNDING_BOX_COLOUR)
+
+            # The reverse is because OpenCV expects BGR but we use RGB
+            colour = reversed(marker_info_colour
+                              if marker_info_colour is not None
+                              else DEFAULT_BOUNDING_BOX_COLOUR)
 
             # need to have this EXACT integer_corners syntax due to opencv bug
             # https://stackoverflow.com/questions/17241830/
             integer_corners = detection.corners.astype(np.int32)
 
             if (marker_info.owning_team == self.zone):
-                cv2.polylines(frame,
-                              [integer_corners],
-                              polygon_is_closed,
-                              colour,
-                              thickness=self._bounding_box_thickness * 3)
+                bounding_box_thickness = self._bounding_box_thickness*3
             else:
-                cv2.polylines(frame,
-                              [integer_corners],
-                              polygon_is_closed,
-                              colour,
-                              thickness=self._bounding_box_thickness)
+                bounding_box_thickness = self._bounding_box_thickness
+
+            cv2.polylines(frame,
+                            [integer_corners],
+                            polygon_is_closed,
+                            colour,
+                            thickness=bounding_box_thickness)
 
         return frame
 
@@ -623,7 +605,7 @@ class Vision():
         detections = Detections()
 
         for tag in tags:
-            info = MARKER.by_id(int(tag.id), self.zone)
+            info = MARKER(int(tag.id), self.zone)
             detections.append(Marker(info, tag))
 
         return detections
@@ -636,11 +618,24 @@ class Vision():
         except queue.Full:
             logging.warning("Skipping postprocessing as queue is full")
 
-    def detect_markers(self, return_frame=False):
+    def _filter_markers(self, markers, look_for_type):
+        """Ducktype filtering of markers based on type or code or list of both"""
+        if look_for_type is not None:
+            if isinstance(look_for_type, Iterable):
+                markers = filter(lambda m: m.code in look_for_type
+                                        or m.type in look_for_type, markers)
+            else:
+                markers = filter(lambda m: m.code == look_for_type
+                                        or m.type == look_for_type, markers)
+        return markers
+
+    def detect_markers(self, return_frame=False look_for=None):
         """Returns the markers the robot can see:
             - Gets a frame
             - Finds the markers
             - Appends RoboCon specific properties, e.g. token or arena
+            - Sends off for post processing
+            - Filters and sorts the markers
             - Sends off for post-processing
         """
         start_timestamp = time.perf_counter()
@@ -659,6 +654,8 @@ class Vision():
         self._send_to_post_process(capture, detections)
 
         markers = self._generate_marker_properties(detections)
+        markers = self._filter_markers(markers, look_for)
+        markers = sorted(markers, key=lambda m: m.dist)
 
         if return_frame:
             return markers, capture
