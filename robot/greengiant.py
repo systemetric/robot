@@ -217,7 +217,6 @@ _GG_MOTOR_ERROR_STATE = 40
 _GG_SYSTEM_ERROR_STATE = 41
 
 
-def read_high_low_data(bus, address):
 """ Additional features of the PiLow """
 # Enables for the various power domains
 _GG_ENABLE_12V_ACC = 33
@@ -321,15 +320,12 @@ class GreenGiantInternal():
     def get_fvr_reading(self):
         """Return the fixed voltage reading. The number read here is sampling the 4.096v reference using the VCC rail (GG only)
         This magic number back calculates what the voltage is on the VCC rail for more accurate voltage readings.
-        """Return the fixed voltage reading. The number read here is sampling the 4.096v reference using the VCC rail (GG only)
-        This magic number back calculates what the voltage is on the VCC rail for more accurate voltage readings.
         """
         return _GG_FVR_VOLTS * _GG_BATTERY_ADC_MAX / read_high_low_data(self._bus, _GG_FVR_H)
         return _GG_FVR_VOLTS * _GG_BATTERY_ADC_MAX / read_high_low_data(self._bus, _GG_FVR_H)
 
 
 class GreenGiantGPIOPin():
-    def __init__(self, pin_list, bus, version, adc_max, gpio_base_address, pwm_base_address, analog_base_address):
     def __init__(self, pin_list, bus, version, adc_max, gpio_base_address, pwm_base_address, analog_base_address):
         self._pin_list = pin_list
         self._bus = bus
@@ -528,28 +524,6 @@ class GreenGiantGPIOPin():
 
 class GreenGiantGPIOPinList():
     """A list of pins indexed from 1 (GG) or 0 (later) """
-    """A list of pins indexed from 1 (GG) or 0 (later) """
-
-    def __init__(self, bus, version, adc_max, gpio_base_address, pwm_base_address):
-        if version <= 3:
-            # we need to update the pins in order to work around a GreenGiant bug
-            pinlist = self
-        else:
-            pinlist = None
-
-        if gpio_base_address is not None:
-            if pwm_base_address is not None:
-                self._list = [GreenGiantGPIOPin(pinlist, bus, version, adc_max, gpio_base_address + i, 
-                              pwm_base_address + (2*i), gpio_base_address + (2*i))
-                      for i in range(4)]
-            else:
-                self._list = [GreenGiantGPIOPin(pinlist, bus, version, adc_max, gpio_base_address +i, 
-                              None , gpio_base_address + (2*i))
-                      for i in range(4)]
-        else:
-            if pwm_base_address is not None:
-                self._list = [GreenGiantGPIOPin(pinlist, bus, version, adc_max, None, 
-                              pwm_base_address + (2*i), None )
     def __init__(self, bus, version, adc_max, gpio_base_address, pwm_base_address):
         if version <= 3:
             # we need to update the pins in order to work around a GreenGiant bug
@@ -571,9 +545,6 @@ class GreenGiantGPIOPinList():
                 self._list = [GreenGiantGPIOPin(pinlist, bus, version, adc_max, None, 
                               pwm_base_address + (2*i), None )
                       for i in range(4)]
-            else:
-                raise IOError(f"No base addresses, what are we even doing here")
-        self._version = version
             else:
                 raise IOError(f"No base addresses, what are we even doing here")
         self._version = version
@@ -619,15 +590,13 @@ class GreenGiantGPIOPinList():
         for pin in self._list:
             pin.mode = INPUT
 """
+
+"""
 class GreenGiantPWM():
     ""An object implementing a descriptor protocol to control the servos for Green Giant only
     PWM is combined into GPIO for the PiLow
     ""
-    ""An object implementing a descriptor protocol to control the servos for Green Giant only
-    PWM is combined into GPIO for the PiLow
-    ""
 
-    def __init__(self, bus, version):
     def __init__(self, bus, version):
         self._bus = bus
         self._version = version
@@ -639,7 +608,6 @@ class GreenGiantPWM():
             index = _decrement_pin_index(index)
 
         command = _GG_PWM_START + (index * 2)
-        # TODO - Use a function for this?
         # TODO - Use a function for this?
         high = self._bus.read_byte_data(_GG_I2C_ADDR, command)
         low = self._bus.read_byte_data(_GG_I2C_ADDR, command + 1)
@@ -719,6 +687,7 @@ class GreenGiantMotors():
         if index not in (0,1):
             raise IndexError(
                 f"motor index must be in (0,1) but instead got {index}")
+        #TODO: What is _GG_MOTOR_A_MAG? Can't find reference to it anywhere else...
         hex_mag = self._bus.read_byte_data(_GG_I2C_ADDR, _GG_MOTOR_A_MAG + index)
 
         return hex_mag * (100.0 / 256.0) * self.power_scaling_factor
