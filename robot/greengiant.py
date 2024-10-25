@@ -100,41 +100,7 @@ _GG_SERVO_GPIO_BASE = 56
 # Pin 3:  4, 5
 # Pin 4:  6, 7
 _GG_ANALOG_START = 0
-# PWM 1: 0, 1
-# PWM 2: 2, 3
-# PWM 3: 4, 5
-# PWM 4: 6, 7
 
-_GG_GG_PWM_CENTER = 374
-_GG_GG_PWM_PERCENT_HALF_RANGE = 125
-_GG_GG_PWM_HALF_RANGE = 224
-_GG_GG_PWM_MIN = _GG_GG_PWM_CENTER - _GG_GG_PWM_HALF_RANGE
-_GG_GG_PWM_MAX = _GG_GG_PWM_CENTER + _GG_GG_PWM_HALF_RANGE
-
-# 1ms is 3000  # brain fade, check numbers, normal range = 1 to 2 ms (-100 ti 100) extended range is 0.8 to 2.2 (-140 to 140)?
-_GG_PiLow_PWM_CENTER = 4500
-_GG_PiLow_PWM_PERCENT_HALF_RANGE = 140
-_GG_PiLow_PWM_HALF_RANGE = 2100
-_GG_PiLow_PWM_MIN = _GG_PiLow_PWM_CENTER - _GG_PiLow_PWM_HALF_RANGE
-_GG_PiLow_PWM_MAX = _GG_PiLow_PWM_CENTER + _GG_PiLow_PWM_HALF_RANGE
-
-
-_GG_GPIO_GPIO_BASE = 9
-_GG_SERVO_GPIO_BASE = 56
-# Analog Read (external ports numbered from zero on PiLow)
-#         H  L
-# Pin 1:  0, 1
-# Pin 2:  2, 3
-# Pin 3:  4, 5
-# Pin 4:  6, 7
-_GG_ANALOG_START = 0
-
-# Control (Mode Set - external ports numbered from zero on PiLow)
-# Pin 1: 8
-# Pin 2: 9
-# Pin 3: 10
-# Pin 4: 11
-_GG_CONTROL_START = 8
 # Control (Mode Set - external ports numbered from zero on PiLow)
 # Pin 1: 8
 # Pin 2: 9
@@ -148,29 +114,17 @@ _GG_CONTROL_START = 8
 # Pin 3: 14
 # Pin 4: 15
 _GG_DIGITAL_START = 12
-# Digital Read/Write (external ports numbered from zero on PiLow)
-# Pin 1: 12
-# Pin 2: 13
-# Pin 3: 14
-# Pin 4: 15
-_GG_DIGITAL_START = 12
 
-# User LED
 # User LED
 # 25
 _GG_USER_LED = 25
-_GG_USER_LED = 25
 
-# Watchdog, this will be the watchdog that needs pinging to tell the brain that Python is still running
-# Currently this cannot be used due to the design of the code
 # Watchdog, this will be the watchdog that needs pinging to tell the brain that Python is still running
 # Currently this cannot be used due to the design of the code
 # 26
 
 # Enable motors , on the GG this also switches on the external 12v power
-# Enable motors , on the GG this also switches on the external 12v power
 # 27
-_GG_ENABLE_MOTORS = 27
 _GG_ENABLE_MOTORS = 27
 
 # Battery_V
@@ -185,36 +139,11 @@ _GG_BATTERY_ADC_MAX = 65472
 
 
 # Fixed Voltage Reference @ 4.096 - Cannot read this on the PiLow, maybe its pointless anyway
-_GG_FVR_VOLTS = 4.096
-_GG_BATTERY_MAX_READING = 3 * _GG_FVR_VOLTS
-_GG_BATTERY_ADC_MAX = 65472
-
-
-# Fixed Voltage Reference @ 4.096 - Cannot read this on the PiLow, maybe its pointless anyway
 _GG_FVR_H = 30
 _GG_FVR_L = 31
 
 # Version number (3 is GreenGiant, >=10 is PiLow)
-# Version number (3 is GreenGiant, >=10 is PiLow)
 _GG_VERSION = 32
-
-
-""" Additional features of the PiLow """
-# Enables for the various power domains
-_GG_ENABLE_12V_ACC = 33
-_GG_ENABLE_5V_ACC = 34
-_GG_ENABLE_MOTOR_PWR = 35
-
-# Motor drive strength (0-255)
-_GG_MOTOR_MAG_START = 36
-
-# Motor Direction
-_GG_MOTOR_DIR_START = 38
-
-# Error detection, errors also trigger Error LED, in some cases error flags can be cleared with a write
-# to these registers, Should we?
-_GG_MOTOR_ERROR_STATE = 40
-_GG_SYSTEM_ERROR_STATE = 41
 
 
 """ Additional features of the PiLow """
@@ -239,14 +168,7 @@ def read_high_low_data(bus, address):
     """Fetches and combines data stored across two bytes"""
     high_value = bus.read_byte_data(_GG_I2C_ADDR, address)
     low_value = bus.read_byte_data(_GG_I2C_ADDR, address + 1)
-    high_value = bus.read_byte_data(_GG_I2C_ADDR, address)
-    low_value = bus.read_byte_data(_GG_I2C_ADDR, address + 1)
     return low_value + (high_value << 8)
-
-def write_high_low_data(bus, address, data):
-    value = int(data)
-    bus.write_byte_data(_GG_I2C_ADDR, address, value >> 8)
-    bus.write_byte_data(_GG_I2C_ADDR, address + 1, value & 0xff)
 
 def write_high_low_data(bus, address, data):
     value = int(data)
@@ -322,18 +244,12 @@ class GreenGiantInternal():
         This magic number back calculates what the voltage is on the VCC rail for more accurate voltage readings.
         """
         return _GG_FVR_VOLTS * _GG_BATTERY_ADC_MAX / read_high_low_data(self._bus, _GG_FVR_H)
-        return _GG_FVR_VOLTS * _GG_BATTERY_ADC_MAX / read_high_low_data(self._bus, _GG_FVR_H)
 
 
 class GreenGiantGPIOPin():
     def __init__(self, pin_list, bus, version, adc_max, gpio_base_address, pwm_base_address, analog_base_address):
         self._pin_list = pin_list
         self._bus = bus
-        if gpio_base_address is None:
-            # no way to configure the pin type, it must be hard coded as a PWM_SERVO
-            self._mode = PWM_SERVO
-        else:
-            self._mode = INPUT
         if gpio_base_address is None:
             # no way to configure the pin type, it must be hard coded as a PWM_SERVO
             self._mode = PWM_SERVO
@@ -393,25 +309,9 @@ class GreenGiantGPIOPin():
             return bool(self._bus.read_byte_data(_GG_I2C_ADDR, _GG_DIGITAL_START + self._gpio_base))
         else:
             raise IOError(f"Attempt to read PWM only pin")
-        if self._gpio_base is not None:
-            if self._mode not in self._digital_read_modes:
-                raise IOError(f"Digital read attempted on pin configured as {self._mode} "
-                              f"but this requires mode set to one of {self._digital_read_modes}")
-            return bool(self._bus.read_byte_data(_GG_I2C_ADDR, _GG_DIGITAL_START + self._gpio_base))
-        else:
-            raise IOError(f"Attempt to read PWM only pin")
 
     @digital.setter
     def digital(self, value):
-        if self._gpio_base is not None:
-            if self._mode is not OUTPUT:
-                raise IOError(f"Digital write attempted on pin configured as {self._mode} "
-                              f"but this requires mode set to {OUTPUT} ")
-            self._bus.write_byte_data(_GG_I2C_ADDR, _GG_DIGITAL_START + self._gpio_base, int(value))
-            self._set_to = bool(value)
-            #print(f"Value set to {bool(value)} on address {_GG_DIGITAL_START + self._gpio_base}")
-        else:
-            raise IOError(f"Attempt to write to a PWM only pin")
         if self._gpio_base is not None:
             if self._mode is not OUTPUT:
                 raise IOError(f"Digital write attempted on pin configured as {self._mode} "
@@ -425,10 +325,6 @@ class GreenGiantGPIOPin():
     @property
     def analog(self):
         """Reads an analog value from the ADC and converts it to a voltage"""
-        if self._gpio_base is not None:
-            if self._mode not in self._analog_read_modes:
-                raise IOError(f"Analog read attempted on pin configured as {self._mode} "
-                              f"but this requires mode set to {self._analog_read_modes} ")
         if self._gpio_base is not None:
             if self._mode not in self._analog_read_modes:
                 raise IOError(f"Analog read attempted on pin configured as {self._mode} "
@@ -517,13 +413,12 @@ class GreenGiantGPIOPin():
             return self.digital
         elif self._mode in self._analog_read_modes:
             return self.analog
-        elif self._mode in self._analog_read_modes:
-            return self.analog
 
 
 
 class GreenGiantGPIOPinList():
     """A list of pins indexed from 1 (GG) or 0 (later) """
+
     def __init__(self, bus, version, adc_max, gpio_base_address, pwm_base_address):
         if version <= 3:
             # we need to update the pins in order to work around a GreenGiant bug
@@ -557,17 +452,8 @@ class GreenGiantGPIOPinList():
             return self._list[_decrement_pin_index(index)]
         else:
             return self._list[index]
-        if self._version < 10:
-            return self._list[_decrement_pin_index(index)]
-        else:
-            return self._list[index]
 
     def __setitem__(self, index, value):
-        if self._version < 10:
-            internal_index = _decrement_pin_index(index)
-        else:
-            internal_index = index
-        self._list[internal_index].__setitem__(value)
         if self._version < 10:
             internal_index = _decrement_pin_index(index)
         else:
@@ -586,12 +472,6 @@ class GreenGiantGPIOPinList():
         for pin in self._list:
             pin.mode = INPUT
 """
-    def off(self):
-        for pin in self._list:
-            pin.mode = INPUT
-"""
-
-"""
 class GreenGiantPWM():
     ""An object implementing a descriptor protocol to control the servos for Green Giant only
     PWM is combined into GPIO for the PiLow
@@ -600,10 +480,7 @@ class GreenGiantPWM():
     def __init__(self, bus, version):
         self._bus = bus
         self._version = version
-        self._version = version
     def __getitem__(self, index):
-        if self._version < 10:
-            index = _decrement_pin_index(index)
         if self._version < 10:
             index = _decrement_pin_index(index)
 
@@ -617,23 +494,11 @@ class GreenGiantPWM():
             return (value - _GG_GG_PWM_CENTER) * 100 / _GG_GG_PWM_PERCENT_HALF_RANGE
         else:
             return (value - _GG_PiLow_PWM_CENTER) * 100 / _GG_PiLow_PWM_PERCENT_HALF_RANGE
-        if self._version < 10:
-            return (value - _GG_GG_PWM_CENTER) * 100 / _GG_GG_PWM_PERCENT_HALF_RANGE
-        else:
-            return (value - _GG_PiLow_PWM_CENTER) * 100 / _GG_PiLow_PWM_PERCENT_HALF_RANGE
 
     def __setitem__(self, index, percent):
         if self._version < 10:
             index = _decrement_pin_index(index)
-        if self._version < 10:
-            index = _decrement_pin_index(index)
         command = _GG_PWM_START + (index * 2)
-        if self._version < 10:
-            value = _GG_GG_PWM_CENTER + (percent / 100 * _GG_GG_PWM_PERCENT_HALF_RANGE)
-            value = clamp(value, _GG_GG_PWM_MIN, _GG_GG_PWM_MAX)
-        else:
-            value = _GG_PiLow_PWM_CENTER + (percent / 100 * _GG_PiLow_PWM_PERCENT_HALF_RANGE)
-            value = clamp(value, _GG_PiLow_PWM_MIN, _GG_PiLow_PWM_MAX)
         if self._version < 10:
             value = _GG_GG_PWM_CENTER + (percent / 100 * _GG_GG_PWM_PERCENT_HALF_RANGE)
             value = clamp(value, _GG_GG_PWM_MIN, _GG_GG_PWM_MAX)
@@ -687,7 +552,6 @@ class GreenGiantMotors():
         if index not in (0,1):
             raise IndexError(
                 f"motor index must be in (0,1) but instead got {index}")
-        #TODO: What is _GG_MOTOR_A_MAG? Can't find reference to it anywhere else...
         hex_mag = self._bus.read_byte_data(_GG_I2C_ADDR, _GG_MOTOR_A_MAG + index)
 
         return hex_mag * (100.0 / 256.0) * self.power_scaling_factor
