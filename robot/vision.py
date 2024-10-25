@@ -475,9 +475,9 @@ class PostProcessor(threading.Thread):
             marker_code = detection.id
 
             # The reverse is because OpenCV expects BGR but we use RGB
-            colour = reversed(marker_info_colour
+            colour = tuple(reversed(marker_info_colour
                               if marker_info_colour is not None
-                              else DEFAULT_BOUNDING_BOX_COLOUR)
+                              else DEFAULT_BOUNDING_BOX_COLOUR))
 
             # need to have this EXACT integer_corners syntax due to opencv bug
             # https://stackoverflow.com/questions/17241830/
@@ -487,7 +487,7 @@ class PostProcessor(threading.Thread):
                 bounding_box_thickness = self._bounding_box_thickness*3
             else:
                 bounding_box_thickness = self._bounding_box_thickness
-
+            # print(f'Debug: WHITE={WHITE}, colour={colour}, marker_info_colour={marker_info_colour}')
             cv2.polylines(frame,
                             [integer_corners],
                             polygon_is_closed,
