@@ -50,8 +50,11 @@ class BASE_MARKER: # Base marker class that POTATO_MARKER and ARENA_MARKER deriv
             return tuple(reversed((125, 249, 225))) # Turquoise
         elif self.owning_team==TEAM.ARENA: # If it is a Hot Potato (game object owned by ARENA)
             return tuple(reversed((255,255,255))) # White
-        else: # If it is a Jacket Potato (game object owned by a team.)
+        elif self.owning_team: # If it is a Jacket Potato (game object owned by a team.)
             return tuple(reversed(self.team_marker_colors[self.owning_team])) # Picks the team colour from above
+        else: # No owning team?
+            return tuple(reversed((255,125,125))) # Pinky
+
 
 class ARENA_MARKER(BASE_MARKER): # Not much going on here. This represents a wall.
     def __init__(self, id: int) -> None:
