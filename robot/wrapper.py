@@ -21,10 +21,9 @@ from robot import vision
 from robot.cytron import CytronBoard
 from robot.greengiant import GreenGiantInternal, GreenGiantGPIOPinList, GreenGiantMotors, _GG_SERVO_PWM_BASE, _GG_GPIO_PWM_BASE, _GG_GPIO_GPIO_BASE, _GG_SERVO_GPIO_BASE, PWM_SERVO, OUTPUT, TIMER
 
-from robot.marker_setup.teams import TEAM
-from . import marker_setup
-from robot.marker_setup import POEM_ON_STARTUP
-
+from robot.game_config import TEAM
+from . import game_config
+from robot.game_config import POEM_ON_STARTUP
 
 _logger = logging.getLogger("robot")
 
@@ -64,9 +63,13 @@ class Robot():
                  wait_for_start=True,
                  camera=None,
                  max_motor_voltage=6,
-                 logging_level=logging.INFO):
+                 logging_level=logging.INFO,
+                 start_enable_12v = True,
+                 start_enable_5v = True,
+                 ):
 
-        self.zone = marker_setup.TEAM.RUSSET
+        self.zone = game_config.TEAM.RUSSET
+        self.mode = "competition"
         self._max_motor_voltage = max_motor_voltage
 
         self._initialised = False
@@ -80,15 +83,13 @@ class Robot():
         # check if copy stat file exists and read it if it does then delete it
         try:
             with open(COPY_STAT_FILE, "r") as f:
-                _logger.info("Robot code copied %s from USB\n",
-                             f.read().strip())
+                _logger.info("Robot code copied %s from USB\n", f.read().strip())
             os.remove(COPY_STAT_FILE)
         except IOError:
             pass
 
-        self.subsystem_init(camera)
+        self.subsystem_init(camera, start_enable_12v, start_enable_5v)
         self.report_hardware_status()
-        self.enable_12v = True
         type(self)._initialised = True
 
         # Allows for the robot object to be set up and mutated before being set
@@ -96,13 +97,14 @@ class Robot():
         # depending on user code.
         if wait_for_start is True:
             start_data = self.wait_start()
-            self.zone = start_data or self.zone
+            self.zone = start_data['zone']
+            self.mode = start_data['mode']
         else:
             _logger.warning("Robot initalized but usercode running before"
-                            "`robot.wait_start`. Robot will not wait for the "
-                            "start button until `robot.wait_start` is called.")
+                           "`robot.wait_start`. Robot will not wait for the "
+                           "start button until `robot.wait_start` is called.")
 
-    def subsystem_init(self, camera):
+    def subsystem_init(self, camera, start_enable_12v, start_enable_5v):
         """Allows for initalisation of subsystems after instansating `Robot()`
         Can only be called once"""
         if type(self)._initialised:
@@ -115,14 +117,13 @@ class Robot():
         if self._gg_version >= 10:
             # enable power rails
             self._green_giant.set_motor_power(True)
-            self._green_giant.set_12v_acc_power(True)    # Not sure, should this be controlled by user?
-            self._green_giant.set_5v_acc_power(True)
+            self.enable_12v = start_enable_12v
+            self.enable_5v = start_enable_5v
             self._adc_max = 5
             # configure User IO Ports
             self.servos = GreenGiantGPIOPinList(self.bus, self._gg_version, self._adc_max, _GG_SERVO_GPIO_BASE, _GG_SERVO_PWM_BASE)
             for servo in self.servos:
                servo.mode = PWM_SERVO
-
             self.gpio   = GreenGiantGPIOPinList(self.bus, self._gg_version, self._adc_max, _GG_GPIO_GPIO_BASE, _GG_GPIO_PWM_BASE)
             # configure motor drivers
             self.motors = GreenGiantMotors(self.bus, self._max_motor_voltage)
@@ -131,7 +132,7 @@ class Robot():
             self.motors.enable_motors(True)
         else:
             # power rails
-            self._green_giant.set_motor_power()
+            self._green_giant.set_motor_power(True)
             self._adc_max = self._green_giant.get_fvr_reading()
             # user IO
             self.servos = GreenGiantGPIOPinList(self.bus, self._gg_version, None,          None,           _GG_SERVO_PWM_BASE)
@@ -142,6 +143,7 @@ class Robot():
         self.camera = vision.RoboConPiCamera() if camera is None else camera()
         if not isinstance(self.camera, vision.Camera):
             raise ValueError("camera must inherit from vision.Camera")
+        self.res = self.camera.res
 
         self._vision = vision.Vision(self.zone, camera=self.camera)
 
@@ -153,21 +155,23 @@ class Robot():
         battery_str = "Battery Voltage:   %.2fv" % battery_voltage
         # GG cannot read voltages above 12.2v
         if battery_voltage > 12.2:
-            battery_str = "Battery Voltage:   > 12.2v"
+            battery_str = "Battery Voltage: > 12.2v"
         if battery_voltage < 11.5:
             self._warnings.append("Battery voltage below 11.5v, consider "
                                   "changing for a charged battery")
 
-        if self._gg_version > 13:
+        if self._gg_version < 14:
             self._warnings.append(
-                "Pilow version not 13 but instead {}".format(self._gg_version))
-        elif (self._gg_version != 13) and (self._gg_version != 11):
+                "Pilow version not 14 but instead {}".format(self._gg_version))
+        elif (self._gg_version <  13):
             raise Exception("Outdated firmware version, please return to RoboCon")
 
-        camera_type_str = "Camera:            {}".format(
+        camera_type_str = "Camera:    {}".format(
             self.camera.__class__.__name__)
 
-        # Adds the secret poem every now and then!
+        # Add a few blank lines before poem
+        _logger.info("\n\n\n")
+        # Adds a secret every now and again!
         POEM_ON_STARTUP.on_startup(_logger,random)
 
         # print report of hardware
@@ -202,6 +206,30 @@ class Robot():
 
         For the PiLow series the Motors have both a power control and a enable. Generally
         the Power should not be switched on and off, just the enable bits. The power may
+        be tripped in extreme circumstances. I guess that here we want to report any
+        reason for  the motors not working, which includes power and enable
+
+        """
+        if self._gg_version < 10:
+            return self._green_giant.enable_12v
+        else:
+            return self._green_giant.get_motorpwr() and self._green_giant.get_enable()
+
+    @enable_motors.setter
+    def enable_motors(self, on):
+        """An nice alias for set_12v"""
+        if self._version < 10:
+            return self._green_giant.enable_motors(on)
+
+    @property
+    def enable_motors(self):
+        """Return if motors are currently enabled
+
+        For the GG board this will be the state of the 12v line, which we cannot query,
+        so return what it was set to.
+
+        For the PiLow series the Motors have both a power control and a enable. Generally
+        the Power should not be switched on and off, just the enable bits. The power may
         be tripped in extreame circumstances. I guess that here we want to report any 
         reason for  the motors not working, which includes power and enable
 
@@ -216,6 +244,17 @@ class Robot():
         """An nice alias for set_12v"""
         if self._version < 10:
             return self._green_giant.enable_motors(on)
+
+    def enable_12v(self):
+        return self._green_giant.get_12v_acc_power()
+
+    @property
+    def enable_5v(self):
+        return self._green_giant.get_5v_acc_power()
+
+    @enable_5v.setter
+    def enable_5v(self, on):
+        self._green_giant.set_5v_acc_power(on)
 
     def stop(self):
         """Stops the robot and cuts power to the motors.
@@ -275,14 +314,13 @@ class Robot():
 
         return settings
 
-    def wait_start(self) -> typing.Union[TEAM, None]:
+    def wait_start(self):
         """Wait for the start signal to happen"""
 
         if self.startfifo is None:
             self._start_pressed = True
-            _logger.info(
-                "No startfifo so using defaults (Zone: {})".format(self.zone))
-            return None
+            _logger.info("No startfifo so using defaults (Zone: {})".format(self.zone))
+            return
 
         blink_thread = threading.Thread(target=self._wait_start_blink)
         blink_thread.start()
@@ -295,12 +333,15 @@ class Robot():
         _logger.info("Robot started!\n")
         self.camera._start_thread()
 
-        return start_info["zone"]
+        return start_info
 
-    def see(self, return_frame=False)-> vision.Detections:
+    def set_user_led(self, val=True):
+       self._green_giant.set_user_led(val)
+
+    def see(self, look_for=None, return_frame=False)-> vision.Detections:
         """Take a photo, detect markers in sene, attach RoboCon specific
         properties"""
-        return self._vision.detect_markers(return_frame=return_frame)
+        return self._vision.detect_markers(look_for=look_for, return_frame=return_frame)
 
     def __del__(self):
         """Frees hardware resources held by the vision object"""
