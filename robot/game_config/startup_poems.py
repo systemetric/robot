@@ -2,16 +2,12 @@ from random import randint
 
 class POEM_ON_STARTUP:
     jokes = [
-        "Why did the potato cross the road? \
-            He saw a fork up ahead.",
-        "What do you say to a baked potato that's angry? \
-            Anything you like, just butter it up.",
-        "Funny Potato Joke",
-        "Farm Facts: There are around 5000 different varieties of potato",
-        "Farm Facts: Potatoes were first domesticated in Peru around 4500 years ago around Lake Titicaca",
-        "Farm Facts: The word potato originates from the Taino \"batata\", meaning sweet potato.",
-        "Farm Facts: China is the leading producer of potatoes, with 94.3 million tonnes produced in 2021",
-        "Farm Facts: The maximum theoretical voltage "
+        "In some whimsical traditions, it is joked that rain is caused by clouds of weeping dragons whose favorite gems have gone missing and those that find the gems are rewarded with clear skies.",
+        "Dragons are rumored to enjoy a special 'stone soup' made with sapphires, emeralds, and other precious stones, which they claim enhances a flame's color when they breathe fire.",
+        "The myth about some flying dragons is that they leave colorful trails in the sky similar to a rainbow caused by light refracting through gemstones embedded in their scales.",
+        "In certain cultures, small guardian creatures called gemlings are said to live in gemstones, tasked with keeping them safe from thieves, even from dragons themselves.",
+        "Some dragon myths humorously claim that the sparkle of gems and gold in a dragon's lair is what inspired disco balls—dragons were the first disco dancers, spinning under their self-made glimmering lights!",
+        "Some folklore suggests that dragons possess an incredible talent for jewelry crafting and often make intricate necklaces and crowns from the gems they hoard."
     ]
 
     @staticmethod

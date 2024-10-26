@@ -122,6 +122,8 @@ class Robot():
             self._adc_max = 5
             # configure User IO Ports
             self.servos = GreenGiantGPIOPinList(self.bus, self._gg_version, self._adc_max, _GG_SERVO_GPIO_BASE, _GG_SERVO_PWM_BASE)
+            for servo in self.servos:
+               servo.mode = PWM_SERVO
             self.gpio   = GreenGiantGPIOPinList(self.bus, self._gg_version, self._adc_max, _GG_GPIO_GPIO_BASE, _GG_GPIO_PWM_BASE)
             # configure motor drivers
             self.motors = GreenGiantMotors(self.bus, self._max_motor_voltage)
@@ -167,6 +169,8 @@ class Robot():
         camera_type_str = "Camera:    {}".format(
             self.camera.__class__.__name__)
 
+        # Add a few blank lines before poem
+        _logger.info("\n\n\n")
         # Adds a secret every now and again!
         POEM_ON_STARTUP.on_startup(_logger,random)
 
