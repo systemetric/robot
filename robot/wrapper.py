@@ -158,10 +158,10 @@ class Robot():
             self._warnings.append("Battery voltage below 11.5v, consider "
                                   "changing for a charged battery")
 
-        if self._gg_version > 13:
+        if self._gg_version < 14:
             self._warnings.append(
-                "Pilow version not 13 but instead {}".format(self._gg_version))
-        elif (self._gg_version != 13) and (self._gg_version != 11):
+                "Pilow version not 14 but instead {}".format(self._gg_version))
+        elif (self._gg_version <  13):
             raise Exception("Outdated firmware version, please return to RoboCon")
 
         camera_type_str = "Camera:    {}".format(
