@@ -2,6 +2,7 @@ import enum
 import typing
 
 from .teams import TEAM
+from .targets import TARGET_TYPE
 
 """
 Hiiii!
@@ -41,12 +42,13 @@ class BASE_MARKER: # Base marker class that TARGET_MARKER and ARENA_MARKER deriv
         self.id = id
         self.type = type
         self.owning_team: typing.Union[TEAM, None] = None
+        self.target_type: typing.Union[TARGET_TYPE, None] = None
 
         # Sizes are in meters
         self.size = 0.2 if self.type == MARKER_TYPE.ARENA else 0.08
 
     def __repr__(self) -> str:
-        return f"<Marker type={self.type} owning_team={self.owning_team} />"
+        return f"<Marker type={self.type} owning_team={self.owning_team} target_type={self.target_type} />"
 
     @property
     def bounding_box_color(self) -> tuple:
@@ -67,13 +69,14 @@ class ARENA_MARKER(BASE_MARKER): # Not much going on here. This represents a wal
 
 class TARGET_MARKER(BASE_MARKER): # This is a game object rather than a wall. Add properties you want to keep track of
     def __init__(
-        self, id: int, owner: TEAM
+        self, id: int, owner: TEAM, target_type: TARGET_TYPE
     ) -> None:
         super().__init__(id, MARKER_TYPE.TARGET)
         self.owning_team = owner
+        self.target_type = target_type
 
     def __repr__(self) -> str:
-        return f"<Marker(TARGET) owning_team={self.owning_team} />"
+        return f"<Marker(TARGET) owning_team={self.owning_team} target_type={self.target_type} />"
 
 class MARKER(BASE_MARKER): # This is literally just how the code gets the different marker types.
     @staticmethod
@@ -128,5 +131,14 @@ class MARKER(BASE_MARKER): # This is literally just how the code gets the differ
         else:
             print(f"Marker ID {id} is not defined.")
             owning_team = TEAM["NONE"]
+        
+        if id >= 50 and id <= 53: # lair
+            target_type = TARGET_TYPE["T2"]
+        elif id >= 0 and id <= 23: # sheep
+            target_type = TARGET_TYPE["T0"]
+        elif id >= 24 and id <= 31: # jewel
+            target_type = TARGET_TYPE["T1"]
+        else:
+            target_type = TARGET_TYPE["NONE"]
 
-        return TARGET_MARKER(id, owning_team)
+        return TARGET_MARKER(id, owning_team, target_type)

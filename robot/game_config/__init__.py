@@ -1,4 +1,5 @@
 from .teams import TEAM
+from .targets import TARGET_TYPE
 from .markers import (
     MARKER,
     MARKER_TYPE,
@@ -18,6 +19,7 @@ WHITE = (255, 255, 255)  # White
 
 __all__ = (
     "TEAM",
+    "TARGET_TYPE",
     "MARKER",
     "TARGET_MARKER",
     "MARKER_TYPE",
