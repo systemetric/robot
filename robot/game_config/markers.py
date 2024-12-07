@@ -2,6 +2,7 @@ import enum
 import typing
 
 from .teams import TEAM
+from .targets import TARGET_TYPE
 
 """
 Hiiii!
@@ -13,20 +14,24 @@ So go nuts! Good luck with your Robocon, and feel free to add your own messages 
 Byee!
  - Holly (2023-2024)
 
+
+Don't know what to say. - Nathan Gill (2024 - 2025)
+No semi-colons please - Scott Wilson (2024 - 2025)
+
 [Put your future messages here]
 """
 
 class MARKER_TYPE(enum.Enum): # Keep something like this to determine if a marker is a wall or not.
-    POTATO = enum.auto()
+    TARGET = enum.auto()
     ARENA = enum.auto()
 
 
-class BASE_MARKER: # Base marker class that POTATO_MARKER and ARENA_MARKER derive from.
+class BASE_MARKER: # Base marker class that TARGET_MARKER and ARENA_MARKER derive from.
     team_marker_colors: dict = { # Colour definitions for each team defined in TEAMS
-        TEAM.RUSSET: (255, 64, 0), # RED
-        TEAM.SWEET: (255, 255, 32), # YELLOW
-        TEAM.MARIS_PIPER: (50,255,0), # GREEN
-        TEAM.PURPLE: (255, 32, 255), # PURPLE
+        TEAM.RUBY: (0, 0, 255), # RED
+        TEAM.JADE: (0, 255, 0), # GREEN
+        TEAM.TOPAZ: (0, 255, 255), # YELLOW
+        TEAM.DIAMOND: (255, 0, 0), # BLUE
     }
 
     def __init__(
@@ -37,20 +42,21 @@ class BASE_MARKER: # Base marker class that POTATO_MARKER and ARENA_MARKER deriv
         self.id = id
         self.type = type
         self.owning_team: typing.Union[TEAM, None] = None
+        self.target_type: typing.Union[TARGET_TYPE, None] = None
 
         # Sizes are in meters
         self.size = 0.2 if self.type == MARKER_TYPE.ARENA else 0.08
 
     def __repr__(self) -> str:
-        return f"<Marker type={self.type} owning_team={self.owning_team} />"
+        return f"<Marker type={self.type} owning_team={self.owning_team} target_type={self.target_type} />"
 
     @property
     def bounding_box_color(self) -> tuple:
         if self.type == MARKER_TYPE.ARENA: # If it is a wall
-            return tuple(reversed((125, 249, 225))) # Turquoise
-        elif self.owning_team==TEAM.ARENA: # If it is a Hot Potato (game object owned by ARENA)
+            return tuple(reversed((225, 249, 125))) # Turquoise
+        elif self.owning_team==TEAM.ARENA: # If it is a Sheep (game object owned by ARENA)
             return tuple(reversed((255,255,255))) # White
-        else: # If it is a Jacket Potato (game object owned by a team.)
+        else: # If it is a Jewel (game object owned by a team.)
             return tuple(reversed(self.team_marker_colors[self.owning_team])) # Picks the team colour from above
 
 class ARENA_MARKER(BASE_MARKER): # Not much going on here. This represents a wall.
@@ -61,17 +67,25 @@ class ARENA_MARKER(BASE_MARKER): # Not much going on here. This represents a wal
         return f"<Marker(ARENA)/>"
 
 
-class POTATO_MARKER(BASE_MARKER): # This is a game object rather than a wall. Add properties you want to keep track of
+class TARGET_MARKER(BASE_MARKER): # This is a game object rather than a wall. Add properties you want to keep track of
     def __init__(
-        self, id: int, owner: TEAM
+        self, id: int, owner: TEAM, target_type: TARGET_TYPE
     ) -> None:
-        super().__init__(id, MARKER_TYPE.POTATO)
+        super().__init__(id, MARKER_TYPE.TARGET)
         self.owning_team = owner
+        self.target_type = target_type
 
     def __repr__(self) -> str:
-        return f"<Marker(POTATO) owning_team={self.owning_team} />"
+        return f"<Marker(TARGET) owning_team={self.owning_team} target_type={self.target_type} />"
 
 class MARKER(BASE_MARKER): # This is literally just how the code gets the different marker types.
+    @staticmethod
+    def get_size(id: int):
+        tg = MARKER.by_id(id)
+        if tg.owning_team == TEAM["ARENA"]:
+            return 0.2
+        return 0.08
+    
     @staticmethod
     def by_id(id: int, team: typing.Union[TEAM, None] = None) -> BASE_MARKER: # team is currently unused, but it is referenced throughout the code. It is the team of the robot I believe (check this)
         """
@@ -95,16 +109,36 @@ class MARKER(BASE_MARKER): # This is literally just how the code gets the differ
         spaced as in 2021-2022's competition (6 markers on each side of the Arena,
         the first 50cm away from the wall and each subsequent marker 1m away from
         there). In practice these markers start at 100.
+        
+        
+        As of 2025: Sheep have IDs 0-23 inclusive; Jewels have IDs 24-31 inclusive; Lair IDs are 50-53 inclusive
+        
         """
 
-        ARENA_WALL_LOWER_ID = 40
-        if id >= ARENA_WALL_LOWER_ID:
+        if id > 99:
             return ARENA_MARKER(id)
-        
-        wrappingId = id % 20 # Make sure that the ID range wraps after 20 values.
-        if wrappingId<4: # If it is a Jacket Potato (has a team)
-            owning_team = TEAM[f"T{wrappingId}"] # Set to the corresponding TEAM enum.
-        else: # If it is a Hot Potato (Has no team)
-            owning_team = TEAM["ARENA"]
 
-        return POTATO_MARKER(id, owning_team)
+        if id < 24:
+            owning_team = TEAM["ARENA"]
+        elif id == 30 or id == 31 or id == 53:
+            owning_team = TEAM["T3"]
+        elif id == 28 or id == 29 or id == 52:
+            owning_team = TEAM["T2"]
+        elif id == 26 or id == 27 or id == 51:
+            owning_team = TEAM["T1"]
+        elif id == 24 or id == 25 or id == 50:
+            owning_team = TEAM["T0"]
+        else:
+            print(f"Marker ID {id} is not defined.")
+            owning_team = TEAM["NONE"]
+        
+        if id >= 50 and id <= 53: # lair
+            target_type = TARGET_TYPE["T2"]
+        elif id >= 0 and id <= 23: # sheep
+            target_type = TARGET_TYPE["T0"]
+        elif id >= 24 and id <= 31: # jewel
+            target_type = TARGET_TYPE["T1"]
+        else:
+            target_type = TARGET_TYPE["NONE"]
+
+        return TARGET_MARKER(id, owning_team, target_type)

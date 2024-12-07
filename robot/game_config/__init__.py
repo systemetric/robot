@@ -1,9 +1,10 @@
 from .teams import TEAM
+from .targets import TARGET_TYPE
 from .markers import (
     MARKER,
     MARKER_TYPE,
     ARENA_MARKER,
-    POTATO_MARKER,
+    TARGET_MARKER,
     BASE_MARKER,
 )
 from .startup_poems import POEM_ON_STARTUP
@@ -18,8 +19,9 @@ WHITE = (255, 255, 255)  # White
 
 __all__ = (
     "TEAM",
+    "TARGET_TYPE",
     "MARKER",
-    "POTATO_MARKER",
+    "TARGET_MARKER",
     "MARKER_TYPE",
     "BASE_MARKER",
     "ARENA_MARKER",
