@@ -78,14 +78,7 @@ class TARGET_MARKER(BASE_MARKER): # This is a game object rather than a wall. Ad
     def __repr__(self) -> str:
         return f"<Marker(TARGET) owning_team={self.owning_team} target_type={self.target_type} />"
 
-class MARKER(BASE_MARKER): # This is literally just how the code gets the different marker types.
-    @staticmethod
-    def get_size(id: int):
-        tg = MARKER.by_id(id)
-        if tg.owning_team == TEAM["ARENA"]:
-            return 0.2
-        return 0.08
-    
+class MARKER(BASE_MARKER): # This is literally just how the code gets the different marker types.    
     @staticmethod
     def by_id(id: int, team: typing.Union[TEAM, None] = None) -> BASE_MARKER: # team is currently unused, but it is referenced throughout the code. It is the team of the robot I believe (check this)
         """
