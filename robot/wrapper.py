@@ -24,6 +24,15 @@ from robot.game_config import TEAM
 from . import game_config
 from robot.game_config import POEM_ON_STARTUP
 
+# Import RcMux library for pipe handling
+RCMUX_LIB_LOCATION="/home/pi/rcmux"
+if not os.path.exists(RCMUX_LIB_LOCATION):
+    raise ImportError(f"Could not find rcmux at {RCMUX_LIB_LOCATION}")
+
+sys.path.insert(0, RCMUX_LIB_LOCATION)
+from rcmux.client import *
+from rcmux.common import *
+
 _logger = logging.getLogger("robot")
 
 # path to file with status of USB program copy,
@@ -74,6 +83,11 @@ class Robot():
         self._initialised = False
         self._start_pressed = False
         self._warnings = []
+
+        # Initialize a RcMuxClient and open the start pipe 
+        self._rcmux_client = RcMuxClient()
+        self._start_pipe = PipeName((PipeType.OUTPUT, "start-button", "robot"), "/home/pi/pipes")
+        self._rcmux_client.open_pipe(self._start_pipe, delete=True, create=True, blocking=True)   # Make sure to use blocking mode, otherwise start button code fails
 
         self._parse_cmdline()
 
@@ -245,13 +259,9 @@ class Robot():
         parser.add_option("--usbkey", type="string", dest="usbkey",
                           help="The path of the (non-volatile) user USB key")
 
-        parser.add_option("--startfifo", type="string", dest="startfifo",
-                          help="""The path of the fifo which start information
-                                  will be received through""")
         (options, _) = parser.parse_args()
 
         self.usbkey = options.usbkey
-        self.startfifo = options.startfifo
 
     def _wait_start_blink(self):
         """Blink status LED until start is pressed"""
@@ -268,12 +278,10 @@ class Robot():
             self._green_giant.set_user_led(False)
 
     def _get_start_info(self):
-        """Get the start infomation from the fifo which was passed as an arg"""
-        f = open(self.startfifo, "r")
-        d = f.read()
-        f.close()
+        """Get the start infomation from the named pipe"""
 
-        self._start_pressed = True
+        # This call blocks until the start info is read
+        d = self._rcmux_client.read(self._start_pipe).decode("utf-8")
 
         settings = json.loads(d)
 
@@ -290,11 +298,6 @@ class Robot():
 
     def wait_start(self):
         """Wait for the start signal to happen"""
-
-        if self.startfifo is None:
-            self._start_pressed = True
-            _logger.info("No startfifo so using defaults (Zone: {})".format(self.zone))
-            return
 
         blink_thread = threading.Thread(target=self._wait_start_blink)
         blink_thread.start()
