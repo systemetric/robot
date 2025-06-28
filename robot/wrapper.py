@@ -89,6 +89,15 @@ class Robot():
         self._start_pipe = PipeName((PipeType.OUTPUT, "start-button", "robot"), "/home/pi/pipes")
         self._rcmux_client.open_pipe(self._start_pipe, delete=True, create=True, blocking=True)   # Make sure to use blocking mode, otherwise start button code fails
 
+        self._log_pipe = PipeName((PipeType.INPUT, "log", "robot"), "/home/pi/pipes")
+
+        # Save the old stdout...
+        self._old_stdout = os.dup(1)
+        os.close(1)
+
+        # ...and open a pipe in its place
+        self._rcmux_client.open_pipe(self._log_pipe, delete=True, create=True)
+
         self._parse_cmdline()
 
         setup_logging(logging_level)
