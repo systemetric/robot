@@ -24,14 +24,8 @@ from robot.game_config import TEAM
 from . import game_config
 from robot.game_config import POEM_ON_STARTUP
 
-# Import RcMux library for pipe handling
-RCMUX_LIB_LOCATION="/home/pi/rcmux"
-if not os.path.exists(RCMUX_LIB_LOCATION):
-    raise ImportError(f"Could not find rcmux at {RCMUX_LIB_LOCATION}")
-
-sys.path.insert(0, RCMUX_LIB_LOCATION)
-from rcmux.client import *
-from rcmux.common import *
+from hopper.client import *
+from hopper.common import *
 
 _logger = logging.getLogger("robot")
 
@@ -85,9 +79,9 @@ class Robot():
         self._warnings = []
 
         # Initialize a RcMuxClient and open the start pipe 
-        self._rcmux_client = RcMuxClient()
+        self._hopper_client = HopperClient()
         self._start_pipe = PipeName((PipeType.OUTPUT, "start-button", "robot"), "/home/pi/pipes")
-        self._rcmux_client.open_pipe(self._start_pipe, delete=True, create=True, blocking=True)   # Make sure to use blocking mode, otherwise start button code fails
+        self._hopper_client.open_pipe(self._start_pipe, delete=True, create=True, blocking=True)   # Make sure to use blocking mode, otherwise start button code fails
 
         self._log_pipe = PipeName((PipeType.INPUT, "log", "robot"), "/home/pi/pipes")
 
@@ -96,8 +90,8 @@ class Robot():
         os.close(2)
 
         # ...and open a pipe in its place
-        self._rcmux_client.open_pipe(self._log_pipe, delete=True, create=True)
-        os.dup(self._rcmux_client.get_pipe_by_pipe_name(self._log_pipe).fd)
+        self._hopper_client.open_pipe(self._log_pipe, delete=True, create=True)
+        os.dup(self._hopper_client.get_pipe_by_pipe_name(self._log_pipe).fd)
 
         self._parse_cmdline()
 
@@ -291,7 +285,7 @@ class Robot():
         """Get the start infomation from the named pipe"""
 
         # This call blocks until the start info is read
-        d = self._rcmux_client.read(self._start_pipe).decode("utf-8")
+        d = self._hopper_client.read(self._start_pipe).decode("utf-8")
 
         settings = json.loads(d)
 
