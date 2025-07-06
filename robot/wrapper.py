@@ -91,12 +91,13 @@ class Robot():
 
         self._log_pipe = PipeName((PipeType.INPUT, "log", "robot"), "/home/pi/pipes")
 
-        # Save the old stdout...
-        self._old_stdout = os.dup(1)
+        # Close stdout and stderr
         os.close(1)
+        os.close(2)
 
         # ...and open a pipe in its place
         self._rcmux_client.open_pipe(self._log_pipe, delete=True, create=True)
+        os.dup(self._rcmux_client.get_pipe_by_pipe_name(self._log_pipe).fd)
 
         self._parse_cmdline()
 
