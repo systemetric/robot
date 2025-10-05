@@ -1,7 +1,6 @@
 from random import randint
 
 class POEM_ON_STARTUP:
-    ## These jokes are terrible, (ChatGPT 4o Generated)
     jokes = [
         "Why don't dragons tell secrets? \
             Because they always breathe fire!",

@@ -24,14 +24,15 @@ No semi-colons please - Scott Wilson (2024 - 2025)
 class MARKER_TYPE(enum.Enum): # Keep something like this to determine if a marker is a wall or not.
     TARGET = enum.auto()
     ARENA = enum.auto()
+    ARENA_OBJECT = enum.auto()
 
 
 class BASE_MARKER: # Base marker class that TARGET_MARKER and ARENA_MARKER derive from.
     team_marker_colors: dict = { # Colour definitions for each team defined in TEAMS
-        TEAM.RUBY: (0, 0, 255), # RED
-        TEAM.JADE: (0, 255, 0), # GREEN
-        TEAM.TOPAZ: (0, 255, 255), # YELLOW
-        TEAM.DIAMOND: (255, 0, 0), # BLUE
+        TEAM.RED: (0, 0, 255),
+        TEAM.GREEN: (0, 255, 0),
+        TEAM.YELLOW: (0, 255, 255),
+        TEAM.BLUE: (255, 0, 0),
     }
 
     def __init__(
@@ -54,10 +55,20 @@ class BASE_MARKER: # Base marker class that TARGET_MARKER and ARENA_MARKER deriv
     def bounding_box_color(self) -> tuple:
         if self.type == MARKER_TYPE.ARENA: # If it is a wall
             return tuple(reversed((225, 249, 125))) # Turquoise
-        elif self.owning_team==TEAM.ARENA: # If it is a Sheep (game object owned by ARENA)
-            return tuple(reversed((255,255,255))) # White
-        else: # If it is a Jewel (game object owned by a team.)
-            return tuple(reversed(self.team_marker_colors[self.owning_team])) # Picks the team colour from above
+        elif self.type == MARKER_TYPE.ARENA_OBJECT: # Other arena object (e.g. pillar)
+            return tuple(reversed((255, 131, 125))) # Purple
+        elif self.owning_team == TEAM.ARENA: # If it is a supply
+            m = self if isinstance(self, TARGET_MARKER) else None
+            if m == None:
+                return tuple(reversed((0, 0, 0))) # Nothing, undefined
+            if m.target_type == TARGET_TYPE["T0"]:
+                return tuple(reversed((255, 0, 0))) # Blue
+            elif m.target_type == TARGET_TYPE["T1"]:
+                return tuple(reversed((0, 0, 255))) # Red
+            else:
+                return tuple(reversed((0, 0, 0))) # Set as NONE
+        else: # This object doesn't have a defined colour
+            return tuple(reversed((0, 0, 0)))
 
 class ARENA_MARKER(BASE_MARKER): # Not much going on here. This represents a wall.
     def __init__(self, id: int) -> None:
@@ -65,7 +76,13 @@ class ARENA_MARKER(BASE_MARKER): # Not much going on here. This represents a wal
 
     def __repr__(self) -> str:
         return f"<Marker(ARENA)/>"
+        
+class ARENA_OBJECT_MARKER(BASE_MARKER): # A non-interactable object in the arena, that is not a wall.
+    def __init__(self, id: int) -> None:
+        super().__init__(id, MARKER_TYPE.ARENA_OBJECT)
 
+    def __repr__(self) -> str:
+        return f"<Marker(ARENA_OBJECT)/>"
 
 class TARGET_MARKER(BASE_MARKER): # This is a game object rather than a wall. Add properties you want to keep track of
     def __init__(
@@ -108,28 +125,20 @@ class MARKER(BASE_MARKER): # This is literally just how the code gets the differ
         
         """
 
-        if id > 99:
+        if id > 91:
             return ARENA_MARKER(id)
-
-        if id < 24:
+        elif id > 87:
+            return ARENA_OBJECT_MARKER(id)
+            
+        if id < 32:
             owning_team = TEAM["ARENA"]
-        elif id == 30 or id == 31 or id == 53:
-            owning_team = TEAM["T3"]
-        elif id == 28 or id == 29 or id == 52:
-            owning_team = TEAM["T2"]
-        elif id == 26 or id == 27 or id == 51:
-            owning_team = TEAM["T1"]
-        elif id == 24 or id == 25 or id == 50:
-            owning_team = TEAM["T0"]
         else:
             print(f"Marker ID {id} is not defined.")
             owning_team = TEAM["NONE"]
         
-        if id >= 50 and id <= 53: # lair
-            target_type = TARGET_TYPE["T2"]
-        elif id >= 0 and id <= 23: # sheep
+        if id >= 0 and id <= 23: # supply_l
             target_type = TARGET_TYPE["T0"]
-        elif id >= 24 and id <= 31: # jewel
+        elif id >= 24 and id <= 31: # supply_h
             target_type = TARGET_TYPE["T1"]
         else:
             target_type = TARGET_TYPE["NONE"]
