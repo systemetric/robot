@@ -24,6 +24,9 @@ from robot.game_config import TEAM
 from . import game_config
 from robot.game_config import POEM_ON_STARTUP
 
+from hopper.client import *
+from hopper.common import *
+
 _logger = logging.getLogger("robot")
 
 # path to file with status of USB program copy,
@@ -74,6 +77,21 @@ class Robot():
         self._initialised = False
         self._start_pressed = False
         self._warnings = []
+
+        # Initialize a RcMuxClient and open the start pipe 
+        self._hopper_client = HopperClient()
+        self._start_pipe = PipeName((PipeType.OUTPUT, "start-button", "robot"), "/home/pi/pipes")
+        self._hopper_client.open_pipe(self._start_pipe, delete=True, create=True, blocking=True)   # Make sure to use blocking mode, otherwise start button code fails
+
+        self._log_pipe = PipeName((PipeType.INPUT, "log", "robot"), "/home/pi/pipes")
+
+        # Close stdout and stderr
+        os.close(1)
+        os.close(2)
+
+        # ...and open a pipe in its place
+        self._hopper_client.open_pipe(self._log_pipe, delete=True, create=True)
+        os.dup(self._hopper_client.get_pipe_by_pipe_name(self._log_pipe).fd)
 
         self._parse_cmdline()
 
@@ -245,13 +263,9 @@ class Robot():
         parser.add_option("--usbkey", type="string", dest="usbkey",
                           help="The path of the (non-volatile) user USB key")
 
-        parser.add_option("--startfifo", type="string", dest="startfifo",
-                          help="""The path of the fifo which start information
-                                  will be received through""")
         (options, _) = parser.parse_args()
 
         self.usbkey = options.usbkey
-        self.startfifo = options.startfifo
 
     def _wait_start_blink(self):
         """Blink status LED until start is pressed"""
@@ -268,12 +282,10 @@ class Robot():
             self._green_giant.set_user_led(False)
 
     def _get_start_info(self):
-        """Get the start infomation from the fifo which was passed as an arg"""
-        f = open(self.startfifo, "r")
-        d = f.read()
-        f.close()
+        """Get the start infomation from the named pipe"""
 
-        self._start_pressed = True
+        # This call blocks until the start info is read
+        d = self._hopper_client.read(self._start_pipe).decode("utf-8")
 
         settings = json.loads(d)
 
@@ -290,11 +302,6 @@ class Robot():
 
     def wait_start(self):
         """Wait for the start signal to happen"""
-
-        if self.startfifo is None:
-            self._start_pressed = True
-            _logger.info("No startfifo so using defaults (Zone: {})".format(self.zone))
-            return
 
         blink_thread = threading.Thread(target=self._wait_start_blink)
         blink_thread.start()
