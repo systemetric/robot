@@ -127,7 +127,7 @@ class MARKER(BASE_MARKER): # This is literally just how the code gets the differ
 
         if id > 91:
             return ARENA_MARKER(id)
-        elif id > 87:
+        elif id > 75:
             return ARENA_OBJECT_MARKER(id)
             
         if id < 32:
