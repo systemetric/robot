@@ -1,6 +1,7 @@
 from random import randint
 
 class POEM_ON_STARTUP:
+    ## OUT OF DATE
     jokes = [
         "Why don't dragons tell secrets? \
             Because they always breathe fire!",
@@ -30,4 +31,4 @@ class POEM_ON_STARTUP:
             jokeToPrint = POEM_ON_STARTUP.jokes[jokeNo]
         except:
             jokeToPrint = POEM_ON_STARTUP.jokes[0]
-        logger.info(jokeToPrint)
+        #logger.info(jokeToPrint)
