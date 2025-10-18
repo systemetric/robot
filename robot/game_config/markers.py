@@ -62,7 +62,7 @@ class BASE_MARKER: # Base marker class that TARGET_MARKER and ARENA_MARKER deriv
             if m == None:
                 return tuple(reversed((0, 0, 0))) # Nothing, undefined
             if m.target_type == TARGET_TYPE["T0"]:
-                return tuple(reversed((255, 0, 0))) # Blue
+                return tuple(reversed((0, 255, 0))) # Green
             elif m.target_type == TARGET_TYPE["T1"]:
                 return tuple(reversed((0, 0, 255))) # Red
             else:
