@@ -22,6 +22,8 @@ from robot.cytron import CytronBoard
 from robot.greengiant import GreenGiantInternal, GreenGiantGPIOPinList, GreenGiantMotors, _GG_SERVO_PWM_BASE, _GG_GPIO_PWM_BASE, _GG_GPIO_GPIO_BASE, _GG_SERVO_GPIO_BASE, PWM_SERVO, OUTPUT, TIMER
 
 from robot.game_config import TEAM
+from robot.game_config import MARKER_TYPE
+
 from . import game_config
 from robot.game_config import POEM_ON_STARTUP
 
@@ -68,7 +70,7 @@ class Robot():
                  start_enable_5v = True,
                  ):
 
-        self.zone = game_config.TEAM.RUSSET
+        self.zone = game_config.TEAM.RUBY
         self.mode = "competition"
         self._max_motor_voltage = max_motor_voltage
 
@@ -178,7 +180,7 @@ class Robot():
         _logger.info("------HARDWARE REPORT------")
         #_logger.info("Time:   %s", datetime.now().strftime('%Y-%m-%d %H:%M:%S')) 
         # no RTC on new boards, perhaps use a "run number" increment instead?
-        _logger.info("Patch Version:     0")
+        _logger.info("Patch Version:     2025_Ox_Launch_2")
         _logger.info(battery_str)
         #_logger.info("ADC Max:           %.2fv", self._adc_max)
         _logger.info("Robocon Board: Yes (v%d)", self._gg_version)
