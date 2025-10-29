@@ -160,6 +160,7 @@ _GG_MOTOR_DIR_START = 38
 _GG_MOTOR_ERROR_STATE = 40
 _GG_SYSTEM_ERROR_STATE = 41
 
+V_ZEN = (10.1)
 
 def read_high_low_data(bus, address):
     """Fetches and combines data stored across two bytes"""
@@ -250,8 +251,14 @@ class GreenGiantInternal():
         return self._bus.read_byte_data(_GG_I2C_ADDR, _GG_VERSION)
 
     def get_battery_voltage(self):
-        # both GG and PiLow use a 1/3 divider and a 4.096v reference giving a max readable voltage of ~12.3v
-        return read_high_low_data(self._bus, _GG_BATTERY_V_H)
+        # Firmware version 12 and later reports voltage differently
+        if self._version < 12:
+            # both GG and PiLow use a 1/3 divider and a 4.096v reference giving a max readable voltage of ~12.3v
+            return read_high_low_data(self._bus, _GG_BATTERY_V_H) * _GG_BATTERY_MAX_READING / _GG_BATTERY_ADC_MAX
+        else:
+            # Hardware change for Cambridge brains in Nov 2025 to use a zener diode
+            return ((read_high_low_data(self._bus, _GG_BATTERY_V_H) / 65535) * 4.096) + V_ZEN
+
 
     def get_fvr_reading(self):
         """Return the fixed voltage reading. The number read here is sampling the 4.096v reference using the VCC rail (GG only)

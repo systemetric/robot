@@ -24,7 +24,7 @@ No semi-colons please - Scott Wilson (2024 - 2025)
 class MARKER_TYPE(enum.Enum): # Keep something like this to determine if a marker is a wall or not.
     TARGET = enum.auto()
     ARENA = enum.auto()
-    ARENA_OBJECT = enum.auto()
+    TREE = enum.auto()
 
 
 class BASE_MARKER: # Base marker class that TARGET_MARKER and ARENA_MARKER derive from.
@@ -79,10 +79,10 @@ class ARENA_MARKER(BASE_MARKER): # Not much going on here. This represents a wal
         
 class ARENA_OBJECT_MARKER(BASE_MARKER): # A non-interactable object in the arena, that is not a wall.
     def __init__(self, id: int) -> None:
-        super().__init__(id, MARKER_TYPE.ARENA_OBJECT)
+        super().__init__(id, MARKER_TYPE.TREE)
 
     def __repr__(self) -> str:
-        return f"<Marker(ARENA_OBJECT)/>"
+        return f"<Marker(TREE)/>"
 
 class TARGET_MARKER(BASE_MARKER): # This is a game object rather than a wall. Add properties you want to keep track of
     def __init__(
