@@ -34,8 +34,6 @@ _logger = logging.getLogger("robot")
 # this boot cycle. This is to highlight weird behaviour in the arena
 COPY_STAT_FILE = "/tmp/usb_file_uploaded"
 
-V_ZEN = (10.1)
-
 def setup_logging(level):
     """Display the just the message when logging events
     Sets the logging level to `level`"""
@@ -167,14 +165,13 @@ class Robot():
         """Print out a nice log message at the start of each robot init with
         the hardware status"""
 
-        battery_voltage = ((self._green_giant.get_battery_voltage() / 65535) * 4.096) + V_ZEN
+        battery_voltage = self._green_giant.get_battery_voltage()
         battery_str = "Battery Voltage: %.2fv" % battery_voltage
         # GG cannot read voltages above 12.2v
-        #if battery_voltage > 12.2:
-        #   battery_str = "Battery Voltage: > 12.2v"
-        # if battery_voltage < 11.5:
-        #   self._warnings.append("Battery voltage below 11.5v, consider "
-        #                          "changing for a charged battery")
+        if battery_voltage > 12.2:
+           battery_str = "Battery Voltage: > 12.2v"
+        elif battery_voltage < 11.5:
+            self._warnings.append("Battery voltage below 11.5v, consider changing for a charged battery")
 
         if self._gg_version < 3:
             self._warnings.append(
