@@ -55,7 +55,7 @@ class BASE_MARKER: # Base marker class that TARGET_MARKER and ARENA_MARKER deriv
     def bounding_box_color(self) -> tuple:
         if self.type == MARKER_TYPE.ARENA: # If it is a wall
             return tuple(reversed((225, 249, 125))) # Turquoise
-        elif self.type == MARKER_TYPE.ARENA_OBJECT: # Other arena object (e.g. pillar)
+        elif self.type == MARKER_TYPE.TREE: # Other arena object (e.g. pillar)
             return tuple(reversed((255, 131, 125))) # Purple
         elif self.owning_team == TEAM.ARENA: # If it is a supply
             m = self if isinstance(self, TARGET_MARKER) else None
