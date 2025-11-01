@@ -83,6 +83,7 @@ class Robot():
         self._hopper_client.open_pipe(self._start_pipe, delete=True, create=True, blocking=True)   # Make sure to use blocking mode, otherwise start button code fails
 
         self._log_pipe = PipeName((PipeType.INPUT, "log", "robot"), "/home/pi/pipes")
+        self._json_reader = JsonReader(self._hopper_client, self._start_pipe)
 
         # Close stdout and stderr
         os.close(1)
@@ -283,9 +284,7 @@ class Robot():
         """Get the start infomation from the named pipe"""
 
         # This call blocks until the start info is read
-        d = self._hopper_client.read(self._start_pipe).decode("utf-8")
-
-        settings = json.loads(d)
+        settings = self._json_reader.read()
 
         assert "zone" in settings, "zone must be in startup info"
         if settings["zone"] not in range(4):
