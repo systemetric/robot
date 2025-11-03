@@ -90,7 +90,7 @@ class Robot():
         os.close(2)
 
         # ...and open a pipe in its place
-        self._hopper_client.open_pipe(self._log_pipe, delete=True, create=True)
+        self._hopper_client.open_pipe(self._log_pipe, delete=True, create=True, blocking=True)
         os.dup(self._hopper_client.get_pipe_by_pipe_name(self._log_pipe).fd)
 
         self._parse_cmdline()
