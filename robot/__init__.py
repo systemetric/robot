@@ -31,7 +31,9 @@ from robot.game_config import (
     ARENA_MARKER,
     TARGET_MARKER,
     MARKER_TYPE,
-    TEAM
+    TARGET_TYPE,
+    TEAM,
+    SECTOR
 )
 
 
@@ -52,8 +54,10 @@ __all__ = (
     "MARKER",
     "BASE_MARKER",
     "ARENA_MARKER",
-    "POTATO_MARKER",
+    "TARGET_MARKER",
     "MARKER_TYPE",
+    "TARGET_TYPE",
     "TEAM",
+    "SECTOR",
     "RoboConUSBCamera"
 )
