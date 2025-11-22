@@ -7,6 +7,8 @@ import os
 from fcntl import lockf, LOCK_EX, LOCK_UN
 import threading
 import queue
+import subprocess as sp
+import re
 
 from collections.abc import Iterable
 from datetime import datetime
@@ -258,12 +260,38 @@ class RoboConUSBCamera(Camera):
     def __init__(self,
                  start_res=(1296, 736),
                  focal_lengths=None):
-        self._cv_capture = cv2.VideoCapture(0)
+        self._source = self.find_usb_cam()
+        if self._source == None:
+            raise Exception("No USB camera detected, please make sure it's plugged in")
+        self._cv_capture = cv2.VideoCapture(self._source)
         self._res = start_res
         self.focal_lengths = (LOGITECH_C270_FOCAL_LENGTHS
                               if focal_lengths is None
                               else focal_lengths)
         self._update_camera_params(self.focal_lengths)
+
+    def find_usb_cam(self):
+        options = filter(lambda file: file.startswith("video"),
+                         os.listdir("/dev/"))
+        for option in options:
+            try:
+                output = sp.check_output(["v4l2-ctl", "-d", f"/dev/{option}", "-D"]).decode()
+            except sp.CalledProcessError:
+                continue
+
+            bus_info = re.search(r"Bus info *: (.*)", output)
+
+            if bus_info is None or "usb" not in bus_info.group(1):
+                # If this isn't a USB camera...
+                continue
+
+            video_capture_capabilities = re.search(
+                r"Device Caps *: .*(\n\t\t(.*))*\n\t\tVideo Capture\n", output, re.MULTILINE
+            )
+
+            if video_capture_capabilities is not None:
+                # If we have Video Capture listed under capabilities
+                return f"/dev/{option}"
 
     @property
     def res(self):
