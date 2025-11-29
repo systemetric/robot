@@ -4,7 +4,6 @@ postprocessing on the data to make it accessible to the user
 import abc
 import logging
 import os
-from fcntl import lockf, LOCK_EX, LOCK_UN
 import threading
 import queue
 
@@ -418,15 +417,7 @@ class PostProcessor(threading.Thread):
                 if self._bounding_box:
                     frame = self._draw_bounding_box(frame, detections)
                 if self._save:
-                    try:
-                        f = os.open(IMAGE_TO_SHEPHERD_PATH, os.O_RDWR)
-                        lockf(f, LOCK_EX)
-                        cv2.imwrite(IMAGE_TO_SHEPHERD_PATH, frame)
-                    finally:
-                        # This feels like a hack
-                        if "f" in locals():
-                            lockf(f, LOCK_UN)
-                            os.close(f)
+                    cv2.imwrite(IMAGE_TO_SHEPHERD_PATH, frame)
                 if self._usb_stick:
                     self._write_to_usb(capture, detections)
                 if self._send_to_sheep:
