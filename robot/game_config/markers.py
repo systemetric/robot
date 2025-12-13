@@ -98,6 +98,9 @@ class TARGET_MARKER(BASE_MARKER): # This is a game object rather than a wall. Ad
 class MARKER(BASE_MARKER): # This is literally just how the code gets the different marker types.    
     @staticmethod
     def by_id(id: int, team: typing.Union[TEAM, None] = None) -> BASE_MARKER:
+        # the team parameter is the current robot team, may or may not be None
+        # depending on context. Not currently used since ID is deterministic.
+
         """
         Get a marker object from an id
 
