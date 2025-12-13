@@ -315,10 +315,10 @@ class Robot():
     def set_user_led(self, val=True):
        self._green_giant.set_user_led(val)
 
-    def see(self, look_for=None) -> vision.Detections:
+    def see(self) -> vision.Detections:
         """Take a photo, detect markers in sene, attach RoboCon specific
         properties"""
-        return self._vision.detect_markers(look_for=look_for)
+        return self._vision.detect_markers()
 
     def __del__(self):
         """Frees hardware resources held by the vision object"""

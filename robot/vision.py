@@ -478,18 +478,7 @@ class Vision():
         except queue.Full:
             logging.warning("Skipping postprocessing as queue is full")
 
-    def _filter_markers(self, markers, look_for_type):
-        """Ducktype filtering of markers based on type or code or list of both"""
-        if look_for_type is not None:
-            if isinstance(look_for_type, Iterable):
-                markers = filter(lambda m: m.code in look_for_type
-                                        or m.type in look_for_type, markers)
-            else:
-                markers = filter(lambda m: m.code == look_for_type
-                                        or m.type == look_for_type, markers)
-        return markers
-
-    def detect_markers(self, look_for=None):
+    def detect_markers(self):
         """Returns the markers the robot can see:
             - Gets a frame
             - Finds the markers
@@ -506,7 +495,5 @@ class Vision():
         self._send_to_post_process(capture, detections)
 
         markers = self._generate_marker_properties(detections)
-        markers = self._filter_markers(markers, look_for)
-        markers = sorted(markers, key=lambda m: m.dist)
 
         return markers
