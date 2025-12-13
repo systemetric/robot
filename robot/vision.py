@@ -465,7 +465,7 @@ class Vision():
         detections = Detections()
 
         for tag in tags:
-            info = MARKER(int(tag.id), self.zone)
+            info = MARKER.by_id(int(tag.id), self.zone)
             detections.append(Marker(info, tag))
 
         return detections
