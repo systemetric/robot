@@ -27,6 +27,8 @@ from robot.game_config import POEM_ON_STARTUP
 from hopper.client import *
 from hopper.common import *
 
+from wardog.client import *
+
 _logger = logging.getLogger("robot")
 
 # path to file with status of USB program copy,
@@ -85,6 +87,7 @@ class Robot():
         self._log_pipe = PipeName((PipeType.INPUT, "log", "robot"), "/home/pi/pipes")
         self._json_reader = JsonReader(self._hopper_client, self._start_pipe)
 
+
         # Close stdout and stderr
         os.close(1)
         os.close(2)
@@ -122,16 +125,19 @@ class Robot():
                            "start button until `robot.wait_start` is called.")
 
     def subsystem_init(self, camera, start_enable_12v, start_enable_5v):
+        self._wardog = WarDogClient("robot")
+
+        
         """Allows for initalisation of subsystems after instansating `Robot()`
         Can only be called once"""
         if type(self)._initialised:
             raise RuntimeError("Robot object is acquires hardware locks for its"
                                " sole use and so can only be used once.")
 
-        self.bus = SMBus(1)
-        self._green_giant = GreenGiantInternal(self.bus)
+        #self.bus = SMBus(1)
+        self._green_giant = GreenGiantInternal(self._wardog)
         self._gg_version = self._green_giant.get_version()
-        if self._gg_version >= 10:
+        """if self._gg_version >= 10:
             # enable power rails
             self._green_giant.set_motor_power(True)
             self.enable_12v = start_enable_12v
@@ -153,7 +159,7 @@ class Robot():
             self.servos = GreenGiantGPIOPinList(self.bus, self._gg_version, None,          None,           _GG_SERVO_PWM_BASE)
             self.gpio   = GreenGiantGPIOPinList(self.bus, self._gg_version, self._adc_max, _GG_GPIO_GPIO_BASE    , None)
             # configure motor drivers
-            self.motors = CytronBoard(self._max_motor_voltage)
+            self.motors = CytronBoard(self._max_motor_voltage)"""
 
         self.camera = vision.RoboConPiCamera() if camera is None else camera()
         if not isinstance(self.camera, vision.Camera):
