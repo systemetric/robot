@@ -12,14 +12,14 @@ from datetime import datetime
 from typing import NamedTuple, Any
 
 
-from robot.game_config import MARKER, WHITE
-from .game_config import BASE_MARKER as MarkerInfo
+from robocon.game_config import MARKER, WHITE
+from robocon.game_config import BASE_MARKER as MarkerInfo
 
 import cv2
 import numpy as np
 import picamera2
 
-import robot.apriltags3 as AT
+import robocon.apriltags3 as AT
 
 
 # TODO put all of the paths together

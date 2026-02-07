@@ -21,7 +21,7 @@ from collections import namedtuple
 import numpy as np
 import scipy.spatial.transform as transform
 
-from robot.game_config import MARKER, MARKER_TYPE
+from robocon.game_config import MARKER, MARKER_TYPE
 
 
 ######################################################################

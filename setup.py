@@ -1,9 +1,9 @@
 from setuptools import setup
 
 setup(
-    name="robot",
+    name="robocon",
     version="2024.1",
-    packages=["robot"],
+    packages=["robocon"],
 
     install_requires=[
     ],

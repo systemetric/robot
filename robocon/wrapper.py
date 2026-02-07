@@ -17,12 +17,12 @@ import typing
 from datetime import datetime
 from smbus2 import SMBus
 
-from robot import vision
-from robot.cytron import CytronBoard
-from robot.greengiant import GreenGiantInternal, GreenGiantGPIOPinList, GreenGiantMotors, _GG_SERVO_PWM_BASE, _GG_GPIO_PWM_BASE, _GG_GPIO_GPIO_BASE, _GG_SERVO_GPIO_BASE
-from robot.game_config import TEAM
+from robocon import vision
+from robocon.cytron import CytronBoard
+from robocon.greengiant import GreenGiantInternal, GreenGiantGPIOPinList, GreenGiantMotors, _GG_SERVO_PWM_BASE, _GG_GPIO_PWM_BASE, _GG_GPIO_GPIO_BASE, _GG_SERVO_GPIO_BASE
+from robocon.game_config import TEAM
 from . import game_config
-from robot.game_config import POEM_ON_STARTUP
+from robocon.game_config import POEM_ON_STARTUP
 
 from hopper.client import *
 from hopper.common import *

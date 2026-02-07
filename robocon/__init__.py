@@ -20,12 +20,12 @@ import sys
 
 # This log import configures our logging for us, but we don't want to
 # provide it as part of this package.
-import robot.log
+import robocon.log
 
-from robot.wrapper import Robot, NoCameraPresent
-from robot.greengiant import OUTPUT, INPUT, INPUT_ANALOG, INPUT_PULLUP, PWM_SERVO
-from robot.vision import RoboConUSBCamera
-from robot.game_config import (
+from robocon.wrapper import Robot, NoCameraPresent
+from robocon.greengiant import OUTPUT, INPUT, INPUT_ANALOG, INPUT_PULLUP, PWM_SERVO
+from robocon.vision import RoboConUSBCamera
+from robocon.game_config import (
     MARKER,
     BASE_MARKER,
     ARENA_MARKER,
