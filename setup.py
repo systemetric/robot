@@ -6,6 +6,7 @@ setup(
     packages=["robot"],
 
     install_requires=[
+        "fake-rpi>=0.7.1",
     ],
 
     author="Skyler Grey",

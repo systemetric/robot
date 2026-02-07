@@ -5,7 +5,7 @@ by shepherd"""
 
 import importlib
 
-has_picamera = importlib.find_loader("picamera") is not None
+has_picamera = importlib.util.find_spec("picamera") is not None
 
 if not has_picamera:
     import sys
