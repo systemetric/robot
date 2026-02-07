@@ -8,7 +8,7 @@ setup(
     install_requires=[
         "smbus2>=0.4.2",
         "fake-rpi>=0.7.1",
-        "opencv-python-headless~=3.14.0",
+        "opencv-python-headless~=3.4.0",
         "scipy>=1.9.1",
         "wiringpi>=2.60.1",
     ],
