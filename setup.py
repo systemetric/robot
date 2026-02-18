@@ -10,7 +10,6 @@ setup(
         "fake-rpi>=0.7.1",
         "opencv-python-headless~=3.4.0",
         "scipy>=1.9.1",
-        "wiringpi>=2.60.1",
     ],
 
     author="Skyler Grey",
