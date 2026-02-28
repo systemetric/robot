@@ -12,7 +12,7 @@ from datetime import datetime
 from typing import NamedTuple, Any
 
 
-from .game_config import MARKER, WHITE, BASE_MARKER as MarkerInfo
+from robot.game_config import MARKER, WHITE, BASE_MARKER as MarkerInfo
 
 import cv2
 import numpy as np
