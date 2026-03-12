@@ -19,7 +19,7 @@ from smbus2 import SMBus
 
 from .cytron import CytronBoard
 from .greengiant import GreenGiantInternal, GreenGiantGPIOPinList, GreenGiantMotors, _GG_SERVO_PWM_BASE, _GG_GPIO_PWM_BASE, _GG_GPIO_GPIO_BASE, _GG_SERVO_GPIO_BASE
-from robot.game_config import TEAM, POEM_ON_STARTUP
+from .game_config import TEAM, POEM_ON_STARTUP
 from . import game_config, vision
 
 from hopper.client import *
