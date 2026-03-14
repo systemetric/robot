@@ -18,7 +18,7 @@ import cv2
 import numpy as np
 import picamera2
 
-import .apriltags3 as AT
+import robot.apriltags3 as AT
 
 
 # TODO put all of the paths together
