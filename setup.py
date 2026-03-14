@@ -1,9 +1,9 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 setup(
     name="robot",
     version="2024.1",
-    packages=["robot"],
+    packages=find_packages(),
 
     install_requires=[
         "smbus2>=0.4.2",
