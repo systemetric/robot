@@ -5,15 +5,16 @@ by shepherd"""
 
 import importlib
 
-has_picamera = importlib.util.find_spec("picamera") is not None
+has_picamera2 = importlib.util.find_spec("picamera2") is not None
 
-if not has_picamera:
+if not has_picamera2:
     import sys
     import fake_rpi
+    import robot.mock_picamera2 as mock_picamera2
 
     sys.modules["RPi"] = fake_rpi.RPi
     sys.modules["RPi.GPIO"] = fake_rpi.RPi.GPIO
-    sys.modules["picamera"] = fake_rpi.picamera
+    sys.modules["picamera2"] = mock_picamera2
     sys.modules["smbus2"] = fake_rpi.smbus
 
 import sys
