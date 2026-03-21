@@ -32,12 +32,12 @@ class CytronBoard:
             max_motor_voltage / _MAX_OUTPUT_VOLTAGE) ** 2
 
         self._dir = [
-            (GPIO.LOW, _DIR_PIN_1),
-            (GPIO.LOW, _DIR_PIN_2),
+            [GPIO.LOW, _DIR_PIN_1],
+            [GPIO.LOW, _DIR_PIN_2],
         ]
         self._pwm = [
-            (0, GPIO.PWM(_PWM_PIN_1, 100)),
-            (0, GPIO.PWM(_PWM_PIN_2, 100)),
+            [0, GPIO.PWM(_PWM_PIN_1, 100)],
+            [0, GPIO.PWM(_PWM_PIN_2, 100)],
         ]
 
         GPIO.setmode(GPIO.BCM)

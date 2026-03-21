@@ -11,6 +11,7 @@ setup(
         "opencv-python-headless~=3.4.0",
         "scipy>=1.9.1",
         "numpy<2.0.0",
+        "hopper @ git+https://github.com/systemetric/hopper.git",
     ],
 
     author="Skyler Grey",
