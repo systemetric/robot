@@ -3,7 +3,7 @@
 April tags a marker recognition system. Also performs convince functions for use
 by shepherd"""
 
-import importlib
+import importlib.util
 
 has_picamera2 = importlib.util.find_spec("picamera2") is not None
 

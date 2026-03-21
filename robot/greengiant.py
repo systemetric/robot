@@ -234,15 +234,14 @@ class GreenGiantInternal():
             self._bus.write_byte_data(_GG_I2C_ADDR, _GG_ENABLE_5V_ACC, int(new_state))
         else:
             # for GG versions 5v power is always enabled
-            raise IOError(f"Attempted to set 5v power to {new_state} on an unsupported BrainBox.")
+            print(f"WARN: Attempted to set 5v power to {new_state} on an unsupported BrainBox.")
 
     def get_5v_acc_power(self):
         if self._version >= 10:
             return bool(self._bus.read_byte_data(_GG_I2C_ADDR, _GG_ENABLE_5V_ACC))
         else:
             # for GG versions 5v power is always enabled
-            raise IOError(f"Attempted to get 5v power on an unsupported BrainBox.")
-
+            print(f"WARN: Attempted to set 5v power to {new_state} on an unsupported BrainBox.")
 
     def set_user_led(self, on):
         self._bus.write_byte_data(_GG_I2C_ADDR, _GG_USER_LED, int(on))
