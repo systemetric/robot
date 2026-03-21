@@ -22,8 +22,7 @@ from .greengiant import GreenGiantInternal, GreenGiantGPIOPinList, GreenGiantMot
 from .game_config import TEAM, POEM_ON_STARTUP
 from . import vision
 
-from hopper.client import *
-from hopper.common import *
+from hopper import HopperPipe, HopperPipeType, JsonReader
 
 _logger = logging.getLogger("robot")
 
@@ -75,21 +74,9 @@ class Robot():
         self._start_pressed = False
         self._warnings = []
 
-        # Initialize a RcMuxClient and open the start pipe 
-        self._hopper_client = HopperClient()
-        self._start_pipe = PipeName((PipeType.OUTPUT, "start-button", "robot"), "/home/pi/pipes")
-        self._hopper_client.open_pipe(self._start_pipe, delete=True, create=True, blocking=True)   # Make sure to use blocking mode, otherwise start button code fails
-
-        self._log_pipe = PipeName((PipeType.INPUT, "log", "robot"), "/home/pi/pipes")
-        self._json_reader = JsonReader(self._hopper_client, self._start_pipe)
-
-        # Close stdout and stderr
-        os.close(1)
-        os.close(2)
-
-        # ...and open a pipe in its place
-        self._hopper_client.open_pipe(self._log_pipe, delete=True, create=True)
-        os.dup(self._hopper_client.get_pipe_by_pipe_name(self._log_pipe).fd)
+        # Initialize a RcMuxClient and open the start pipe
+        self._start_pipe = HopperPipe(HopperPipeType.OUT, "robot", "robot/control")
+        self._start_json_reader = JsonReader(self._start_pipe)
 
         self._parse_cmdline()
 
@@ -282,7 +269,7 @@ class Robot():
         """Get the start infomation from the named pipe"""
 
         # This call blocks until the start info is read
-        settings = self._json_reader.read()
+        settings = self._start_json_reader.read()
 
         assert "zone" in settings, "zone must be in startup info"
         if settings["zone"] not in range(4):
