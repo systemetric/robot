@@ -34,7 +34,6 @@ from robot.game_config import (
     MARKER_TYPE,
     TARGET_TYPE,
     TEAM,
-    SECTOR
 )
 
 
@@ -59,6 +58,5 @@ __all__ = (
     "MARKER_TYPE",
     "TARGET_TYPE",
     "TEAM",
-    "SECTOR",
     "RoboConUSBCamera"
 )

@@ -2,6 +2,7 @@
 postprocessing on the data to make it accessible to the user
 """
 import abc
+import base64
 import logging
 import os
 import threading
@@ -19,11 +20,6 @@ import numpy as np
 import picamera2
 
 import robot.apriltags3 as AT
-
-
-# TODO put all of the paths together
-IMAGE_TO_SHEPHERD_PATH = "/home/pi/shepherd/shepherd/static/image.jpg"
-
 
 class Marker():
     """A class to automatically pull the dis and bear_y out of the detection"""
@@ -322,6 +318,7 @@ class PostProcessor(threading.Thread):
     def __init__(self,
                  owner,
                  zone,
+                 image_pipe,
                  bounding_box_thickness=5,
                  bounding_box=True,
                  usb_stick=False,
@@ -332,6 +329,7 @@ class PostProcessor(threading.Thread):
 
         self._owner = owner
         self.zone = zone
+        self._image_pipe = image_pipe
         self._bounding_box_thickness = bounding_box_thickness
         self._bounding_box = bounding_box
         self._usb_stick = usb_stick
@@ -416,7 +414,8 @@ class PostProcessor(threading.Thread):
                 if self._bounding_box:
                     frame = self._draw_bounding_box(frame, detections)
                 if self._save:
-                    cv2.imwrite(IMAGE_TO_SHEPHERD_PATH, frame)
+                    encoded_img = base64.b64encode(cv2.imencode(".png", frame)[1]) + b'\n'
+                    self._image_pipe.write(encoded_img)
                 if self._usb_stick:
                     self._write_to_usb(capture, detections)
                 if self._send_to_sheep:

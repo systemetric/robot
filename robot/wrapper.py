@@ -75,10 +75,9 @@ class Robot():
         self._warnings = []
 
         # Initialize a RcMuxClient and open the start pipe
+        self._image_pipe = HopperPipe(HopperPipeType.OUT, "robot", "camera")
         self._start_pipe = HopperPipe(HopperPipeType.OUT, "robot", "robot/control")
         self._start_json_reader = JsonReader(self._start_pipe)
-
-        self._parse_cmdline()
 
         setup_logging(logging_level)
 
@@ -145,7 +144,7 @@ class Robot():
             raise ValueError("camera must inherit from vision.Camera")
         self.res = self.camera.res
 
-        self._vision = vision.Vision(self.zone, camera=self.camera)
+        self._vision = vision.Vision(self.zone, camera=self.camera, image_pipe=self._image_pipe)
 
     def report_hardware_status(self):
         """Print out a nice log message at the start of each robot init with
@@ -240,17 +239,6 @@ class Robot():
         self.enable_12v = False
         self.motors.stop()
 
-    def _parse_cmdline(self):
-        """Parse the command line arguments"""
-        parser = optparse.OptionParser()
-
-        parser.add_option("--usbkey", type="string", dest="usbkey",
-                          help="The path of the (non-volatile) user USB key")
-
-        (options, _) = parser.parse_args()
-
-        self.usbkey = options.usbkey
-
     def _wait_start_blink(self):
         """Blink status LED until start is pressed"""
         v = False
@@ -308,6 +296,8 @@ class Robot():
     def __del__(self):
         """Frees hardware resources held by the vision object"""
         logging.warning("Destroying robot object")
+        self._start_pipe.close()
+        self._image_pipe.close()
         # If vision never was initialled this creates confusing errors
         # so check that it is initialled first
         if hasattr(self, "_vision"):

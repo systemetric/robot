@@ -17,11 +17,8 @@ RED = (0, 0, 255)  # Red
 BLUE = (255, 0, 0)  # Blue
 WHITE = (255, 255, 255)  # White
 
-SECTOR = TEAM   # 2026 ONLY, ALIAS `TEAM` AS `SECTOR`
-
 __all__ = (
     "TEAM",
-    "SECTOR",
     "TARGET_TYPE",
     "MARKER",
     "TARGET_MARKER",
