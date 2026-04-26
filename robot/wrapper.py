@@ -75,7 +75,7 @@ class Robot():
         self._warnings = []
 
         # Initialize a RcMuxClient and open the start pipe
-        self._image_pipe = HopperPipe(HopperPipeType.OUT, "robot", "camera")
+        self._image_pipe = HopperPipe(HopperPipeType.IN, "robot", "camera")
         self._start_pipe = HopperPipe(HopperPipeType.OUT, "robot", "robot/control")
 
         self._image_pipe.open()
