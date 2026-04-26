@@ -77,6 +77,10 @@ class Robot():
         # Initialize a RcMuxClient and open the start pipe
         self._image_pipe = HopperPipe(HopperPipeType.OUT, "robot", "camera")
         self._start_pipe = HopperPipe(HopperPipeType.OUT, "robot", "robot/control")
+
+        self._image_pipe.open()
+        self._start_pipe.open()
+
         self._start_json_reader = JsonReader(self._start_pipe)
 
         setup_logging(logging_level)
