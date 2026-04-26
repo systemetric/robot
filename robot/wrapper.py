@@ -296,8 +296,17 @@ class Robot():
     def __del__(self):
         """Frees hardware resources held by the vision object"""
         logging.warning("Destroying robot object")
-        self._start_pipe.close()
-        self._image_pipe.close()
+
+        try:
+            self._start_pipe.close()
+        except:
+            pass
+
+        try:
+            self._image_pipe.close()
+        except:
+            pass
+
         # If vision never was initialled this creates confusing errors
         # so check that it is initialled first
         if hasattr(self, "_vision"):

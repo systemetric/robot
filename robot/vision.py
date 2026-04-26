@@ -428,6 +428,7 @@ class Vision():
 
     def __init__(self,
                  zone,
+                 image_pipe,
                  at_path=_AT_PATH,
                  max_queue_size=4,
                  camera=None):
@@ -451,7 +452,7 @@ class Vision():
         self.camera = camera
 
         self.frames_to_postprocess = queue.Queue(max_queue_size)
-        self.post_processor = PostProcessor(self, zone=self.zone)
+        self.post_processor = PostProcessor(self, zone=self.zone, image_pipe=image_pipe)
 
     def stop(self):
         """Cleanup to prevent leaking hardware resource"""
