@@ -160,7 +160,7 @@ class RoboConPiCamera(Camera):
 
     def __init__(self, start_res=None, focal_lengths=None):
         os.environ["LIBCAMERA_LOG_LEVELS"] = "3"
-        picamera2.Picamera2.set_logging(picamera2.Picamera2.ERROR)
+        picamera2.Picamera2.set_logging(logging.ERROR)
         self._pi_camera = picamera2.Picamera2()
         # should test if the camera exists here, and give a nice warning
         self.camera_model = self._pi_camera.camera_properties['Model']
@@ -197,7 +197,7 @@ class RoboConPiCamera(Camera):
         else:
             print("unknown camera: " + self._pi_camera.camera_properties)
 
-        self._pi_camera.set_logging(picamera2.Picamera2.ERROR)
+        self._pi_camera.set_logging(logging.ERROR)
         self._pi_camera_resolution = start_res  # we store this - WHY?
         self._camera_config = self._pi_camera.create_still_configuration(
             main={"size": start_res, "format": 'RGB888'})
