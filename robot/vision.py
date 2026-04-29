@@ -414,7 +414,7 @@ class PostProcessor(threading.Thread):
                 if self._bounding_box:
                     frame = self._draw_bounding_box(frame, detections)
                 if self._save:
-                    encoded_img = base64.b64encode(cv2.imencode(".png", frame)[1]) + b'\n'
+                    encoded_img = base64.b64encode(cv2.imencode(".jpg", frame)[1]) + b'\n'
                     self._image_pipe.write(encoded_img)
                 if self._usb_stick:
                     self._write_to_usb(capture, detections)
