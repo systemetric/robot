@@ -10,8 +10,8 @@ A nicer solution using class methods:
 https://stackoverflow.com/a/45799209/5006710
 """
 from smbus2 import SMBus
-import .cytron as c
-import .greengiant as gg
+import robocon.brain.cytron as c
+import robocon.brain.greengiant as gg
 
 
 def reset():

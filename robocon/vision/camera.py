@@ -13,6 +13,7 @@ import time
 import threading
 import random
 import typing
+import robocon
 
 from datetime import datetime
 from robocon.game import TEAM, POEM_ON_STARTUP
@@ -49,6 +50,8 @@ class Camera():
         self._initialised = False
         self._warnings = []
 
+        self._zone = robocon.zone
+
         self._image_pipe = HopperPipe(HopperPipeType.IN, "robot", "camera")
         self._image_pipe.open()
 
@@ -62,7 +65,7 @@ class Camera():
             raise ValueError("camera must inherit from vision.Camera")
         self.res = self.camera.res
 
-        self._vision = vision.Vision(self.zone, camera=self.camera, image_pipe=self._image_pipe)
+        self._vision = vision.Vision(self._zone, camera=self.camera, image_pipe=self._image_pipe)
 
         type(self)._initialised = True
 

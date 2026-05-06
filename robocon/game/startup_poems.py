@@ -18,7 +18,7 @@ class POEM_ON_STARTUP:
     ]
 
     @staticmethod
-    def on_startup(logger, random):
+    def on_startup():
         """
         This is called on startup. Put something funny and relevant to this 
         years competition using the logger. Also random is currently passed 
@@ -31,4 +31,4 @@ class POEM_ON_STARTUP:
             jokeToPrint = POEM_ON_STARTUP.jokes[jokeNo]
         except:
             jokeToPrint = POEM_ON_STARTUP.jokes[0]
-        #logger.info(jokeToPrint)
+        #print(jokeToPrint)
