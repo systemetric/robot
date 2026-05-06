@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(
-    name="robot",
+    name="robocon",
     version="2024.1",
     packages=find_packages(),
 

@@ -12,14 +12,13 @@ from collections.abc import Iterable
 from datetime import datetime
 from typing import NamedTuple, Any
 
-
-from .game_config import MARKER, WHITE, BASE_MARKER as MarkerInfo
+from robocon.game import MARKER, WHITE, BASE_MARKER as MarkerInfo
 
 import cv2
 import numpy as np
 import picamera2
 
-import robot.apriltags3 as AT
+import robocon.vision.apriltags3 as AT
 
 class Marker():
     """A class to automatically pull the dis and bear_y out of the detection"""
