@@ -69,7 +69,7 @@ class Camera():
 
         type(self)._initialised = True
 
-    def see(self) -> vision.Detections:
+    def capture(self) -> vision.Detections:
         """Take a photo, detect markers in scene, attach RoboCon specific
         properties"""
         return self._vision.detect_markers()
