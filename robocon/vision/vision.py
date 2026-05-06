@@ -2,6 +2,7 @@
 postprocessing on the data to make it accessible to the user
 """
 import abc
+import base64
 import logging
 import os
 import threading
@@ -11,20 +12,13 @@ from collections.abc import Iterable
 from datetime import datetime
 from typing import NamedTuple, Any
 
-
-from robot.game_config import MARKER, WHITE
-from .game_config import BASE_MARKER as MarkerInfo
+from robocon.game import MARKER, WHITE, BASE_MARKER as MarkerInfo
 
 import cv2
 import numpy as np
 import picamera2
 
-import robot.apriltags3 as AT
-
-
-# TODO put all of the paths together
-IMAGE_TO_SHEPHERD_PATH = "/home/pi/shepherd/shepherd/static/image.jpg"
-
+import robocon.vision.apriltags3 as AT
 
 class Marker():
     """A class to automatically pull the dis and bear_y out of the detection"""
@@ -165,7 +159,7 @@ class RoboConPiCamera(Camera):
 
     def __init__(self, start_res=None, focal_lengths=None):
         os.environ["LIBCAMERA_LOG_LEVELS"] = "3"
-        picamera2.Picamera2.set_logging(picamera2.Picamera2.ERROR)
+        picamera2.Picamera2.set_logging(logging.ERROR)
         self._pi_camera = picamera2.Picamera2()
         # should test if the camera exists here, and give a nice warning
         self.camera_model = self._pi_camera.camera_properties['Model']
@@ -202,7 +196,7 @@ class RoboConPiCamera(Camera):
         else:
             print("unknown camera: " + self._pi_camera.camera_properties)
 
-        self._pi_camera.set_logging(picamera2.Picamera2.ERROR)
+        self._pi_camera.set_logging(logging.ERROR)
         self._pi_camera_resolution = start_res  # we store this - WHY?
         self._camera_config = self._pi_camera.create_still_configuration(
             main={"size": start_res, "format": 'RGB888'})
@@ -323,6 +317,7 @@ class PostProcessor(threading.Thread):
     def __init__(self,
                  owner,
                  zone,
+                 image_pipe,
                  bounding_box_thickness=5,
                  bounding_box=True,
                  usb_stick=False,
@@ -333,6 +328,7 @@ class PostProcessor(threading.Thread):
 
         self._owner = owner
         self.zone = zone
+        self._image_pipe = image_pipe
         self._bounding_box_thickness = bounding_box_thickness
         self._bounding_box = bounding_box
         self._usb_stick = usb_stick
@@ -417,7 +413,8 @@ class PostProcessor(threading.Thread):
                 if self._bounding_box:
                     frame = self._draw_bounding_box(frame, detections)
                 if self._save:
-                    cv2.imwrite(IMAGE_TO_SHEPHERD_PATH, frame)
+                    encoded_img = base64.b64encode(cv2.imencode(".jpg", frame)[1]) + b'\n'
+                    self._image_pipe.write(encoded_img)
                 if self._usb_stick:
                     self._write_to_usb(capture, detections)
                 if self._send_to_sheep:
@@ -430,6 +427,7 @@ class Vision():
 
     def __init__(self,
                  zone,
+                 image_pipe,
                  at_path=_AT_PATH,
                  max_queue_size=4,
                  camera=None):
@@ -453,7 +451,7 @@ class Vision():
         self.camera = camera
 
         self.frames_to_postprocess = queue.Queue(max_queue_size)
-        self.post_processor = PostProcessor(self, zone=self.zone)
+        self.post_processor = PostProcessor(self, zone=self.zone, image_pipe=image_pipe)
 
     def stop(self):
         """Cleanup to prevent leaking hardware resource"""

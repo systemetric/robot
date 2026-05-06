@@ -1,12 +1,9 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 setup(
-    name="robot",
+    name="robocon",
     version="2024.1",
-    packages=["robot"],
-
-    install_requires=[
-    ],
+    packages=find_packages(),
 
     author="Skyler Grey",
     author_email="skyler3665@gmail.com",
