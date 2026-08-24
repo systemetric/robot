@@ -7,6 +7,14 @@ from robocon.game import (
     BASE_MARKER,
     ARENA_MARKER)
 
+from enum import Enum
+class MODE(Enum):
+    COMP = "comp"
+    DEV = "dev"
+
+zone = TEAM.RED
+mode = MODE.COMP
+
 __all__ = (
     "TEAM",
     "TARGET_TYPE",
