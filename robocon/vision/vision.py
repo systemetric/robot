@@ -122,7 +122,7 @@ LOGITECH_C270_FOCAL_LENGTHS = {  # fx, fy tuples
 }
 
 
-class Camera(abc.ABC):
+class PhyCamera(abc.ABC):
     """Define the interface for what a camera should support"""
     params = None  # (fx, fy, cx, cy) tuples
 
@@ -153,7 +153,7 @@ class Camera(abc.ABC):
         self.params = (*focal_length, *center)
 
 
-class RoboConPiCamera(Camera):
+class RoboConPiCamera(PhyCamera):
     """A wrapper for the PiCamera class providing the methods which are used by
     the robocon classes"""
 
@@ -245,7 +245,7 @@ class RoboConPiCamera(Camera):
         self._pi_camera.close()
 
 
-class RoboConUSBCamera(Camera):
+class RoboConUSBCamera(PhyCamera):
     """A wrapper class for the open CV methods"""
 
     def __init__(self,
@@ -430,7 +430,7 @@ class Vision():
                  image_pipe,
                  at_path=_AT_PATH,
                  max_queue_size=4,
-                 camera=None):
+                 phy=None):
 
         self.zone = zone
 
@@ -448,7 +448,7 @@ class Vision():
                                        decode_sharpening=0.25,
                                        debug=0)
 
-        self.camera = camera
+        self.camera = phy
 
         self.frames_to_postprocess = queue.Queue(max_queue_size)
         self.post_processor = PostProcessor(self, zone=self.zone, image_pipe=image_pipe)

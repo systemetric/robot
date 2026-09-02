@@ -10,7 +10,7 @@ if not has_picamera2:
 import sys
 
 from robocon.vision.camera import Camera, NoCameraPresent
-from robocon.vision.vision import RoboConUSBCamera
+from robocon.vision.vision import RoboConUSBCamera, PhyCamera
 
 MINIUM_VERSION = (3, 6)
 if sys.version_info <= MINIUM_VERSION:
@@ -22,4 +22,5 @@ __all__ = (
     "Camera",
     "NoCameraPresent",
     "RoboConUSBCamera",
+    "PhyCamera",
 )

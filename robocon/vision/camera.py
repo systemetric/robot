@@ -46,7 +46,7 @@ class NoCameraPresent(Exception):
 class Camera():
     _initialised = False
 
-    def __init__(self, camera=None, log_level=logging.INFO):
+    def __init__(self, phy=None, log_level=logging.INFO):
         self._initialised = False
         self._warnings = []
 
@@ -60,12 +60,12 @@ class Camera():
         if type(self)._initialised:
             raise RuntimeError("Camera object can only be initialised once")
 
-        self.camera = vision.RoboConPiCamera() if camera is None else camera()
-        if not isinstance(self.camera, vision.Camera):
-            raise ValueError("camera must inherit from vision.Camera")
-        self.res = self.camera.res
+        self.phy = vision.RoboConPiCamera() if phy is None else phy()
+        if not isinstance(self.phy, vision.PhyCamera):
+            raise ValueError("phy must inherit from vision.PhyCamera")
+        self.res = self.phy.res
 
-        self._vision = vision.Vision(self._zone, camera=self.camera, image_pipe=self._image_pipe)
+        self._vision = vision.Vision(self._zone, phy=self.phy, image_pipe=self._image_pipe)
 
         type(self)._initialised = True
 
