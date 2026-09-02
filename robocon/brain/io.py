@@ -30,7 +30,7 @@ def setup_logging(level):
 class IO():
     _initialised = False
 
-    def __init__(self, max_motor_voltage=6, enable_12v=True, enable_5v=True, log_level=logging.INFO):
+    def __init__(self, max_motor_voltage=6, enable_12v=None, enable_5v=None, log_level=logging.INFO):
         self._max_motor_voltage = max_motor_voltage
 
         self._initialised = False
@@ -48,8 +48,8 @@ class IO():
         if self._gg_version >= 10:
             # enable power rails
             self._green_giant.set_motor_power(True)
-            self.enable_12v = enable_12v
-            self.enable_5v = enable_5v
+            self.enable_12v = self._green_giant.get_12v_acc_power() if enable_12v == None else enable_12v
+            self.enable_5v = self._green_giant.get_5v_acc_power() if enable_5v == None else enable_5v
             self._adc_max = 5
             # configure User IO Ports
             self.servos = GreenGiantGPIOPinList(self.bus, self._gg_version, self._adc_max, _GG_SERVO_GPIO_BASE, _GG_SERVO_PWM_BASE)
