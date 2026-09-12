@@ -283,6 +283,8 @@ class GreenGiantGPIOPin():
         self._pwm_base = pwm_base_address
         self._analog_base = analog_base_address
         self._set_to = 0
+        if version >= 10:
+            self.get_mode()
 
     @property
     def mode(self):
@@ -310,12 +312,18 @@ class GreenGiantGPIOPin():
             elif mode is not PWM_SERVO:
                 raise IOError(f"Attempt to set PWM only pin as {self._mode}")
 
+    def get_mode(self):
+        # not greengiant
+        if self._gpio_base is not None and self._version >= 10:
+            mask = self._bus.read_byte_data(_GG_I2C_ADDR, _GG_CONTROL_START + self._gpio_base)
+            self._mode = list(_GG_GPIO_MASKS.keys())[list(_GG_GPIO_MASKS.values()).index(mask)]
 
     def update_mode(self):
         """Writes a mode update (for this pin only) to the I2C bus"""
         if self._gpio_base is not None:
             mask = _GG_GPIO_MASKS[self._mode]
             self._bus.write_byte_data(_GG_I2C_ADDR, _GG_CONTROL_START + self._gpio_base, mask)
+
     @property
     def digital(self):
         if self._gpio_base is not None:
@@ -467,6 +475,8 @@ class GreenGiantGPIOPinList():
 
     def off(self):
         for pin in self._list:
+            if pin.mode == OUTPUT:
+                pin.digital = False
             pin.mode = INPUT
 """
 class GreenGiantPWM():
