@@ -76,14 +76,16 @@ class Camera():
 
     def __del__(self):
         """Frees hardware resources held by the vision object"""
-        try:
-            self._image_pipe.close()
-        except:
-            pass
 
         # If vision never was initialised this creates confusing errors
         # so check that it is initialised first
         if hasattr(self, "_vision"):
             self._vision.stop()
+
+        try:
+            self._image_pipe.close()
+        except:
+            pass
+
         type(self)._initialised = False
 
