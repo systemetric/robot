@@ -542,10 +542,8 @@ class GreenGiantMotors():
                              "max_motor_voltage <= 12 but instead is "
                              f"{max_motor_voltage}")
 
-        # because we care about heating effects in the motors, we have to scale by
-        # the square of the ratio
-        self.power_scaling_factor = (
-            max_motor_voltage / _SYSTEM_VOLTAGE) ** 2
+        # because we care about heating effects in the motors, we have to scale
+        self.power_scaling_factor = max_motor_voltage / _SYSTEM_VOLTAGE
 
         # should we set up the state of 12v power and enable here?
         self._bus.write_byte_data(_GG_I2C_ADDR, _GG_ENABLE_MOTORS, 0) # disable the motor controller
