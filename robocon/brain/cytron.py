@@ -31,6 +31,12 @@ class CytronBoard:
         self.power_scaling_factor = (
             max_motor_voltage / _MAX_OUTPUT_VOLTAGE) ** 2
 
+        GPIO.setmode(GPIO.BCM)
+        GPIO.setup(_DIR_PIN_1, GPIO.OUT)
+        GPIO.setup(_DIR_PIN_2, GPIO.OUT)
+        GPIO.setup(_PWM_PIN_1, GPIO.OUT)
+        GPIO.setup(_PWM_PIN_2, GPIO.OUT)
+
         self._dir = [
             [GPIO.LOW, _DIR_PIN_1],
             [GPIO.LOW, _DIR_PIN_2],
@@ -39,12 +45,6 @@ class CytronBoard:
             [0, GPIO.PWM(_PWM_PIN_1, 100)],
             [0, GPIO.PWM(_PWM_PIN_2, 100)],
         ]
-
-        GPIO.setmode(GPIO.BCM)
-        GPIO.setup(_DIR_PIN_1, GPIO.OUT)
-        GPIO.setup(_DIR_PIN_2, GPIO.OUT)
-        GPIO.setup(_PWM_PIN_1, GPIO.OUT)
-        GPIO.setup(_PWM_PIN_2, GPIO.OUT)
 
     def __getitem__(self, index):
         """Returns current motor PWM value as a percentage"""
