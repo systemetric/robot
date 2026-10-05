@@ -564,7 +564,7 @@ class GreenGiantMotors():
         if index not in (0,1):
             raise IndexError(
                 f"motor index must be in (0,1) but instead got {index}")
-        hex_mag = self._bus.read_byte_data(_GG_I2C_ADDR, _GG_MOTOR_A_MAG + index)
+        hex_mag = self._bus.read_byte_data(_GG_I2C_ADDR, _GG_MOTOR_MAG_START + index)
 
         return hex_mag * (100.0 / 256.0) * self.power_scaling_factor
 
