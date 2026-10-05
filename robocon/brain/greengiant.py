@@ -215,18 +215,12 @@ class GreenGiantInternal():
             # the 12v rail. This is more than a software change because to be useful
             # we would have to monitor the output of the high side switch
        else:
-            self.enabled_motors = new_state # Bug in PiLow firmware v11 and below
+            self.enabled_motors = new_state
             self._bus.write_byte_data(_GG_I2C_ADDR, _GG_ENABLE_12V_ACC, int(new_state))
     
     def get_12v_acc_power(self):
-        if self._version <= 12:
-            # for GG, this is the same as the motor power above
-            return self.enabled_motors
-            # Up to and including GreenGiant v3 there is no way of reading the state of 
-            # the 12v rail. This is more than a software change because to be useful
-            # we would have to monitor the output of the high side switch
-        else:
-            return self._bus.read_byte_data(_GG_I2C_ADDR, _GG_ENABLE_12V_ACC)
+        # neither greengiant or pilow can have 12v state read yet
+        return self.enabled_motors
 
     def set_5v_acc_power(self, new_state):
         if self._version >= 10:
