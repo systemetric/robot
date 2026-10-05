@@ -51,14 +51,13 @@ _GG_GPIO_MASKS = {
 #    "GG_Motor_B_Short_To_Rail": 1 << 7
 #}
 
-#__GG_SYSTEM_ERROR_STATE_MASK = {
-#
-#    GG_System_5v_Fault: 1 << 0          # Short on GPIO or Servo overload
-#    GG_System_MotorPower_Fault: 1 << 1  # Probably should not happen, but may with two high power motors
-#    GG_System_12v_Fault: 1 << 2         # Short or overload on 12v Acc port
-#    # avr overheat ?
-#    # low power lockout ?
-#}
+_GG_SYSTEM_ERROR_STATE_MASK = {
+    "GG_System_5v_Fault": 1 << 0,          # Short on GPIO or Servo overload
+    "GG_System_MotorPower_Fault": 1 << 1,  # Probably should not happen, but may with two high power motors
+    "GG_System_12v_Fault": 1 << 2,         # Short or overload on 12v Acc port
+    # avr overheat ?
+    # low power lockout ?
+}
 
 
 
@@ -265,6 +264,20 @@ class GreenGiantInternal():
         """
         return _GG_FVR_VOLTS * _GG_BATTERY_ADC_MAX / read_high_low_data(self._bus, _GG_FVR_H)
 
+    def dump_sys_error(self):
+        if self._version >= 10:
+            mask = self._bus.read_byte_data(_GG_I2C_ADDR, _GG_SYSTEM_ERROR_STATE)
+            if mask == 0:
+                return
+
+            _5vf = mask & _GG_SYSTEM_ERROR_STATE_MASK["GG_System_5v_Fault"] != 0
+            _Mf = mask & _GG_SYSTEM_ERROR_STATE_MASK["GG_System_MotorPower_Fault"] != 0
+            _12vf = mask & _GG_SYSTEM_ERROR_STATE_MASK["GG_System_12v_Fault"] != 0
+
+            print("\nSystem Errors:")
+            print(f"  5V Fault:    {_5vf}")
+            print(f"  Motor Fault: {_Mf}")
+            print(f"  12V Fault:   {_12vf}")
 
 class GreenGiantGPIOPin():
     def __init__(self, pin_list, bus, version, adc_max, gpio_base_address, pwm_base_address, analog_base_address):

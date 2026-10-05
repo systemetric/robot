@@ -22,6 +22,8 @@ def reset():
     internal = gg.GreenGiantInternal(bus)
     version = internal.get_version()
 
+    internal.dump_sys_error()
+
     if version < 10:
         c.CytronBoard(1).stop()
         gg.GreenGiantGPIOPinList(bus, version, 5, None, gg._GG_SERVO_PWM_BASE)
