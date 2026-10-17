@@ -83,7 +83,7 @@ class REFUEL_STATION_MARKER(BASE_MARKER):
         self.target_type = TARGET_TYPE.REFUEL_STATION
 
     def __repr__(self) -> str:
-        return f"<Marker(DROPPER) owning_team={self.owning_team} target_type={self.target_type} />"
+        return f"<Marker(REFUEL_STATION) owning_team={self.owning_team} target_type={self.target_type} />"
 
 class MARKER(BASE_MARKER): # This is literally just how the code gets the different marker types.    
     @staticmethod
