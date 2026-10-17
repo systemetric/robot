@@ -219,8 +219,11 @@ class GreenGiantInternal():
             self._bus.write_byte_data(_GG_I2C_ADDR, _GG_ENABLE_12V_ACC, int(new_state))
     
     def get_12v_acc_power(self):
-        # neither greengiant or pilow can have 12v state read yet
-        return self.enabled_motors
+        if self._version < 14:
+            # old greengiant and pilow can't have 12v state read yet
+            return self.enabled_motors
+        else:
+            return bool(self._bus.read_byte_data(_GG_I2C_ADDR, _GG_ENABLE_12V_ACC))
 
     def set_5v_acc_power(self, new_state):
         if self._version >= 10:
