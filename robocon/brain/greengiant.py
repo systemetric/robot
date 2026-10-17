@@ -239,6 +239,12 @@ class GreenGiantInternal():
     def set_user_led(self, on):
         self._bus.write_byte_data(_GG_I2C_ADDR, _GG_USER_LED, int(on))
 
+    def set_wait_led(self, on):
+        if self._version < 14:
+            print(f"WARN: Attempted to set error/wait LED on an unsupported BrainBox.")
+        else:
+            self._bus.write_byte_data(_GG_I2C_ADDR, _GG_SYSTEM_ERROR_STATE, int(on))
+
     def get_version(self):
         return self._bus.read_byte_data(_GG_I2C_ADDR, _GG_VERSION)
 
