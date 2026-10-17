@@ -159,7 +159,7 @@ _GG_MOTOR_DIR_START = 38
 _GG_MOTOR_ERROR_STATE = 40
 _GG_SYSTEM_ERROR_STATE = 41
 
-V_ZEN = (10.1)
+V_ZEN = 9.1
 
 def read_high_low_data(bus, address):
     """Fetches and combines data stored across two bytes"""
