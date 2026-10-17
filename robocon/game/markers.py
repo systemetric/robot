@@ -46,7 +46,7 @@ class BASE_MARKER: # Base marker class that TARGET_MARKER and ARENA_MARKER deriv
         self.target_type: typing.Union[TARGET_TYPE, None] = None
 
         # Sizes are in meters
-        self.size = 0.2 if self.type == MARKER_TYPE.ARENA else 0.08
+        self.size = 0.2 if self.type == MARKER_TYPE.ARENA or self.type == MARKER_TYPE.REFUEL_STATION else 0.08
 
     def __repr__(self) -> str:
         return f"<Marker type={self.type} owning_team={self.owning_team} target_type={self.target_type} />"
