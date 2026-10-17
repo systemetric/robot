@@ -22,9 +22,9 @@ No semi-colons please - Scott Wilson (2024 - 2025)
 """
 
 class MARKER_TYPE(enum.Enum): # Keep something like this to determine if a marker is a wall or not.
-    TARGET = enum.auto()
     ARENA = enum.auto()
-    TREE = enum.auto()
+    REFUEL_STATION = enum.auto()
+    POWER_STATION = enum.auto()
 
 
 class BASE_MARKER: # Base marker class that TARGET_MARKER and ARENA_MARKER derive from.
@@ -55,18 +55,10 @@ class BASE_MARKER: # Base marker class that TARGET_MARKER and ARENA_MARKER deriv
     def bounding_box_color(self) -> tuple:
         if self.type == MARKER_TYPE.ARENA: # If it is a wall
             return tuple(reversed((225, 249, 125))) # Turquoise
-        elif self.type == MARKER_TYPE.TREE: # Other arena object (e.g. pillar)
-            return tuple(reversed((255, 131, 125))) # Purple
-        elif self.owning_team == TEAM.ARENA: # If it is a supply
-            m = self if isinstance(self, TARGET_MARKER) else None
-            if m == None:
-                return tuple(reversed((0, 0, 0))) # Nothing, undefined
-            if m.target_type == TARGET_TYPE["T0"]:
-                return tuple(reversed((0, 255, 0))) # Green
-            elif m.target_type == TARGET_TYPE["T1"]:
-                return tuple(reversed((0, 0, 255))) # Red
-            else:
-                return tuple(reversed((0, 0, 0))) # Set as NONE
+        elif self.type == MARKER_TYPE.REFUEL_STATION:
+            return tuple(reversed(BASE_MARKER.team_marker_colors[self.owning_team]))
+        elif self.type == MARKER_TYPE.POWER_STATION: # Other arena object (e.g. hopper)
+            return tuple(reversed((255, 0, 255))) # Purple
         else: # This object doesn't have a defined colour
             return tuple(reversed((0, 0, 0)))
 
@@ -75,25 +67,23 @@ class ARENA_MARKER(BASE_MARKER): # Not much going on here. This represents a wal
         super().__init__(id, MARKER_TYPE.ARENA)
 
     def __repr__(self) -> str:
-        return f"<Marker(ARENA)/>"
+        return f"<Marker(ARENA) />"
         
-class ARENA_OBJECT_MARKER(BASE_MARKER): # A non-interactable object in the arena, that is not a wall.
+class POWER_STATION_MARKER(BASE_MARKER): # A non-interactable object in the arena, that is not a wall.
     def __init__(self, id: int) -> None:
-        super().__init__(id, MARKER_TYPE.TREE)
+        super().__init__(id, MARKER_TYPE.POWER_STATION)
 
     def __repr__(self) -> str:
-        return f"<Marker(TREE)/>"
+        return f"<Marker(POWER_STATION) />"
 
-class TARGET_MARKER(BASE_MARKER): # This is a game object rather than a wall. Add properties you want to keep track of
-    def __init__(
-        self, id: int, owner: TEAM, target_type: TARGET_TYPE
-    ) -> None:
-        super().__init__(id, MARKER_TYPE.TARGET)
+class REFUEL_STATION_MARKER(BASE_MARKER):
+    def __init__(self, id: int, owner) -> None:
+        super().__init__(id, MARKER_TYPE.REFUEL_STATION)
         self.owning_team = owner
-        self.target_type = target_type
+        self.target_type = TARGET_TYPE.REFUEL_STATION
 
     def __repr__(self) -> str:
-        return f"<Marker(TARGET) owning_team={self.owning_team} target_type={self.target_type} />"
+        return f"<Marker(DROPPER) owning_team={self.owning_team} target_type={self.target_type} />"
 
 class MARKER(BASE_MARKER): # This is literally just how the code gets the different marker types.    
     @staticmethod
@@ -128,22 +118,14 @@ class MARKER(BASE_MARKER): # This is literally just how the code gets the differ
         
         """
 
-        if id > 91:
-            return ARENA_MARKER(id)
-        elif id > 75:
-            return ARENA_OBJECT_MARKER(id)
-            
-        if id < 32:
-            owning_team = TEAM["ARENA"]
-        else:
-            print(f"Marker ID {id} is not defined.")
-            owning_team = TEAM["NONE"]
-        
-        if id >= 0 and id <= 23: # supply_l
-            target_type = TARGET_TYPE["T0"]
-        elif id >= 24 and id <= 31: # supply_h
-            target_type = TARGET_TYPE["T1"]
-        else:
-            target_type = TARGET_TYPE["NONE"]
+        if id <= 20:
+            return POWER_STATION_MARKER(id)
 
-        return TARGET_MARKER(id, owning_team, target_type)
+        # 100, 106, 112, 118
+        if id >= 100 and id <= 118 and (id - 100) % 6 == 0:
+            return REFUEL_STATION_MARKER(id, TEAM[f"T{int((id - 100) / 6)}"])
+
+        if id >= 100 and id <= 123:
+            return ARENA_MARKER(id)
+
+        raise ValueError(f"Marker ID {id} is not defined")
