@@ -125,7 +125,4 @@ class MARKER(BASE_MARKER): # This is literally just how the code gets the differ
         if id >= 100 and id <= 118 and (id - 100) % 6 == 0:
             return REFUEL_STATION_MARKER(id, TEAM[f"T{int((id - 100) / 6)}"])
 
-        if id >= 100 and id <= 123:
-            return ARENA_MARKER(id)
-
-        raise ValueError(f"Marker ID {id} is not defined")
+        return ARENA_MARKER(id)
