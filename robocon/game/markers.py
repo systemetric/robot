@@ -118,7 +118,7 @@ class MARKER(BASE_MARKER): # This is literally just how the code gets the differ
         
         """
 
-        if id <= 20:
+        if id < 20:
             return POWER_STATION_MARKER(id)
 
         # 100, 106, 112, 118
