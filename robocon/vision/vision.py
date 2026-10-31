@@ -324,7 +324,7 @@ class PostProcessor(threading.Thread):
                  send_to_sheep=False,
                  save=True):
 
-        super(PostProcessor, self).__init__()
+        super(PostProcessor, self).__init__(daemon=True)
 
         self._owner = owner
         self.zone = zone
@@ -344,7 +344,9 @@ class PostProcessor(threading.Thread):
     def stop(self):
         """Finish current work then join main process"""
         self._stop_event.set()
-        self.join()
+        # may be called during interpreter shutdown, where daemon threads never
+        # finish, so don't wait forever
+        self.join(timeout=2)
 
     def stopped(self):
         """public alias for _stop_event"""
