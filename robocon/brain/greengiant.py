@@ -584,6 +584,7 @@ class GreenGiantMotors():
             raise IndexError(
                 f"motor index must be in (0,1) but instead got {index}")
 
+        percent = clamp(percent, -100, 100)
         direction = (percent < 0)
         self._bus.write_byte_data(_GG_I2C_ADDR, _GG_MOTOR_DIR_START + index, direction)
 
