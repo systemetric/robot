@@ -411,16 +411,23 @@ class PostProcessor(threading.Thread):
             except queue.Empty:
                 pass
             else:
-                frame = capture.colour_frame
-                if self._bounding_box:
-                    frame = self._draw_bounding_box(frame, detections)
-                if self._save:
-                    encoded_img = base64.b64encode(cv2.imencode(".jpg", frame)[1]) + b'\n'
-                    self._image_pipe.write(encoded_img)
-                if self._usb_stick:
-                    self._write_to_usb(capture, detections)
-                if self._send_to_sheep:
-                    pass
+                try:
+                    self._process(capture, detections)
+                except Exception:
+                    logging.exception("Failed to postprocess frame")
+
+    def _process(self, capture, detections):
+        """Draws on a frame and sends it to wherever it has been configured to go"""
+        frame = capture.colour_frame
+        if self._bounding_box:
+            frame = self._draw_bounding_box(frame, detections)
+        if self._save:
+            encoded_img = base64.b64encode(cv2.imencode(".jpg", frame)[1]) + b'\n'
+            self._image_pipe.write(encoded_img)
+        if self._usb_stick:
+            self._write_to_usb(capture, detections)
+        if self._send_to_sheep:
+            pass
 
 
 class Vision():
