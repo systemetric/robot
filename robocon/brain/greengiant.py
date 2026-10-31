@@ -564,6 +564,10 @@ class GreenGiantMotors():
         # because we care about heating effects in the motors, we have to scale
         self.power_scaling_factor = max_motor_voltage / _SYSTEM_VOLTAGE
 
+        # the firmware truncates the direction register to a byte when it is
+        # read, so it always returns 0, remember the direction here instead
+        self._reversed = [False, False]
+
         # should we set up the state of 12v power and enable here?
         self._bus.write_byte_data(_GG_I2C_ADDR, _GG_ENABLE_MOTORS, 0) # disable the motor controller
 
@@ -578,7 +582,11 @@ class GreenGiantMotors():
                 f"motor index must be in (0,1) but instead got {index}")
         hex_mag = self._bus.read_byte_data(_GG_I2C_ADDR, _GG_MOTOR_MAG_START + index)
 
-        return hex_mag * (100.0 / 256.0) * self.power_scaling_factor
+        if self.power_scaling_factor == 0:
+            return 0
+
+        percent = hex_mag * (100.0 / 256.0) / self.power_scaling_factor
+        return -percent if self._reversed[index] else percent
 
     def __setitem__(self, index, percent):
         """Clamps input value, converts from percentage to wiring pi format and
@@ -589,6 +597,7 @@ class GreenGiantMotors():
 
         percent = clamp(percent, -100, 100)
         direction = (percent < 0)
+        self._reversed[index] = direction
         self._bus.write_byte_data(_GG_I2C_ADDR, _GG_MOTOR_DIR_START + index, direction)
 
         # Scale such that 50% with a motor limit of 6V is really 3V
