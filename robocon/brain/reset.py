@@ -40,6 +40,11 @@ def reset():
     # probably should wrap this all up in a .off()
     internal.enable_motors(False)
     internal.set_12v_acc_power(False)
-    internal.set_user_led(False)
+
+    # turning off user led can be confusing on greengiant
+    if version < 10:
+        internal.set_user_led(True)
+    else:
+        internal.set_user_led(False)
 
     bus.close()
