@@ -64,8 +64,8 @@ class IO():
             self._green_giant.set_motor_power(True)
             self._adc_max = self._green_giant.get_fvr_reading()
             # user IO
-            self.servos = GreenGiantGPIOPinList(self.bus, self._gg_version, None,          None,           _GG_SERVO_PWM_BASE)
-            self.gpio   = GreenGiantGPIOPinList(self.bus, self._gg_version, self._adc_max, _GG_GPIO_GPIO_BASE    , None)
+            self.servos = GreenGiantGPIOPinList(self.bus, self._gg_version, self._adc_max, _GG_SERVO_GPIO_BASE, _GG_SERVO_PWM_BASE)
+            self.gpio   = GreenGiantGPIOPinList(self.bus, self._gg_version, self._adc_max, _GG_GPIO_GPIO_BASE, _GG_GPIO_PWM_BASE)
             # configure motor drivers
             self.motors = CytronBoard(self._max_motor_voltage)
 
