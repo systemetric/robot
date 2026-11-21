@@ -265,9 +265,12 @@ class GreenGiantGPIOPin():
         self._pwm_base = pwm_base_address
         self._analog_base = analog_base_address
 
-        # read the currently configured mode
-        mask = self._bus.read_byte_data(_GG_I2C_ADDR, _GG_CONTROL_START + self._gpio_base)
-        self._mode = list(_GG_GPIO_MASKS.keys())[list(_GG_GPIO_MASKS.values()).index(mask)]
+        if version >= 10:
+            # read the currently configured mode
+            mask = self._bus.read_byte_data(_GG_I2C_ADDR, _GG_CONTROL_START + self._gpio_base)
+            self._mode = list(_GG_GPIO_MASKS.keys())[list(_GG_GPIO_MASKS.values()).index(mask)]
+        else:
+            self._mode = INPUT
 
     @property
     def mode(self):
