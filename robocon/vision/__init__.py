@@ -5,6 +5,7 @@ has_picamera2 = importlib.util.find_spec("picamera2") is not None
 if not has_picamera2:
     import sys
     import robocon.vision.mock_picamera2 as mock_picamera2
+
     sys.modules["picamera2"] = mock_picamera2
 
 import sys

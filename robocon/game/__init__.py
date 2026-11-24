@@ -5,7 +5,7 @@ from .markers import (
     ARENA_MARKER,
     BASE_MARKER,
     POWER_STATION_MARKER,
-    REFUEL_STATION_MARKER
+    REFUEL_STATION_MARKER,
 )
 from .startup_poems import POEM_ON_STARTUP
 from .targets import TARGET_TYPE
@@ -27,5 +27,5 @@ __all__ = (
     "ARENA_MARKER",
     "POEM_ON_STARTUP",
     "POWER_STATION_MARKER",
-    "REFUEL_STATION_MARKER"
+    "REFUEL_STATION_MARKER",
 )

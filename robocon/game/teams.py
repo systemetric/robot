@@ -1,6 +1,7 @@
 import enum
 
-class TEAM(enum.Enum): 
+
+class TEAM(enum.Enum):
     RED = "RED"
     YELLOW = "YELLOW"
     GREEN = "GREEN"
@@ -10,4 +11,3 @@ class TEAM(enum.Enum):
     T1 = "YELLOW"
     T2 = "GREEN"
     T3 = "BLUE"
-

@@ -20,7 +20,8 @@ import picamera2
 
 import robocon.vision.apriltags3 as AT
 
-class Marker():
+
+class Marker:
     """A class to automatically pull the dis and bear_y out of the detection"""
 
     def __init__(self, info: MarkerInfo, detection: AT.Detection):
@@ -36,21 +37,23 @@ class Marker():
 
     def __str__(self):
         """A reduced set of the attributes and description text"""
-        return (f"{self.info.type} Marker {self.info.id}: {self.dist:.3}m @"
-                f"{self.bearing.y:.3} degrees\n"
-                "{\n"
-                f"  info.type = {self.info.type}\n"
-                f"  info.id = {self.info.id}\n"
-                f"  info.owning_team = {self.info.owning_team}\n"
-                f"  dist = {self.dist:.3}\n"
-                f"  bearing.y = {self.bearing.y:.3}\n"
-                f"  bearing.x = {self.bearing.x:.3}\n"
-                f"  rotation.y = {self.rotation.y:.3}\n"
-                f"  rotation.x = {self.rotation.x:.3}\n"
-                f"  rotation.z = {self.rotation.z:.3}\n"
-                f"  info = TOO BIG TO PRINT\n"
-                f"  detection = TOO BIG TO PRINT\n"
-                "}\n")
+        return (
+            f"{self.info.type} Marker {self.info.id}: {self.dist:.3}m @"
+            f"{self.bearing.y:.3} degrees\n"
+            "{\n"
+            f"  info.type = {self.info.type}\n"
+            f"  info.id = {self.info.id}\n"
+            f"  info.owning_team = {self.info.owning_team}\n"
+            f"  dist = {self.dist:.3}\n"
+            f"  bearing.y = {self.bearing.y:.3}\n"
+            f"  bearing.x = {self.bearing.x:.3}\n"
+            f"  rotation.y = {self.rotation.y:.3}\n"
+            f"  rotation.x = {self.rotation.x:.3}\n"
+            f"  rotation.z = {self.rotation.z:.3}\n"
+            f"  info = TOO BIG TO PRINT\n"
+            f"  detection = TOO BIG TO PRINT\n"
+            "}\n"
+        )
 
 
 class Detections(list):
@@ -64,6 +67,7 @@ class Detections(list):
 
 class Capture(NamedTuple):
     """Allows for passing captures around particularly to the postprocessor"""
+
     grey_frame: Any
     colour_frame: Any
     colour_type: Any
@@ -96,21 +100,21 @@ PI_2_1_CAMERA_FOCAL_LENGTHS = {
     (1296, 976): (821, 821),
     (1920, 1088): (2076, 2076),
     (1920, 1440): (1198, 1198),
-    (1640, 1232): (1016.7, 1016.7)
+    (1640, 1232): (1016.7, 1016.7),
 }
 
 PI_1_3_CAMERA_FOCAL_LENGTHS = {
     (640, 480): (467, 467),
     (1296, 972): (928, 928),
     (1920, 1080): (1887, 1887),
-    (2592, 1944): (1887, 1887)
+    (2592, 1944): (1887, 1887),
 }
 
 
 ARDUCAM_GLOBAL_SHUTTER_FOCAL_LENGTHS = {
-    (640, 480):   (380.5, 380.5),
+    (640, 480): (380.5, 380.5),
     (1280, 720): (618, 618),
-    (1280, 800): (618, 618)
+    (1280, 800): (618, 618),
 }
 
 LOGITECH_C270_FOCAL_LENGTHS = {  # fx, fy tuples
@@ -118,12 +122,13 @@ LOGITECH_C270_FOCAL_LENGTHS = {  # fx, fy tuples
     (1296, 736): (1243.0561163806915, 1243.0561163806915),
     (1296, 976): (1232.4906991188611, 1232.4906991188611),
     (1920, 1088): (3142.634753484673, 3142.634753484673),
-    (1920, 1440): (1816.5165227051677, 1816.5165227051677)
+    (1920, 1440): (1816.5165227051677, 1816.5165227051677),
 }
 
 
 class PhyCamera(abc.ABC):
     """Define the interface for what a camera should support"""
+
     params = None  # (fx, fy, cx, cy) tuples
 
     @abc.abstractproperty
@@ -133,7 +138,7 @@ class PhyCamera(abc.ABC):
     @res.setter
     def res(self, res: tuple) -> None:
         """This method sets the resolution of the camera it should raise an
-           error if the camera failed to set the requested resolution"""
+        error if the camera failed to set the requested resolution"""
 
     @abc.abstractmethod
     def capture(self) -> Capture:
@@ -149,7 +154,7 @@ class PhyCamera(abc.ABC):
         cx: focal_length_x
         """
         focal_length = focal_lengths[self.res]
-        center = [i/2 for i in self.res]
+        center = [i / 2 for i in self.res]
         self.params = (*focal_length, *center)
 
 
@@ -162,33 +167,35 @@ class RoboConPiCamera(PhyCamera):
         picamera2.Picamera2.set_logging(logging.ERROR)
         self._pi_camera = picamera2.Picamera2()
         # should test if the camera exists here, and give a nice warning
-        self.camera_model = self._pi_camera.camera_properties['Model']
+        self.camera_model = self._pi_camera.camera_properties["Model"]
 
-        if self.camera_model == 'ov9281':
+        if self.camera_model == "ov9281":
             # Global Shutter Camera
-            self.focal_lengths = (ARDUCAM_GLOBAL_SHUTTER_FOCAL_LENGTHS
-                                  if focal_lengths is None
-                                  else focal_lengths)
+            self.focal_lengths = (
+                ARDUCAM_GLOBAL_SHUTTER_FOCAL_LENGTHS
+                if focal_lengths is None
+                else focal_lengths
+            )
             if start_res == None:
                 start_res = (1280, 800)
             elif start_res not in self.focal_lengths:
                 raise "Invalid resolution for camera."
-        elif self.camera_model == 'imx219':
+        elif self.camera_model == "imx219":
             # PI cam version 2.1
             # Warning: only full res and 1640x1232  are full image (scaled),
             # everything else seems full-res and cropped, reducing FOV
-            self.focal_lengths = (PI_2_1_CAMERA_FOCAL_LENGTHS
-                                  if focal_lengths is None
-                                  else focal_lengths)
+            self.focal_lengths = (
+                PI_2_1_CAMERA_FOCAL_LENGTHS if focal_lengths is None else focal_lengths
+            )
             if start_res == None:
                 start_res = (1640, 1232)
             elif start_res not in self.focal_lengths:
                 raise "Invalid resolution for camera."
-        elif self.camera_model == 'ov5647':
+        elif self.camera_model == "ov5647":
             # clone pi cameras and zerocam
-            self.focal_lengths = (PI_1_3_CAMERA_FOCAL_LENGTHS
-                                  if focal_lengths is None
-                                  else focal_lengths)
+            self.focal_lengths = (
+                PI_1_3_CAMERA_FOCAL_LENGTHS if focal_lengths is None else focal_lengths
+            )
             if start_res == None:
                 start_res = (1296, 972)
             elif start_res not in self.focal_lengths:
@@ -199,7 +206,8 @@ class RoboConPiCamera(PhyCamera):
         self._pi_camera.set_logging(logging.ERROR)
         self._pi_camera_resolution = start_res  # we store this - WHY?
         self._camera_config = self._pi_camera.create_still_configuration(
-            main={"size": start_res, "format": 'RGB888'})
+            main={"size": start_res, "format": "RGB888"}
+        )
         self._pi_camera.configure(self._camera_config)
 
         self._pi_camera.start()
@@ -215,7 +223,8 @@ class RoboConPiCamera(PhyCamera):
         if new_res is not self._pi_camera_resolution:
             self._pi_camera.stop()
             self._camera_config = self._pi_camera.create_still_configuration(
-                main={"size": new_res, "format": 'RGB888'})
+                main={"size": new_res, "format": "RGB888"}
+            )
             self._pi_camera_resolution = new_res
             self._pi_camera.configure(self._camera_config)
             self._pi_camera.start()
@@ -225,7 +234,7 @@ class RoboConPiCamera(PhyCamera):
         # TODO Make this return the YUV capture
         capture_time = datetime.now()
         raw = self._pi_camera.capture_array()
-        if (self._pi_camera.camera_properties['Model'] == 'imx219'):
+        if self._pi_camera.camera_properties["Model"] == "imx219":
             # because the only size scaled in the camera 2.1 is huge
             # read the big size and then scale in software
             # otherwise the 2.1 camera gives a terrible FOV
@@ -235,10 +244,12 @@ class RoboConPiCamera(PhyCamera):
             colour_frame = raw
         grey_frame = cv2.cvtColor(colour_frame, cv2.COLOR_BGR2GRAY)
 
-        return Capture(grey_frame=grey_frame,
-                       colour_frame=colour_frame,
-                       colour_type="RGB",
-                       time=capture_time)
+        return Capture(
+            grey_frame=grey_frame,
+            colour_frame=colour_frame,
+            colour_type="RGB",
+            time=capture_time,
+        )
 
     def close(self):
         """Prevent the picamera leaking GPU memory"""
@@ -248,14 +259,12 @@ class RoboConPiCamera(PhyCamera):
 class RoboConUSBCamera(PhyCamera):
     """A wrapper class for the open CV methods"""
 
-    def __init__(self,
-                 start_res=(1296, 736),
-                 focal_lengths=None):
+    def __init__(self, start_res=(1296, 736), focal_lengths=None):
         self._cv_capture = cv2.VideoCapture(0)
         self._res = start_res
-        self.focal_lengths = (LOGITECH_C270_FOCAL_LENGTHS
-                              if focal_lengths is None
-                              else focal_lengths)
+        self.focal_lengths = (
+            LOGITECH_C270_FOCAL_LENGTHS if focal_lengths is None else focal_lengths
+        )
         self._update_camera_params(self.focal_lengths)
 
     @property
@@ -268,11 +277,13 @@ class RoboConUSBCamera(PhyCamera):
             self._cv_capture.set(cv2.CAP_PROP_FRAME_WIDTH, new_res[0])
             self._cv_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, new_res[1])
             actual = self._cv_capture.get(cv2.CAP_PROP_FRAME_WIDTH)
-            assert actual == new_res[0], (f"Failed to set USB res, expected {new_res[0]} "
-                                          f"but got {actual}")
+            assert actual == new_res[0], (
+                f"Failed to set USB res, expected {new_res[0]} " f"but got {actual}"
+            )
             actual = self._cv_capture.get(cv2.CAP_PROP_FRAME_HEIGHT)
-            assert actual == new_res[1], (f"Failed to set USB res, expected {new_res[1]} "
-                                          f"but got {actual}")
+            assert actual == new_res[1], (
+                f"Failed to set USB res, expected {new_res[1]} " f"but got {actual}"
+            )
 
             self._res = new_res
             self._update_camera_params(self.focal_lengths)
@@ -292,10 +303,12 @@ class RoboConUSBCamera(PhyCamera):
 
         grey_frame = cv2.cvtColor(colour_frame, cv2.COLOR_BGR2GRAY)
 
-        return Capture(grey_frame=grey_frame,
-                       colour_frame=colour_frame,
-                       colour_type="RGB",
-                       time=capture_time)
+        return Capture(
+            grey_frame=grey_frame,
+            colour_frame=colour_frame,
+            colour_type="RGB",
+            time=capture_time,
+        )
 
     def close(self):
         """Close the openCV capture
@@ -314,15 +327,17 @@ class PostProcessor(threading.Thread):
     free if we are processing frames back to backs.
     """
 
-    def __init__(self,
-                 owner,
-                 zone,
-                 image_pipe,
-                 bounding_box_thickness=5,
-                 bounding_box=True,
-                 usb_stick=False,
-                 send_to_sheep=False,
-                 save=True):
+    def __init__(
+        self,
+        owner,
+        zone,
+        image_pipe,
+        bounding_box_thickness=5,
+        bounding_box=True,
+        usb_stick=False,
+        send_to_sheep=False,
+        save=True,
+    ):
 
         super(PostProcessor, self).__init__(daemon=True)
 
@@ -353,8 +368,7 @@ class PostProcessor(threading.Thread):
         return self._stop_event.is_set()
 
     def _draw_bounding_box(self, frame, detections):
-        """Takes a frame and a list of markers drawing bounding boxes
-        """
+        """Takes a frame and a list of markers drawing bounding boxes"""
         polygon_is_closed = True
         for detection in detections:
             marker_info = MARKER.by_id(detection.id, self.zone)
@@ -362,24 +376,30 @@ class PostProcessor(threading.Thread):
             marker_code = detection.id
 
             # The reverse is because OpenCV expects BGR but we use RGB
-            colour = tuple(reversed(marker_info_colour
-                              if marker_info_colour is not None
-                              else DEFAULT_BOUNDING_BOX_COLOUR))
+            colour = tuple(
+                reversed(
+                    marker_info_colour
+                    if marker_info_colour is not None
+                    else DEFAULT_BOUNDING_BOX_COLOUR
+                )
+            )
 
             # need to have this EXACT integer_corners syntax due to opencv bug
             # https://stackoverflow.com/questions/17241830/
             integer_corners = detection.corners.astype(np.int32)
 
-            if (marker_info.owning_team == self.zone):
-                bounding_box_thickness = self._bounding_box_thickness*3
+            if marker_info.owning_team == self.zone:
+                bounding_box_thickness = self._bounding_box_thickness * 3
             else:
                 bounding_box_thickness = self._bounding_box_thickness
 
-            cv2.polylines(frame,
-                            [integer_corners],
-                            polygon_is_closed,
-                            colour,
-                            thickness=bounding_box_thickness)
+            cv2.polylines(
+                frame,
+                [integer_corners],
+                polygon_is_closed,
+                colour,
+                thickness=bounding_box_thickness,
+            )
 
         return frame
 
@@ -393,7 +413,7 @@ class PostProcessor(threading.Thread):
             cv2.imwrite(filename, capture.colour_frame)
 
         if os.path.exists(_USB_LOGS_PATH):
-            with open(_USB_LOGS_PATH, 'a') as usb_logs:
+            with open(_USB_LOGS_PATH, "a") as usb_logs:
                 log_message = f"---{capture_time}---\n{detections}\n\n"
                 usb_logs.write(log_message)
 
@@ -422,7 +442,7 @@ class PostProcessor(threading.Thread):
         if self._bounding_box:
             frame = self._draw_bounding_box(frame, detections)
         if self._save:
-            encoded_img = base64.b64encode(cv2.imencode(".jpg", frame)[1]) + b'\n'
+            encoded_img = base64.b64encode(cv2.imencode(".jpg", frame)[1]) + b"\n"
             self._image_pipe.write(encoded_img)
         if self._usb_stick:
             self._write_to_usb(capture, detections)
@@ -430,32 +450,26 @@ class PostProcessor(threading.Thread):
             pass
 
 
-class Vision():
+class Vision:
     """Class for setting camera hardware, capturing, assigning attributes
-        calling the post processor"""
+    calling the post processor"""
 
-    def __init__(self,
-                 zone,
-                 image_pipe,
-                 at_path=_AT_PATH,
-                 max_queue_size=4,
-                 phy=None):
+    def __init__(self, zone, image_pipe, at_path=_AT_PATH, max_queue_size=4, phy=None):
 
         self.zone = zone
 
-        at_lib_path = (
-            "{}/lib".format(at_path),
-            "{}/lib64".format(at_path)
-        )
+        at_lib_path = ("{}/lib".format(at_path), "{}/lib64".format(at_path))
 
-        self.at_detector = AT.Detector(searchpath=at_lib_path,
-                                       families="tag36h11",
-                                       nthreads=4,
-                                       quad_decimate=1.0,
-                                       quad_sigma=0.0,
-                                       refine_edges=1,
-                                       decode_sharpening=0.25,
-                                       debug=0)
+        self.at_detector = AT.Detector(
+            searchpath=at_lib_path,
+            families="tag36h11",
+            nthreads=4,
+            quad_decimate=1.0,
+            quad_sigma=0.0,
+            refine_edges=1,
+            decode_sharpening=0.25,
+            debug=0,
+        )
 
         self.camera = phy
 
@@ -487,17 +501,17 @@ class Vision():
 
     def detect_markers(self):
         """Returns the markers the robot can see:
-            - Gets a frame
-            - Finds the markers
-            - Appends RoboCon specific properties, e.g. token or arena
-            - Sends off for post processing
-            - Filters and sorts the markers
+        - Gets a frame
+        - Finds the markers
+        - Appends RoboCon specific properties, e.g. token or arena
+        - Sends off for post processing
+        - Filters and sorts the markers
         """
         capture = self.camera.capture()
 
-        detections = self.at_detector.detect(capture.grey_frame,
-                                             estimate_tag_pose=True,
-                                             camera_params=self.camera.params)
+        detections = self.at_detector.detect(
+            capture.grey_frame, estimate_tag_pose=True, camera_params=self.camera.params
+        )
 
         self._send_to_post_process(capture, detections)
 

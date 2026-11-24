@@ -6,12 +6,16 @@ from robocon.game import (
     BASE_MARKER,
     ARENA_MARKER,
     POWER_STATION_MARKER,
-    REFUEL_STATION_MARKER)
+    REFUEL_STATION_MARKER,
+)
 
 from enum import Enum
+
+
 class MODE(Enum):
     COMP = "comp"
     DEV = "dev"
+
 
 zone = TEAM.RED
 mode = MODE.COMP
@@ -24,5 +28,5 @@ __all__ = (
     "BASE_MARKER",
     "ARENA_MARKER",
     "POWER_STATION_MARKER",
-    "REFUEL_STATION_MARKER"
+    "REFUEL_STATION_MARKER",
 )

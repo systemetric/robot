@@ -1,5 +1,5 @@
 class Picamera2:
-    """ Mock Picamera2 class """
+    """Mock Picamera2 class"""
 
     ERROR = None
 
@@ -34,5 +34,6 @@ class Picamera2:
     @staticmethod
     def set_logging(_):
         print("mock_picamera2.Picamera2.set_logging(_)")
+
 
 print("<<< WARN: using mock picamera2 >>>")

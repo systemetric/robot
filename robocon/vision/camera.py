@@ -23,6 +23,7 @@ from hopper import HopperPipe, HopperPipeType, JsonReader
 
 _logger = logging.getLogger("robot_vision")
 
+
 def setup_logging(level):
     """Display the just the message when logging events
     Sets the logging level to `level`"""
@@ -43,7 +44,8 @@ class NoCameraPresent(Exception):
     def __str__(self):
         return "No camera found."
 
-class Camera():
+
+class Camera:
     _initialised = False
 
     def __init__(self, phy=None, log_level=logging.INFO):
@@ -65,7 +67,9 @@ class Camera():
             raise ValueError("phy must inherit from vision.PhyCamera")
         self.res = self.phy.res
 
-        self._vision = vision.Vision(self._zone, phy=self.phy, image_pipe=self._image_pipe)
+        self._vision = vision.Vision(
+            self._zone, phy=self.phy, image_pipe=self._image_pipe
+        )
 
         type(self)._initialised = True
 
@@ -88,4 +92,3 @@ class Camera():
             pass
 
         type(self)._initialised = False
-

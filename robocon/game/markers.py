@@ -21,14 +21,17 @@ No semi-colons please - Scott Wilson (2024 - 2025)
 [Put your future messages here]
 """
 
-class MARKER_TYPE(enum.Enum): # Keep something like this to determine if a marker is a wall or not.
+
+class MARKER_TYPE(
+    enum.Enum
+):  # Keep something like this to determine if a marker is a wall or not.
     ARENA = enum.auto()
     REFUEL_STATION = enum.auto()
     POWER_STATION = enum.auto()
 
 
-class BASE_MARKER: # Base marker class that TARGET_MARKER and ARENA_MARKER derive from.
-    team_marker_colors: dict = { # Colour definitions for each team defined in TEAMS
+class BASE_MARKER:  # Base marker class that TARGET_MARKER and ARENA_MARKER derive from.
+    team_marker_colors: dict = {  # Colour definitions for each team defined in TEAMS
         TEAM.RED: (0, 0, 255),
         TEAM.GREEN: (0, 255, 0),
         TEAM.YELLOW: (0, 255, 255),
@@ -46,35 +49,44 @@ class BASE_MARKER: # Base marker class that TARGET_MARKER and ARENA_MARKER deriv
         self.target_type: typing.Union[TARGET_TYPE, None] = None
 
         # Sizes are in meters
-        self.size = 0.2 if self.type == MARKER_TYPE.ARENA or self.type == MARKER_TYPE.REFUEL_STATION else 0.08
+        self.size = (
+            0.2
+            if self.type == MARKER_TYPE.ARENA or self.type == MARKER_TYPE.REFUEL_STATION
+            else 0.08
+        )
 
     def __repr__(self) -> str:
         return f"<Marker type={self.type} owning_team={self.owning_team} target_type={self.target_type} />"
 
     @property
     def bounding_box_color(self) -> tuple:
-        if self.type == MARKER_TYPE.ARENA: # If it is a wall
-            return tuple(reversed((225, 249, 125))) # Turquoise
+        if self.type == MARKER_TYPE.ARENA:  # If it is a wall
+            return tuple(reversed((225, 249, 125)))  # Turquoise
         elif self.type == MARKER_TYPE.REFUEL_STATION:
             return tuple(reversed(BASE_MARKER.team_marker_colors[self.owning_team]))
-        elif self.type == MARKER_TYPE.POWER_STATION: # Other arena object (e.g. hopper)
-            return tuple(reversed((255, 0, 255))) # Purple
-        else: # This object doesn't have a defined colour
+        elif self.type == MARKER_TYPE.POWER_STATION:  # Other arena object (e.g. hopper)
+            return tuple(reversed((255, 0, 255)))  # Purple
+        else:  # This object doesn't have a defined colour
             return tuple(reversed((0, 0, 0)))
 
-class ARENA_MARKER(BASE_MARKER): # Not much going on here. This represents a wall.
+
+class ARENA_MARKER(BASE_MARKER):  # Not much going on here. This represents a wall.
     def __init__(self, id: int) -> None:
         super().__init__(id, MARKER_TYPE.ARENA)
 
     def __repr__(self) -> str:
         return f"<Marker(ARENA) />"
-        
-class POWER_STATION_MARKER(BASE_MARKER): # A non-interactable object in the arena, that is not a wall.
+
+
+class POWER_STATION_MARKER(
+    BASE_MARKER
+):  # A non-interactable object in the arena, that is not a wall.
     def __init__(self, id: int) -> None:
         super().__init__(id, MARKER_TYPE.POWER_STATION)
 
     def __repr__(self) -> str:
         return f"<Marker(POWER_STATION) />"
+
 
 class REFUEL_STATION_MARKER(BASE_MARKER):
     def __init__(self, id: int, owner) -> None:
@@ -85,7 +97,10 @@ class REFUEL_STATION_MARKER(BASE_MARKER):
     def __repr__(self) -> str:
         return f"<Marker(REFUEL_STATION) owning_team={self.owning_team} target_type={self.target_type} />"
 
-class MARKER(BASE_MARKER): # This is literally just how the code gets the different marker types.    
+
+class MARKER(
+    BASE_MARKER
+):  # This is literally just how the code gets the different marker types.
     @staticmethod
     def by_id(id: int, team: typing.Union[TEAM, None] = None) -> BASE_MARKER:
         # the team parameter is the current robot team, may or may not be None
@@ -94,28 +109,28 @@ class MARKER(BASE_MARKER): # This is literally just how the code gets the differ
         """
         Get a marker object from an id
 
-        Marker IDs are greater than 0, and usually won't go higher than 200. They are 
-        read as April tags, so use an online 6x6 April tag generator to test values, 
+        Marker IDs are greater than 0, and usually won't go higher than 200. They are
+        read as April tags, so use an online 6x6 April tag generator to test values,
         such as:
         https://chaitanyantr.github.io/apriltag (remember to set to tag36h11 for this one)
 
-        In 2024 low marker IDs (0-39) are potatoes. The first 4 potato markers are Jacket 
+        In 2024 low marker IDs (0-39) are potatoes. The first 4 potato markers are Jacket
         Potatoes and belong to the team with the corresponding ID.
         The rest of the low markers are unowned - their owning_team property is None
         and their owner is ARENA.
 
         It is probably recommendable that you have duplicate marker IDs, so that any damaged
-        marker can be replaced by one with equivalent game meaning - in 2024 we made ID 0 and 
+        marker can be replaced by one with equivalent game meaning - in 2024 we made ID 0 and
         ID 20 equivalent.
 
         Higher marker IDs (40+) will be part of the arena. These markers will be
         spaced as in 2021-2022's competition (6 markers on each side of the Arena,
         the first 50cm away from the wall and each subsequent marker 1m away from
         there). In practice these markers start at 100.
-        
-        
+
+
         As of 2025: Sheep have IDs 0-23 inclusive; Jewels have IDs 24-31 inclusive; Lair IDs are 50-53 inclusive
-        
+
         """
 
         if id < 20:

@@ -26,12 +26,20 @@ def reset():
 
     if version < 10:
         c.CytronBoard(1).stop()
-        gg.GreenGiantGPIOPinList(bus, version, 5, gg._GG_SERVO_GPIO_BASE, gg._GG_SERVO_PWM_BASE).off()
-        gg.GreenGiantGPIOPinList(bus, version, 5, gg._GG_GPIO_GPIO_BASE, gg._GG_GPIO_PWM_BASE).off()
+        gg.GreenGiantGPIOPinList(
+            bus, version, 5, gg._GG_SERVO_GPIO_BASE, gg._GG_SERVO_PWM_BASE
+        ).off()
+        gg.GreenGiantGPIOPinList(
+            bus, version, 5, gg._GG_GPIO_GPIO_BASE, gg._GG_GPIO_PWM_BASE
+        ).off()
     else:
         gg.GreenGiantMotors(bus, 1).stop()
-        gg.GreenGiantGPIOPinList(bus, version, 5, gg._GG_SERVO_GPIO_BASE, gg._GG_SERVO_PWM_BASE).off()
-        gg.GreenGiantGPIOPinList(bus, version, 5, gg._GG_GPIO_GPIO_BASE, gg._GG_GPIO_PWM_BASE).off()
+        gg.GreenGiantGPIOPinList(
+            bus, version, 5, gg._GG_SERVO_GPIO_BASE, gg._GG_SERVO_PWM_BASE
+        ).off()
+        gg.GreenGiantGPIOPinList(
+            bus, version, 5, gg._GG_GPIO_GPIO_BASE, gg._GG_GPIO_PWM_BASE
+        ).off()
         internal.set_5v_acc_power(False)
 
     if version >= 14:
