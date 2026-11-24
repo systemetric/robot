@@ -21,6 +21,7 @@
               scipy
               wiringpi
             ]))
+            pkgs.black
           ];
           buildInputs = [ ];
         };
