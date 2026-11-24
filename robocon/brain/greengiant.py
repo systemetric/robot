@@ -13,6 +13,8 @@ INPUT = "INPUT"
 INPUT_ANALOG = "INPUT_ANALOG"
 INPUT_PULLUP = "INPUT_PULLUP"
 PWM_SERVO = "PWM_SERVO"
+INPUT_ULTRASOUND = "INPUT_ULTRASOUND"
+INPUT_QUADRATURE = "INPUT_QUADRATURE"
 
 _GG_GPIO_MASKS = {
     OUTPUT: 0b0000,
@@ -21,6 +23,7 @@ _GG_GPIO_MASKS = {
     INPUT_PULLUP: 0b0011,
     PWM_SERVO: 0b0100,
     INPUT_ULTRASOUND: 0b0110,
+    INPUT_QUADRATURE: 0b0111,
 }
 
 _GG_MOTOR_ERROR_STATE_MASK = {
@@ -427,13 +430,31 @@ class GreenGiantGPIOPin:
 
         return value / one_ms * _SOUND_DIST_1MS
 
+    @property
+    def qe_value(self):
+        if self._mode is not INPUT_QUADRATURE:
+            raise IOError(
+                f"Attempt to read quadrature encoder value from a pin configured as {self._mode}"
+            )
+        return read_high_low_data(self._bus, self._analog_base)
+
+    @qe_value.setter
+    def qe_value(self, value):
+        if self._mode is not INPUT_QUADRATURE:
+            raise IOError(
+                f"Attempt to write quadrature encoder value from a pin configured as {self._mode}"
+            )
+        write_high_low_data(self._bus, self._analog_base, value)
+
     def __setitem__(self, value):
         if self._mode is PWM_SERVO:
             self.pwm = value
         elif self._mode is OUTPUT:
             self.digital = value
+        elif self._mode is INPUT_QUADRATURE:
+            self.qe_value = value
         else:
-            raise IOError(f"Attempt to write to a pin configured for input")
+            raise IOError(f"Attempt to write to a pin configured as {self._mode}")
 
     def __getitem__(self):
         if self._mode is PWM_SERVO:
@@ -444,6 +465,8 @@ class GreenGiantGPIOPin:
             return self.analog
         elif self._mode is INPUT_ULTRASOUND:
             return self.distance
+        elif self._mode is INPUT_QUADRATURE:
+            return self.qe_value
 
 
 class GreenGiantGPIOPinList:

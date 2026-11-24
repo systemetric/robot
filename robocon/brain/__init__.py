@@ -19,6 +19,8 @@ from robocon.brain.greengiant import (
     INPUT_ANALOG,
     INPUT_PULLUP,
     PWM_SERVO,
+    INPUT_ULTRASOUND,
+    INPUT_QUADRATURE,
 )
 from robocon.brain.io import IO
 
@@ -29,4 +31,6 @@ __all__ = (
     "INPUT_ANALOG",
     "INPUT_PULLUP",
     "PWM_SERVO",
+    "INPUT_ULTRASOUND",
+    "INPUT_QUADRATURE",
 )
