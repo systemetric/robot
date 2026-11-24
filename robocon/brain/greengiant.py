@@ -442,6 +442,8 @@ class GreenGiantGPIOPin:
             return self.digital
         elif self._mode in self._analog_read_modes:
             return self.analog
+        elif self._mode is INPUT_ULTRASOUND:
+            return self.distance
 
 
 class GreenGiantGPIOPinList:
