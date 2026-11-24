@@ -6,11 +6,10 @@ to apply
 
 import RPi.GPIO as GPIO
 from .greengiant import clamp
+from .sysfs_pwm import PWMChip, PWMChannel
 
 _MAX_OUTPUT_VOLTAGE = 12
 
-_PWM_PIN_1 = 12
-_PWM_PIN_2 = 13
 _DIR_PIN_1 = 26
 _DIR_PIN_2 = 24
 
@@ -34,16 +33,17 @@ class CytronBoard:
         GPIO.setmode(GPIO.BCM)
         GPIO.setup(_DIR_PIN_1, GPIO.OUT)
         GPIO.setup(_DIR_PIN_2, GPIO.OUT)
-        GPIO.setup(_PWM_PIN_1, GPIO.OUT)
-        GPIO.setup(_PWM_PIN_2, GPIO.OUT)
 
         self._dir = [
             [GPIO.LOW, _DIR_PIN_1],
             [GPIO.LOW, _DIR_PIN_2],
         ]
+
+        self._pwm_chip = PWMChip("pwmchip0")
+
         self._pwm = [
-            [0, GPIO.PWM(_PWM_PIN_1, 100)],
-            [0, GPIO.PWM(_PWM_PIN_2, 100)],
+            [0, self._pwm_chip.channel(0, freq=50000, duty_cycle=0)],
+            [0, self._pwm_chip.channel(1, freq=50000, duty_cycle=0)],
         ]
 
     def __getitem__(self, index):
@@ -71,10 +71,10 @@ class CytronBoard:
         self._pwm[index][0] = percent
 
         percent = abs(percent) * self.power_scaling_factor
-        self._pwm[index][1].start(percent)
+        self._pwm[index][1].duty_cycle = percent
 
     def stop(self):
         """Turns motors off"""
         for i in range(len(self._pwm)):
             self._pwm[i][0] = 0
-            self._pwm[i][1].start(0)
+            self._pwm[i][1].duty_cycle = 0
