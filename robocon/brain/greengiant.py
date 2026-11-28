@@ -429,7 +429,7 @@ class GreenGiantGPIOPin:
         if value == 0xFFFE:
             raise IOError("No response while reading ultrasound sensor")
 
-        return value / self._one_ms * _SOUND_DIST_1MS
+        return (value / self._one_ms * _SOUND_DIST_1MS) / 2
 
     @property
     def qe_value(self):
