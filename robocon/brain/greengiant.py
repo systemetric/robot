@@ -1,5 +1,7 @@
 """A set of constants and interfaces for controlling the green giant over I2C"""
 
+import time
+
 
 def clamp(value, smallest, largest):
     """Return `value` if in bounds else returns the exceeded bound"""
@@ -11,13 +13,17 @@ INPUT = "INPUT"
 INPUT_ANALOG = "INPUT_ANALOG"
 INPUT_PULLUP = "INPUT_PULLUP"
 PWM_SERVO = "PWM_SERVO"
+INPUT_ULTRASOUND = "INPUT_ULTRASOUND"
+INPUT_QUADRATURE = "INPUT_QUADRATURE"
 
 _GG_GPIO_MASKS = {
-    OUTPUT: 0b000,
-    INPUT: 0b001,
-    INPUT_ANALOG: 0b010,
-    INPUT_PULLUP: 0b011,
-    PWM_SERVO: 0b100,
+    OUTPUT: 0b0000,
+    INPUT: 0b0001,
+    INPUT_ANALOG: 0b0010,
+    INPUT_PULLUP: 0b0011,
+    PWM_SERVO: 0b0100,
+    INPUT_ULTRASOUND: 0b0110,
+    INPUT_QUADRATURE: 0b0111,
 }
 
 _GG_MOTOR_ERROR_STATE_MASK = {
@@ -120,7 +126,6 @@ _GG_FVR_L = 31
 # Version number (3 is GreenGiant, >=10 is PiLow)
 _GG_VERSION = 32
 
-""" Additional features of the PiLow """
 # Enables for the various power domains
 _GG_ENABLE_12V_ACC = 33
 _GG_ENABLE_5V_ACC = 34
@@ -137,9 +142,13 @@ _GG_MOTOR_DIR_START = 38
 _GG_MOTOR_ERROR_STATE = 40
 _GG_SYSTEM_ERROR_STATE = 41
 
+_GG_ULTRASOUND_1MS_H = 72
+_GG_ULTRASOUND_1MS_L = 73
+
 V_ZEN = 9.1
 _SYSTEM_VOLTAGE = 12
 _MAX_MOTOR_PWM_VALUE = 0xFF
+_SOUND_DIST_1MS = 0.343
 
 
 def read_high_low_data(bus, address):
@@ -292,17 +301,15 @@ class GreenGiantGPIOPin:
         self._gpio_base = gpio_base_address
         self._pwm_base = pwm_base_address
         self._analog_base = analog_base_address
+        self._one_ms = 0
 
-        if version >= 10:
-            # read the currently configured mode
-            mask = self._bus.read_byte_data(
-                _GG_I2C_ADDR, _GG_CONTROL_START + self._gpio_base
-            )
-            self._mode = list(_GG_GPIO_MASKS.keys())[
-                list(_GG_GPIO_MASKS.values()).index(mask)
-            ]
-        else:
-            self._mode = INPUT
+        # read the currently configured mode
+        mask = self._bus.read_byte_data(
+            _GG_I2C_ADDR, _GG_CONTROL_START + self._gpio_base
+        )
+        self._mode = list(_GG_GPIO_MASKS.keys())[
+            list(_GG_GPIO_MASKS.values()).index(mask)
+        ]
 
     @property
     def mode(self):
@@ -315,16 +322,15 @@ class GreenGiantGPIOPin:
             _GG_I2C_ADDR, _GG_CONTROL_START + self._gpio_base, mask
         )
         if (
-            mode == INPUT_ANALOG
-            and self._bus.read_byte_data(
-                _GG_I2C_ADDR, _GG_CONTROL_START + self._gpio_base
-            )
+            self._bus.read_byte_data(_GG_I2C_ADDR, _GG_CONTROL_START + self._gpio_base)
             != mask
         ):
             raise IOError(
-                f"Attempted to set unsupported pin to mode {mode}, leaving in {self._mode}"
+                f"Attempted to configure unsupported pin as {mode}, leaving in {self._mode}"
             )
         self._mode = mode
+        if mode == INPUT_ULTRASOUND:
+            self._one_ms = read_high_low_data(self._bus, _GG_ULTRASOUND_1MS_H)
 
     @property
     def digital(self):
@@ -394,13 +400,62 @@ class GreenGiantGPIOPin:
             value = clamp(value, _GG_PiLow_PWM_MIN, _GG_PiLow_PWM_MAX)
         write_high_low_data(self._bus, self._pwm_base, value)
 
+    def ultrasound_reset(self):
+        if self._mode is not INPUT_ULTRASOUND:
+            raise IOError(
+                f"Attempt to read ultrasound distance on a pin configured as {self._mode}"
+            )
+        self._bus.write_byte_data(
+            _GG_I2C_ADDR,
+            _GG_CONTROL_START + self._gpio_base,
+            _GG_GPIO_MASKS[INPUT_ULTRASOUND],
+        )
+
+    def ultrasound_read(self):
+        if self._mode is not INPUT_ULTRASOUND:
+            raise IOError(
+                f"Attempt to read ultrasound distance on a pin configured as {self._mode}"
+            )
+
+        start = time.time()
+
+        value = read_high_low_data(self._bus, self._analog_base)
+        while value == 0 or value == 0xFFFF:
+            if time.time() - start > 10:
+                raise IOError("Timeout expired while reading ultrasound")
+            value = read_high_low_data(self._bus, self._analog_base)
+            time.sleep(0.001)
+
+        if value == 0xFFFE:
+            raise IOError("No response while reading ultrasound sensor")
+
+        return value / self._one_ms * _SOUND_DIST_1MS
+
+    @property
+    def qe_value(self):
+        if self._mode is not INPUT_QUADRATURE:
+            raise IOError(
+                f"Attempt to read quadrature encoder value from a pin configured as {self._mode}"
+            )
+        return read_high_low_data(self._bus, self._analog_base)
+
+    @qe_value.setter
+    def qe_value(self, value):
+        if self._mode is not INPUT_QUADRATURE:
+            raise IOError(
+                f"Attempt to write quadrature encoder value from a pin configured as {self._mode}"
+            )
+        write_high_low_data(self._bus, self._analog_base, value)
+
     def __setitem__(self, value):
         if self._mode is PWM_SERVO:
             self.pwm = value
         elif self._mode is OUTPUT:
             self.digital = value
+        elif self._mode is INPUT_QUADRATURE:
+            self.qe_value = value
         else:
-            raise IOError(f"Attempt to write to a pin configured for input")
+            raise IOError(f"Attempt to write to a pin configured as {self._mode}")
 
     def __getitem__(self):
         if self._mode is PWM_SERVO:
@@ -409,6 +464,10 @@ class GreenGiantGPIOPin:
             return self.digital
         elif self._mode in self._analog_read_modes:
             return self.analog
+        elif self._mode is INPUT_ULTRASOUND:
+            return self.ultrasound_read()
+        elif self._mode is INPUT_QUADRATURE:
+            return self.qe_value
 
 
 class GreenGiantGPIOPinList:
@@ -428,9 +487,7 @@ class GreenGiantGPIOPinList:
         ]
 
         self._version = version
-        self.off()  # Make sure the state of the GG matches the state
-        # which we have assumed (INPUT) when creating
-        # GreenGiantGPIOPin's
+        self.off()
 
     def __getitem__(self, index):
         return self._list[index]
