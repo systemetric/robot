@@ -421,7 +421,7 @@ class GreenGiantGPIOPin:
 
         value = read_high_low_data(self._bus, self._analog_base)
         while value == 0 or value == 0xFFFF:
-            if time.time() - start > 10:
+            if time.time() - start > 1:
                 raise IOError("Timeout expired while reading ultrasound")
             value = read_high_low_data(self._bus, self._analog_base)
             time.sleep(0.001)
