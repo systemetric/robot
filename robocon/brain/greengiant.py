@@ -301,6 +301,7 @@ class GreenGiantGPIOPin:
         self._gpio_base = gpio_base_address
         self._pwm_base = pwm_base_address
         self._analog_base = analog_base_address
+        self._one_ms = 0
 
         # read the currently configured mode
         mask = self._bus.read_byte_data(
@@ -328,6 +329,8 @@ class GreenGiantGPIOPin:
                 f"Attempted to configure unsupported pin as {mode}, leaving in {self._mode}"
             )
         self._mode = mode
+        if mode == INPUT_ULTRASOUND:
+            self._one_ms = read_high_low_data(self._bus, _GG_ULTRASOUND_1MS_H)
 
     @property
     def digital(self):
@@ -397,38 +400,36 @@ class GreenGiantGPIOPin:
             value = clamp(value, _GG_PiLow_PWM_MIN, _GG_PiLow_PWM_MAX)
         write_high_low_data(self._bus, self._pwm_base, value)
 
-    @property
-    def distance(self):
+    def ultrasound_reset(self):
+        if self._mode is not INPUT_ULTRASOUND:
+            raise IOError(
+                f"Attempt to read ultrasound distance on a pin configured as {self._mode}"
+            )
+        self._bus.write_byte_data(
+            _GG_I2C_ADDR,
+            _GG_CONTROL_START + self._gpio_base,
+            _GG_GPIO_MASKS[INPUT_ULTRASOUND],
+        )
+
+    def ultrasound_read(self):
         if self._mode is not INPUT_ULTRASOUND:
             raise IOError(
                 f"Attempt to read ultrasound distance on a pin configured as {self._mode}"
             )
 
-        one_ms = read_high_low_data(self._bus, _GG_ULTRASOUND_1MS_H)
-
-        # clear result register, and send trigger
-        self._bus.write_byte_data(_GG_I2C_ADDR, _GG_DIGITAL_START + self._gpio_base, 1)
-        self._bus.write_byte_data(
-            _GG_I2C_ADDR, _GG_CONTROL_START + self._gpio_base, INPUT_ULTRASOUND
-        )
-        time.sleep(0.001)
-        self._bus.write_byte_data(_GG_I2C_ADDR, _GG_DIGITAL_START + self._gpio_base, 0)
-
         start = time.time()
 
         value = read_high_low_data(self._bus, self._analog_base)
         while value == 0 or value == 0xFFFF:
-            if time.time() - start > 1:
-                raise IOError(
-                    "Timeout expired while reading ultrasound".format(timeout)
-                )
+            if time.time() - start > 10:
+                raise IOError("Timeout expired while reading ultrasound")
             value = read_high_low_data(self._bus, self._analog_base)
             time.sleep(0.001)
 
         if value == 0xFFFE:
             raise IOError("No response while reading ultrasound sensor")
 
-        return value / one_ms * _SOUND_DIST_1MS
+        return value / self._one_ms * _SOUND_DIST_1MS
 
     @property
     def qe_value(self):
@@ -464,7 +465,7 @@ class GreenGiantGPIOPin:
         elif self._mode in self._analog_read_modes:
             return self.analog
         elif self._mode is INPUT_ULTRASOUND:
-            return self.distance
+            return self.ultrasound_read()
         elif self._mode is INPUT_QUADRATURE:
             return self.qe_value
 
@@ -486,9 +487,7 @@ class GreenGiantGPIOPinList:
         ]
 
         self._version = version
-        self.off()  # Make sure the state of the GG matches the state
-        # which we have assumed (INPUT) when creating
-        # GreenGiantGPIOPin's
+        self.off()
 
     def __getitem__(self, index):
         return self._list[index]
